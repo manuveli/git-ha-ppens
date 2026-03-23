@@ -1,0 +1,12 @@
+{
+  "domain": "git_ha_ppens",
+  "name": "git-ha-ppens",
+  "codeowners": ["@manuveli"],
+  "config_flow": true,
+  "documentation": "https://github.com/manuveli/git-ha-ppens",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/manuveli/git-ha-ppens/issues",
+  "requirements": ["watchdog==6.0.0"],
+  "version": "0.1.0"
+}

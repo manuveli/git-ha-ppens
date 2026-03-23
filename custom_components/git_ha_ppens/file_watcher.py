@@ -1,0 +1,228 @@
+"""File watcher for auto-commit functionality in git-ha-ppens."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from pathlib import Path
+
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
+
+from homeassistant.core import HomeAssistant
+
+from .const import EVENT_COMMIT, EVENT_ERROR, WATCHER_IGNORE_PATTERNS
+from .coordinator import GitHaPpensCoordinator
+from .git_manager import GitError, GitManager
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class _ChangeCollector(FileSystemEventHandler):
+    """Collects file system change events for debounced processing."""
+
+    def __init__(
+        self,
+        repo_path: str,
+        callback: asyncio.Future | None = None,
+    ) -> None:
+        """Initialize the change collector."""
+        super().__init__()
+        self._repo_path = repo_path
+        self._changed_files: set[str] = set()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._debounce_callback: asyncio.TimerHandle | None = None
+        self._commit_callback: object = None
+
+    @property
+    def changed_files(self) -> set[str]:
+        """Return the set of changed files."""
+        return self._changed_files
+
+    def clear(self) -> None:
+        """Clear collected changes."""
+        self._changed_files.clear()
+
+    def _should_ignore(self, path: str) -> bool:
+        """Check if a path should be ignored."""
+        path_obj = Path(path)
+        parts = path_obj.parts
+
+        for pattern in WATCHER_IGNORE_PATTERNS:
+            # Check directory names
+            if pattern in parts:
+                return True
+            # Check file extensions
+            if pattern.startswith("*.") and path_obj.suffix == pattern[1:]:
+                return True
+            # Check exact filename
+            if path_obj.name == pattern:
+                return True
+
+        return False
+
+    def _get_relative_path(self, path: str) -> str:
+        """Get the path relative to the repository root."""
+        try:
+            return str(Path(path).relative_to(self._repo_path))
+        except ValueError:
+            return path
+
+    def on_modified(self, event: FileSystemEvent) -> None:
+        """Handle file modification events."""
+        if event.is_directory:
+            return
+        self._handle_event(event.src_path)
+
+    def on_created(self, event: FileSystemEvent) -> None:
+        """Handle file creation events."""
+        if event.is_directory:
+            return
+        self._handle_event(event.src_path)
+
+    def on_deleted(self, event: FileSystemEvent) -> None:
+        """Handle file deletion events."""
+        if event.is_directory:
+            return
+        self._handle_event(event.src_path)
+
+    def on_moved(self, event: FileSystemEvent) -> None:
+        """Handle file move events."""
+        if event.is_directory:
+            return
+        self._handle_event(event.src_path)
+        if hasattr(event, "dest_path"):
+            self._handle_event(event.dest_path)
+
+    def _handle_event(self, path: str) -> None:
+        """Process a file system event."""
+        if self._should_ignore(path):
+            return
+
+        relative = self._get_relative_path(path)
+        self._changed_files.add(relative)
+        _LOGGER.debug("File change detected: %s", relative)
+
+
+class GitFileWatcher:
+    """Watches for file changes and auto-commits after a debounce interval."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        git_manager: GitManager,
+        coordinator: GitHaPpensCoordinator,
+        repo_path: str,
+        debounce_seconds: int = 300,
+    ) -> None:
+        """Initialize the file watcher."""
+        self._hass = hass
+        self._git_manager = git_manager
+        self._coordinator = coordinator
+        self._repo_path = repo_path
+        self._debounce_seconds = debounce_seconds
+        self._observer: Observer | None = None
+        self._change_collector: _ChangeCollector | None = None
+        self._debounce_handle: asyncio.TimerHandle | None = None
+        self._running = False
+
+    @property
+    def is_running(self) -> bool:
+        """Return True if the file watcher is active."""
+        return self._running
+
+    async def async_start(self) -> None:
+        """Start watching for file changes."""
+        if self._running:
+            return
+
+        self._change_collector = _ChangeCollector(self._repo_path)
+        self._observer = Observer()
+        self._observer.schedule(
+            self._change_collector,
+            self._repo_path,
+            recursive=True,
+        )
+
+        # Start observer in executor to avoid blocking
+        await self._hass.async_add_executor_job(self._observer.start)
+        self._running = True
+        _LOGGER.info(
+            "File watcher started for %s (debounce: %ds)",
+            self._repo_path,
+            self._debounce_seconds,
+        )
+
+    async def async_stop(self) -> None:
+        """Stop watching for file changes."""
+        if not self._running:
+            return
+
+        # Cancel pending debounce
+        if self._debounce_handle:
+            self._debounce_handle.cancel()
+            self._debounce_handle = None
+
+        if self._observer:
+            self._observer.stop()
+            await self._hass.async_add_executor_job(self._observer.join)
+            self._observer = None
+
+        self._running = False
+        _LOGGER.info("File watcher stopped")
+
+    def schedule_commit(self) -> None:
+        """Schedule an auto-commit after the debounce interval."""
+        if self._debounce_handle:
+            self._debounce_handle.cancel()
+
+        loop = self._hass.loop
+        self._debounce_handle = loop.call_later(
+            self._debounce_seconds,
+            lambda: self._hass.async_create_task(self._async_auto_commit()),
+        )
+
+    async def _async_auto_commit(self) -> None:
+        """Perform the auto-commit."""
+        if not self._change_collector:
+            return
+
+        changed = self._change_collector.changed_files.copy()
+        if not changed:
+            return
+
+        self._change_collector.clear()
+
+        try:
+            commit_info = await self._git_manager.commit()
+            if commit_info:
+                self._hass.bus.async_fire(
+                    EVENT_COMMIT,
+                    {
+                        "hash": commit_info.hash_short,
+                        "message": commit_info.message,
+                        "author": commit_info.author,
+                        "auto": True,
+                    },
+                )
+                _LOGGER.info(
+                    "Auto-commit: %s - %s",
+                    commit_info.hash_short,
+                    commit_info.message,
+                )
+                await self._coordinator.async_request_refresh()
+        except GitError as err:
+            _LOGGER.error("Auto-commit failed: %s", err)
+            self._hass.bus.async_fire(
+                EVENT_ERROR,
+                {"operation": "auto_commit", "error": str(err)},
+            )
+
+    async def async_check_and_commit(self) -> None:
+        """Check for accumulated changes and commit if any exist.
+
+        Called periodically or on demand to process collected changes.
+        """
+        if not self._change_collector or not self._change_collector.changed_files:
+            return
+        await self._async_auto_commit()

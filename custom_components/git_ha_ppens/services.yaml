@@ -1,0 +1,31 @@
+commit:
+  name: Commit
+  description: Create a git commit of the current configuration changes.
+  fields:
+    message:
+      name: Commit message
+      description: Custom commit message. If empty, an auto-generated message will be used.
+      required: false
+      example: "Updated automations for new lights"
+      selector:
+        text:
+
+push:
+  name: Push
+  description: Push committed changes to the configured remote repository.
+
+pull:
+  name: Pull
+  description: Pull changes from the configured remote repository. Uncommitted changes will be auto-saved as a backup commit before pulling.
+
+sync:
+  name: Sync
+  description: Commit all changes and push to the remote repository in one step.
+  fields:
+    message:
+      name: Commit message
+      description: Custom commit message. If empty, an auto-generated message will be used.
+      required: false
+      example: "Weekly config sync"
+      selector:
+        text:

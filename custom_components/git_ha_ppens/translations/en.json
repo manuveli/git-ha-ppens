@@ -1,0 +1,103 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Repository Settings",
+        "description": "Configure the git repository for your Home Assistant configuration.",
+        "data": {
+          "repo_path": "Configuration directory path",
+          "git_user": "Git user name (for commits)",
+          "git_email": "Git email (for commits)"
+        },
+        "data_description": {
+          "repo_path": "Path to the Home Assistant configuration directory. Usually /config.",
+          "git_user": "The name that will appear as the commit author.",
+          "git_email": "The email that will appear as the commit author."
+        }
+      },
+      "commit_settings": {
+        "title": "Auto-Commit Settings",
+        "description": "Configure automatic commit behavior.",
+        "data": {
+          "auto_commit": "Enable auto-commit on file changes",
+          "commit_interval": "Auto-commit debounce interval (seconds)",
+          "scan_interval": "Status polling interval (seconds)"
+        },
+        "data_description": {
+          "auto_commit": "Automatically commit when configuration files change.",
+          "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
+          "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600."
+        }
+      },
+      "remote": {
+        "title": "Remote Repository (Optional)",
+        "description": "Configure a remote repository for push/pull. Leave the URL empty to skip.",
+        "data": {
+          "remote_url": "Remote URL",
+          "auth_method": "Authentication method",
+          "auth_token": "Personal access token",
+          "ssh_key_path": "SSH private key path"
+        },
+        "data_description": {
+          "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
+          "auth_method": "How to authenticate with the remote.",
+          "auth_token": "Personal access token for HTTPS authentication.",
+          "ssh_key_path": "Path to the SSH private key file (e.g., /config/.ssh/id_ed25519)."
+        }
+      }
+    },
+    "error": {
+      "path_not_found": "The specified path does not exist.",
+      "git_not_installed": "Git is not installed or not found in PATH.",
+      "invalid_remote_url": "Invalid remote URL. Must start with https://, git@, or ssh://.",
+      "token_required": "A personal access token is required for token authentication.",
+      "ssh_key_not_found": "The specified SSH key file does not exist."
+    },
+    "abort": {
+      "already_configured": "This configuration path is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "git-ha-ppens Options",
+        "description": "Adjust your git-ha-ppens settings.",
+        "data": {
+          "git_user": "Git user name",
+          "git_email": "Git email",
+          "auto_commit": "Enable auto-commit",
+          "commit_interval": "Auto-commit debounce interval (seconds)",
+          "scan_interval": "Status polling interval (seconds)",
+          "remote_url": "Remote URL",
+          "auth_method": "Authentication method",
+          "auth_token": "Personal access token",
+          "ssh_key_path": "SSH private key path"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_commit": {
+        "name": "Last Commit"
+      },
+      "last_commit_time": {
+        "name": "Last Commit Time"
+      },
+      "uncommitted_changes": {
+        "name": "Uncommitted Changes"
+      },
+      "branch": {
+        "name": "Branch"
+      },
+      "remote_status": {
+        "name": "Remote Status"
+      }
+    },
+    "binary_sensor": {
+      "dirty": {
+        "name": "Uncommitted Changes"
+      }
+    }
+  }
+}
