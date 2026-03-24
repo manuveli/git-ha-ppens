@@ -173,14 +173,26 @@ class GitManager:
         if self._git_email:
             await self._run_git("config", "user.email", self._git_email)
 
-        # Set default branch name
+        # Set default branch name for future inits
         await self._run_git("config", "init.defaultBranch", "main", check=False)
+
+        # Normalize branch to "main" if repo has no commits yet (unborn HEAD)
+        if not await self.has_commits():
+            current_branch = await self._run_git(
+                "rev-parse", "--abbrev-ref", "HEAD", check=False
+            )
+            if current_branch and current_branch != "main" and "fatal" not in current_branch:
+                await self._run_git("branch", "-M", "main", check=False)
+                _LOGGER.info("Renamed branch from %s to main", current_branch)
 
     async def has_commits(self) -> bool:
         """Check if the repository has any commits."""
         try:
-            result = await self._run_git("rev-parse", "HEAD", check=False)
-            return bool(result) and "fatal" not in result
+            result = await self._run_git(
+                "rev-parse", "--verify", "HEAD", check=False
+            )
+            # A valid commit hash is 40 hex chars; anything else means no commits
+            return bool(result) and len(result) >= 40 and "fatal" not in result.lower()
         except GitError:
             return False
 

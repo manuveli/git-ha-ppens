@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
     ATTR_MESSAGE,
@@ -17,6 +19,7 @@ from .const import (
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
     CONF_AUTO_COMMIT,
+    CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
@@ -93,8 +96,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.info(
                     "Created initial commit: %s", commit_info.hash_short
                 )
+                # Auto-push initial commit if remote is configured
+                if remote_url and data.get(CONF_AUTO_PUSH, True):
+                    try:
+                        commits_pushed = await git_manager.push()
+                        _LOGGER.info(
+                            "Initial push: %d commit(s) pushed to remote",
+                            commits_pushed,
+                        )
+                    except GitError as push_err:
+                        _LOGGER.warning(
+                            "Initial push failed (will retry on next auto-push): %s",
+                            push_err,
+                        )
+            else:
+                _LOGGER.warning(
+                    "Initial commit returned None — no changes to commit"
+                )
         except GitError as err:
-            _LOGGER.warning("Failed to create initial commit: %s", err)
+            _LOGGER.error(
+                "Failed to create initial commit: %s. "
+                "Check file permissions in %s and .gitignore configuration.",
+                err,
+                repo_path,
+            )
 
     # Configure remote if specified
     remote_url = data.get(CONF_REMOTE_URL, "")
@@ -124,14 +149,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Setup file watcher for auto-commit
     file_watcher: GitFileWatcher | None = None
+    periodic_unsub = None
     if data.get(CONF_AUTO_COMMIT, False):
         commit_interval = data.get(CONF_COMMIT_INTERVAL, 300)
+        auto_push = data.get(CONF_AUTO_PUSH, True)
         file_watcher = GitFileWatcher(
-            hass, git_manager, coordinator, repo_path, commit_interval
+            hass,
+            git_manager,
+            coordinator,
+            repo_path,
+            commit_interval,
+            auto_push=auto_push,
+            remote_configured=bool(remote_url),
         )
         await file_watcher.async_start()
         _LOGGER.info(
-            "Auto-commit enabled with %ds debounce interval", commit_interval
+            "Auto-commit enabled with %ds debounce interval (auto-push: %s)",
+            commit_interval,
+            auto_push,
+        )
+
+        # Periodic fallback: check for changes even if watchdog misses events
+        async def _periodic_check(_now) -> None:
+            """Periodic fallback to catch changes watchdog may have missed."""
+            if file_watcher and file_watcher.is_running:
+                await file_watcher.async_check_and_commit()
+
+        periodic_unsub = async_track_time_interval(
+            hass, _periodic_check, timedelta(seconds=commit_interval)
         )
 
     # Store references
@@ -139,6 +184,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "git_manager": git_manager,
         "coordinator": coordinator,
         "file_watcher": file_watcher,
+        "periodic_unsub": periodic_unsub,
     }
 
     # Forward platform setup
@@ -178,8 +224,13 @@ async def _async_update_options(
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Stop file watcher
+    # Cancel periodic fallback
     entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    periodic_unsub = entry_data.get("periodic_unsub")
+    if periodic_unsub:
+        periodic_unsub()
+
+    # Stop file watcher
     file_watcher: GitFileWatcher | None = entry_data.get("file_watcher")
     if file_watcher:
         await file_watcher.async_stop()

@@ -12,6 +12,7 @@ CONF_REPO_PATH: Final = "repo_path"
 CONF_GIT_USER: Final = "git_user"
 CONF_GIT_EMAIL: Final = "git_email"
 CONF_AUTO_COMMIT: Final = "auto_commit"
+CONF_AUTO_PUSH: Final = "auto_push"
 CONF_COMMIT_INTERVAL: Final = "commit_interval"
 CONF_REMOTE_URL: Final = "remote_url"
 CONF_AUTH_METHOD: Final = "auth_method"
@@ -89,6 +90,17 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     "deps/",
     "tts/",
     ".venv/",
+    "",
+    "# Sensitive/runtime files",
+    ".jwt_secret",
+    "SERVICE_ACCOUNT.json",
+    ".cache/",
+    ".claude/",
+    "ip_bans.yaml",
+    ".ha_run.lock",
+    ".exports",
+    ".timeline",
+    ".vacuum",
 ]
 
 # Secret detection patterns (regex)

@@ -12,7 +12,7 @@ from watchdog.observers import Observer
 
 from homeassistant.core import HomeAssistant
 
-from .const import EVENT_COMMIT, EVENT_ERROR, WATCHER_IGNORE_PATTERNS
+from .const import EVENT_COMMIT, EVENT_ERROR, EVENT_PUSH, WATCHER_IGNORE_PATTERNS
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitError, GitManager
 
@@ -116,6 +116,8 @@ class GitFileWatcher:
         coordinator: GitHaPpensCoordinator,
         repo_path: str,
         debounce_seconds: int = 300,
+        auto_push: bool = False,
+        remote_configured: bool = False,
     ) -> None:
         """Initialize the file watcher."""
         self._hass = hass
@@ -123,6 +125,8 @@ class GitFileWatcher:
         self._coordinator = coordinator
         self._repo_path = repo_path
         self._debounce_seconds = debounce_seconds
+        self._auto_push = auto_push
+        self._remote_configured = remote_configured
         self._observer: Observer | None = None
         self._change_collector: _ChangeCollector | None = None
         self._debounce_handle: asyncio.TimerHandle | None = None
@@ -220,6 +224,26 @@ class GitFileWatcher:
                     commit_info.hash_short,
                     commit_info.message,
                 )
+
+                # Auto-push if enabled and remote is configured
+                if self._auto_push and self._remote_configured:
+                    try:
+                        commits_pushed = await self._git_manager.push()
+                        self._hass.bus.async_fire(
+                            EVENT_PUSH,
+                            {"commits_pushed": commits_pushed, "auto": True},
+                        )
+                        _LOGGER.info(
+                            "Auto-push: %d commit(s) pushed to remote",
+                            commits_pushed,
+                        )
+                    except GitError as push_err:
+                        _LOGGER.error("Auto-push failed: %s", push_err)
+                        self._hass.bus.async_fire(
+                            EVENT_ERROR,
+                            {"operation": "auto_push", "error": str(push_err)},
+                        )
+
                 await self._coordinator.async_request_refresh()
         except GitError as err:
             _LOGGER.error("Auto-commit failed: %s", err)
@@ -229,10 +253,26 @@ class GitFileWatcher:
             )
 
     async def async_check_and_commit(self) -> None:
-        """Check for accumulated changes and commit if any exist.
+        """Check for changes and commit if any exist.
 
-        Called periodically or on demand to process collected changes.
+        Called periodically as a fallback when watchdog events may not fire
+        (e.g. on Docker overlay filesystems). Also handles accumulated changes
+        from the file watcher.
         """
-        if not self._change_collector or not self._change_collector.changed_files:
+        # First check collector for watchdog-detected changes
+        if self._change_collector and self._change_collector.changed_files:
+            await self._async_auto_commit()
             return
-        await self._async_auto_commit()
+
+        # Fallback: ask git directly if there are uncommitted changes
+        try:
+            porcelain = await self._git_manager._run_git(
+                "status", "--porcelain", check=False
+            )
+            if porcelain and porcelain.strip():
+                _LOGGER.debug(
+                    "Periodic check found uncommitted changes (watchdog fallback)"
+                )
+                await self._async_auto_commit()
+        except GitError:
+            pass
