@@ -75,6 +75,7 @@ SENSOR_DESCRIPTIONS: tuple[GitHaPpensSensorDescription, ...] = (
             "ahead": s.ahead,
             "behind": s.behind,
             "remote_configured": s.remote_configured,
+            "has_upstream": s.has_upstream,
             "total_commits": s.total_commits,
         },
     ),
@@ -86,12 +87,11 @@ def _format_remote_status(status: GitStatus) -> str:
     if not status.remote_configured:
         return "no remote"
 
-    # A repo with 0 commits can't be "in sync" — nothing has been pushed yet
     if status.total_commits == 0:
         return "not pushed"
 
-    # ahead == -1 means remote exists but no upstream tracking (never pushed)
-    if status.ahead == -1:
+    # No upstream tracking branch = never successfully pushed
+    if not status.has_upstream:
         return "not pushed"
 
     parts: list[str] = []
