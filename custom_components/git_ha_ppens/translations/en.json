@@ -20,11 +20,13 @@
         "description": "Configure automatic commit behavior.",
         "data": {
           "auto_commit": "Enable auto-commit on file changes",
+          "auto_push": "Enable auto-push after each commit",
           "commit_interval": "Auto-commit debounce interval (seconds)",
           "scan_interval": "Status polling interval (seconds)"
         },
         "data_description": {
           "auto_commit": "Automatically commit when configuration files change.",
+          "auto_push": "Automatically push to the remote repository after each auto-commit. Requires a configured remote.",
           "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600."
         }
@@ -66,6 +68,7 @@
           "git_user": "Git user name",
           "git_email": "Git email",
           "auto_commit": "Enable auto-commit",
+          "auto_push": "Enable auto-push after each commit",
           "commit_interval": "Auto-commit debounce interval (seconds)",
           "scan_interval": "Status polling interval (seconds)",
           "remote_url": "Remote URL",

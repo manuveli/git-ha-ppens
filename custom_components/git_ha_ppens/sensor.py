@@ -86,6 +86,10 @@ def _format_remote_status(status: GitStatus) -> str:
     if not status.remote_configured:
         return "no remote"
 
+    # A repo with 0 commits can't be "in sync" — nothing has been pushed yet
+    if status.total_commits == 0:
+        return "not pushed"
+
     parts: list[str] = []
     if status.ahead > 0:
         parts.append(f"ahead {status.ahead}")
