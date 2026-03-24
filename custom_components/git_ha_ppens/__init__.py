@@ -86,6 +86,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except GitError as err:
         _LOGGER.warning("Failed to update .gitignore: %s", err)
 
+    # Configure remote if specified (must happen BEFORE initial commit so push works)
+    remote_url = data.get(CONF_REMOTE_URL, "")
+    if remote_url:
+        try:
+            auth_method = data.get(CONF_AUTH_METHOD, "")
+            if auth_method == AUTH_TOKEN:
+                token = data.get(CONF_AUTH_TOKEN, "")
+                if token:
+                    await git_manager.configure_token_auth(remote_url, token)
+                else:
+                    await git_manager.set_remote(remote_url)
+            elif auth_method == AUTH_SSH:
+                ssh_key = data.get(CONF_SSH_KEY_PATH, "")
+                await git_manager.set_remote(remote_url)
+                if ssh_key:
+                    await git_manager.configure_ssh_auth(ssh_key)
+            else:
+                await git_manager.set_remote(remote_url)
+        except GitError as err:
+            _LOGGER.warning("Failed to configure remote: %s", err)
+
     # Create initial commit if repository has no commits yet
     if not await git_manager.has_commits():
         try:
@@ -120,27 +141,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 err,
                 repo_path,
             )
-
-    # Configure remote if specified
-    remote_url = data.get(CONF_REMOTE_URL, "")
-    if remote_url:
-        try:
-            auth_method = data.get(CONF_AUTH_METHOD, "")
-            if auth_method == AUTH_TOKEN:
-                token = data.get(CONF_AUTH_TOKEN, "")
-                if token:
-                    await git_manager.configure_token_auth(remote_url, token)
-                else:
-                    await git_manager.set_remote(remote_url)
-            elif auth_method == AUTH_SSH:
-                ssh_key = data.get(CONF_SSH_KEY_PATH, "")
-                await git_manager.set_remote(remote_url)
-                if ssh_key:
-                    await git_manager.configure_ssh_auth(ssh_key)
-            else:
-                await git_manager.set_remote(remote_url)
-        except GitError as err:
-            _LOGGER.warning("Failed to configure remote: %s", err)
 
     # Create coordinator
     scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)

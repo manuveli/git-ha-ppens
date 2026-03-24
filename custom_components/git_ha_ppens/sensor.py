@@ -90,6 +90,10 @@ def _format_remote_status(status: GitStatus) -> str:
     if status.total_commits == 0:
         return "not pushed"
 
+    # ahead == -1 means remote exists but no upstream tracking (never pushed)
+    if status.ahead == -1:
+        return "not pushed"
+
     parts: list[str] = []
     if status.ahead > 0:
         parts.append(f"ahead {status.ahead}")

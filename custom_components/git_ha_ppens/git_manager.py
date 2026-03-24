@@ -283,6 +283,9 @@ class GitManager:
                 # Check if remote origin exists even without tracking
                 remotes = await self._run_git("remote", check=False)
                 status.remote_configured = bool(remotes.strip())
+                # No tracking branch = we don't know ahead/behind
+                if status.remote_configured and status.total_commits > 0:
+                    status.ahead = -1  # Convention: -1 = unknown/not pushed
         except (GitError, ValueError):
             pass
 
@@ -373,7 +376,23 @@ class GitManager:
         # Get the current branch
         branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
 
-        await self._run_git("push", "-u", "origin", branch)
+        try:
+            await self._run_git("push", "-u", "origin", branch)
+        except GitError as err:
+            error_str = str(err).lower()
+            # Handle divergent histories (e.g. remote initialized with README)
+            if "non-fast-forward" in error_str or "rejected" in error_str:
+                _LOGGER.warning(
+                    "Push rejected — attempting to merge remote changes"
+                )
+                await self._run_git(
+                    "pull", "--allow-unrelated-histories",
+                    "--no-edit", "origin", branch
+                )
+                await self._run_git("push", "-u", "origin", branch)
+            else:
+                raise
+
         _LOGGER.info("Pushed %d commit(s) to origin/%s", ahead, branch)
         return ahead
 
