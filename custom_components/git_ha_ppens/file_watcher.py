@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -24,15 +25,13 @@ class _ChangeCollector(FileSystemEventHandler):
     def __init__(
         self,
         repo_path: str,
-        callback: asyncio.Future | None = None,
+        on_change: Callable[[], None] | None = None,
     ) -> None:
         """Initialize the change collector."""
         super().__init__()
         self._repo_path = repo_path
         self._changed_files: set[str] = set()
-        self._loop: asyncio.AbstractEventLoop | None = None
-        self._debounce_callback: asyncio.TimerHandle | None = None
-        self._commit_callback: object = None
+        self._on_change = on_change
 
     @property
     def changed_files(self) -> set[str]:
@@ -103,6 +102,9 @@ class _ChangeCollector(FileSystemEventHandler):
         self._changed_files.add(relative)
         _LOGGER.debug("File change detected: %s", relative)
 
+        if self._on_change:
+            self._on_change()
+
 
 class GitFileWatcher:
     """Watches for file changes and auto-commits after a debounce interval."""
@@ -136,7 +138,9 @@ class GitFileWatcher:
         if self._running:
             return
 
-        self._change_collector = _ChangeCollector(self._repo_path)
+        self._change_collector = _ChangeCollector(
+            self._repo_path, on_change=self.schedule_commit
+        )
         self._observer = Observer()
         self._observer.schedule(
             self._change_collector,
@@ -172,12 +176,18 @@ class GitFileWatcher:
         _LOGGER.info("File watcher stopped")
 
     def schedule_commit(self) -> None:
-        """Schedule an auto-commit after the debounce interval."""
+        """Schedule an auto-commit after the debounce interval.
+
+        Thread-safe: can be called from the watchdog background thread.
+        """
+        self._hass.loop.call_soon_threadsafe(self._schedule_commit_on_loop)
+
+    def _schedule_commit_on_loop(self) -> None:
+        """Schedule the debounced commit on the event loop (must run on loop thread)."""
         if self._debounce_handle:
             self._debounce_handle.cancel()
 
-        loop = self._hass.loop
-        self._debounce_handle = loop.call_later(
+        self._debounce_handle = self._hass.loop.call_later(
             self._debounce_seconds,
             lambda: self._hass.async_create_task(self._async_auto_commit()),
         )
