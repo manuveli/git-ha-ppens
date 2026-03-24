@@ -176,6 +176,14 @@ class GitManager:
         # Set default branch name
         await self._run_git("config", "init.defaultBranch", "main", check=False)
 
+    async def has_commits(self) -> bool:
+        """Check if the repository has any commits."""
+        try:
+            result = await self._run_git("rev-parse", "HEAD", check=False)
+            return bool(result) and "fatal" not in result
+        except GitError:
+            return False
+
     async def get_status(self) -> GitStatus:
         """Get the complete repository status."""
         status = GitStatus()
@@ -185,9 +193,10 @@ class GitManager:
 
         # Get current branch
         try:
-            status.branch = await self._run_git(
-                "rev-parse", "--abbrev-ref", "HEAD"
+            branch = await self._run_git(
+                "rev-parse", "--abbrev-ref", "HEAD", check=False
             )
+            status.branch = branch if branch and "fatal" not in branch else "unknown"
         except GitError:
             status.branch = "unknown"
 
@@ -218,7 +227,7 @@ class GitManager:
         # Get last commit info
         try:
             log_format = await self._run_git(
-                "log", "-1", "--format=%H%n%h%n%s%n%an%n%aI"
+                "log", "-1", "--format=%H%n%h%n%s%n%an%n%aI", check=False
             )
             if log_format:
                 parts = log_format.splitlines()
@@ -237,7 +246,7 @@ class GitManager:
 
         # Get total commit count
         try:
-            count_str = await self._run_git("rev-list", "--count", "HEAD")
+            count_str = await self._run_git("rev-list", "--count", "HEAD", check=False)
             status.total_commits = int(count_str)
         except (GitError, ValueError):
             status.total_commits = 0
@@ -464,6 +473,10 @@ class GitManager:
         Returns:
             True if .gitignore was created or modified.
         """
+        return await asyncio.to_thread(self._setup_gitignore_sync)
+
+    def _setup_gitignore_sync(self) -> bool:
+        """Synchronous implementation of setup_gitignore."""
         gitignore_path = Path(self._repo_path) / ".gitignore"
         existing_entries: set[str] = set()
         modified = False
@@ -525,35 +538,19 @@ class GitManager:
 
             compiled_patterns = [re.compile(p) for p in SECRET_PATTERNS]
 
-            for filepath in staged.splitlines():
-                filepath = filepath.strip()
-                if not filepath:
-                    continue
-                # Only scan text-like files
-                if not filepath.endswith(
+            filepaths = [
+                fp.strip()
+                for fp in staged.splitlines()
+                if fp.strip()
+                and fp.strip().endswith(
                     (".yaml", ".yml", ".json", ".conf", ".cfg", ".ini", ".txt", ".env")
-                ):
-                    continue
+                )
+            ]
 
-                full_path = Path(self._repo_path) / filepath
-                if not full_path.is_file():
-                    continue
-
-                try:
-                    content = full_path.read_text(encoding="utf-8", errors="ignore")
-                    for line_num, line in enumerate(content.splitlines(), 1):
-                        for pattern in compiled_patterns:
-                            if pattern.search(line):
-                                findings.append(
-                                    {
-                                        "file": filepath,
-                                        "line": str(line_num),
-                                        "pattern": pattern.pattern[:50],
-                                    }
-                                )
-                                break  # One finding per line is enough
-                except OSError:
-                    continue
+            if filepaths:
+                findings = await asyncio.to_thread(
+                    self._scan_files_for_secrets_sync, filepaths, compiled_patterns
+                )
 
         except GitError:
             pass
@@ -563,6 +560,37 @@ class GitManager:
                 "Secret scan found %d potential secret(s) in tracked files",
                 len(findings),
             )
+
+        return findings
+
+    def _scan_files_for_secrets_sync(
+        self,
+        filepaths: list[str],
+        compiled_patterns: list[re.Pattern[str]],
+    ) -> list[dict[str, str]]:
+        """Synchronous implementation of file scanning for secrets."""
+        findings: list[dict[str, str]] = []
+
+        for filepath in filepaths:
+            full_path = Path(self._repo_path) / filepath
+            if not full_path.is_file():
+                continue
+
+            try:
+                content = full_path.read_text(encoding="utf-8", errors="ignore")
+                for line_num, line in enumerate(content.splitlines(), 1):
+                    for pattern in compiled_patterns:
+                        if pattern.search(line):
+                            findings.append(
+                                {
+                                    "file": filepath,
+                                    "line": str(line_num),
+                                    "pattern": pattern.pattern[:50],
+                                }
+                            )
+                            break  # One finding per line is enough
+            except OSError:
+                continue
 
         return findings
 

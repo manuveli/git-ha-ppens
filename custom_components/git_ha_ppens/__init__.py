@@ -83,6 +83,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except GitError as err:
         _LOGGER.warning("Failed to update .gitignore: %s", err)
 
+    # Create initial commit if repository has no commits yet
+    if not await git_manager.has_commits():
+        try:
+            commit_info = await git_manager.commit(
+                "Initial commit by git-ha-ppens"
+            )
+            if commit_info:
+                _LOGGER.info(
+                    "Created initial commit: %s", commit_info.hash_short
+                )
+        except GitError as err:
+            _LOGGER.warning("Failed to create initial commit: %s", err)
+
     # Configure remote if specified
     remote_url = data.get(CONF_REMOTE_URL, "")
     if remote_url:
