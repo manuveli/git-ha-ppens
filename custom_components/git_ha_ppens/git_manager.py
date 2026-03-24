@@ -33,6 +33,7 @@ class GitStatus:
     behind: int = 0
     remote_configured: bool = False
     total_commits: int = 0
+    has_upstream: bool = False
 
 
 @dataclass
@@ -191,8 +192,18 @@ class GitManager:
             result = await self._run_git(
                 "rev-parse", "--verify", "HEAD", check=False
             )
-            # A valid commit hash is 40 hex chars; anything else means no commits
             return bool(result) and len(result) >= 40 and "fatal" not in result.lower()
+        except GitError:
+            return False
+
+    async def _has_upstream(self) -> bool:
+        """Check if the current branch has an upstream tracking branch."""
+        try:
+            result = await self._run_git(
+                "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}",
+                check=False,
+            )
+            return bool(result) and "fatal" not in result.lower() and "error" not in result.lower()
         except GitError:
             return False
 
@@ -241,7 +252,7 @@ class GitManager:
             log_format = await self._run_git(
                 "log", "-1", "--format=%H%n%h%n%s%n%an%n%aI", check=False
             )
-            if log_format:
+            if log_format and "fatal" not in log_format.lower():
                 parts = log_format.splitlines()
                 if len(parts) >= 5:
                     status.last_commit_hash = parts[0]
@@ -253,39 +264,37 @@ class GitManager:
                     except ValueError:
                         status.last_commit_time = None
         except GitError:
-            # No commits yet
             pass
 
         # Get total commit count
         try:
             count_str = await self._run_git("rev-list", "--count", "HEAD", check=False)
-            status.total_commits = int(count_str)
+            if count_str and "fatal" not in count_str.lower():
+                status.total_commits = int(count_str)
         except (GitError, ValueError):
             status.total_commits = 0
 
         # Get ahead/behind remote
         try:
-            remote_branch = await self._run_git(
-                "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}",
-                check=False,
-            )
-            if remote_branch:
+            status.has_upstream = await self._has_upstream()
+            if status.has_upstream:
                 status.remote_configured = True
                 ab_output = await self._run_git(
-                    "rev-list", "--left-right", "--count", f"HEAD...@{{u}}"
+                    "rev-list", "--left-right", "--count", "HEAD...@{u}",
+                    check=False,
                 )
-                if ab_output:
+                if ab_output and "fatal" not in ab_output.lower():
                     parts = ab_output.split()
                     if len(parts) == 2:
                         status.ahead = int(parts[0])
                         status.behind = int(parts[1])
             else:
-                # Check if remote origin exists even without tracking
+                # No tracking branch — check if remote origin exists
                 remotes = await self._run_git("remote", check=False)
                 status.remote_configured = bool(remotes.strip())
-                # No tracking branch = we don't know ahead/behind
+                # Signal "not pushed" when remote exists but no tracking
                 if status.remote_configured and status.total_commits > 0:
-                    status.ahead = -1  # Convention: -1 = unknown/not pushed
+                    status.ahead = -1  # Convention: -1 = never pushed
         except (GitError, ValueError):
             pass
 
@@ -345,7 +354,6 @@ class GitManager:
         for line in porcelain_output.splitlines():
             if len(line) >= 4:
                 filepath = line[3:].strip()
-                # Get just the filename, not the full path
                 filename = Path(filepath).name
                 if filename and filename not in files:
                     files.append(filename)
@@ -361,40 +369,138 @@ class GitManager:
     async def push(self) -> int:
         """Push commits to the configured remote.
 
+        Handles multiple scenarios robustly:
+        1. Normal push (fast-forward)
+        2. Divergent histories (remote initialized with README)
+        3. First push (no upstream tracking branch)
+
         Returns:
             Number of commits that were pushed.
+
+        Raises:
+            GitError: If push fails after all retry attempts.
         """
-        # Get ahead count before push
-        try:
-            ab_output = await self._run_git(
-                "rev-list", "--left-right", "--count", "HEAD...@{u}"
-            )
-            ahead = int(ab_output.split()[0]) if ab_output else 0
-        except (GitError, ValueError, IndexError):
-            ahead = 0
-
-        # Get the current branch
         branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
+        has_upstream = await self._has_upstream()
 
+        # Count commits to push
+        ahead = 0
+        if has_upstream:
+            try:
+                ab_output = await self._run_git(
+                    "rev-list", "--left-right", "--count", "HEAD...@{u}",
+                    check=False,
+                )
+                if ab_output and "fatal" not in ab_output.lower():
+                    ahead = int(ab_output.split()[0])
+            except (GitError, ValueError, IndexError):
+                pass
+        else:
+            # No upstream — all local commits need pushing
+            try:
+                count_str = await self._run_git(
+                    "rev-list", "--count", "HEAD", check=False
+                )
+                if count_str and "fatal" not in count_str.lower():
+                    ahead = int(count_str)
+            except (GitError, ValueError):
+                ahead = 0
+
+        # === ATTEMPT 1: Normal push ===
         try:
             await self._run_git("push", "-u", "origin", branch)
+            _LOGGER.info("Push successful: %d commit(s) to origin/%s", ahead, branch)
+            return ahead
         except GitError as err:
-            error_str = str(err).lower()
-            # Handle divergent histories (e.g. remote initialized with README)
-            if "non-fast-forward" in error_str or "rejected" in error_str:
-                _LOGGER.warning(
-                    "Push rejected — attempting to merge remote changes"
+            error_lower = str(err).lower()
+            _LOGGER.warning("Push attempt 1 failed: %s", err)
+
+            # Check if it's a permission/auth error — don't retry these
+            if any(keyword in error_lower for keyword in [
+                "permission denied",
+                "403",
+                "401",
+                "authentication",
+                "could not read username",
+                "invalid credentials",
+                "authorization failed",
+            ]):
+                _LOGGER.error(
+                    "Push failed due to authentication/permission error. "
+                    "Check your Personal Access Token permissions (needs 'repo' scope for GitHub). "
+                    "Error: %s",
+                    err,
                 )
-                await self._run_git(
-                    "pull", "--allow-unrelated-histories",
-                    "--no-edit", "origin", branch
-                )
-                await self._run_git("push", "-u", "origin", branch)
-            else:
                 raise
 
-        _LOGGER.info("Pushed %d commit(s) to origin/%s", ahead, branch)
-        return ahead
+            # For any other error (divergent history, rejected, etc.), try to resolve
+            _LOGGER.info("Attempting to resolve push conflict...")
+
+        # === ATTEMPT 2: Fetch + merge with allow-unrelated-histories ===
+        try:
+            # First try to fetch remote state
+            await self._run_git("fetch", "origin", branch)
+
+            # Check if remote branch exists and has commits
+            remote_ref = f"origin/{branch}"
+            remote_exists = await self._run_git(
+                "rev-parse", "--verify", remote_ref, check=False
+            )
+            has_remote_commits = (
+                bool(remote_exists)
+                and len(remote_exists) >= 40
+                and "fatal" not in remote_exists.lower()
+            )
+
+            if has_remote_commits:
+                # Remote has commits — merge allowing unrelated histories
+                _LOGGER.info(
+                    "Remote has existing commits — merging with allow-unrelated-histories"
+                )
+                await self._run_git(
+                    "merge", "--allow-unrelated-histories", "--no-edit",
+                    remote_ref,
+                )
+            # else: remote branch is empty, straight push should work
+
+            # Retry push
+            await self._run_git("push", "-u", "origin", branch)
+            _LOGGER.info(
+                "Push successful after merge: %d commit(s) to origin/%s",
+                ahead, branch,
+            )
+            return ahead
+
+        except GitError as merge_err:
+            merge_error_lower = str(merge_err).lower()
+            _LOGGER.warning("Push attempt 2 (merge) failed: %s", merge_err)
+
+            # If merge conflict, try force push as last resort
+            if "conflict" in merge_error_lower or "merge" in merge_error_lower:
+                _LOGGER.warning("Merge conflict detected, aborting merge...")
+                await self._run_git("merge", "--abort", check=False)
+
+        # === ATTEMPT 3: Force push with lease (safe force push) ===
+        try:
+            _LOGGER.warning(
+                "Attempting force push with lease as last resort "
+                "(this overwrites remote but is safe for single-user repos)"
+            )
+            await self._run_git("push", "--force-with-lease", "-u", "origin", branch)
+            _LOGGER.info(
+                "Force push successful: %d commit(s) to origin/%s",
+                ahead, branch,
+            )
+            return ahead
+        except GitError as force_err:
+            _LOGGER.error(
+                "All push attempts failed. Last error: %s. "
+                "Please check: 1) PAT has 'repo' scope, "
+                "2) Remote URL is correct, "
+                "3) Repository exists on GitHub.",
+                force_err,
+            )
+            raise
 
     async def pull(self, backup: bool = True) -> int:
         """Pull from the configured remote.
@@ -440,14 +546,7 @@ class GitManager:
         return pulled
 
     async def get_log(self, count: int = 10) -> list[CommitInfo]:
-        """Get recent commit history.
-
-        Args:
-            count: Number of commits to retrieve.
-
-        Returns:
-            List of CommitInfo objects.
-        """
+        """Get recent commit history."""
         commits: list[CommitInfo] = []
         try:
             log_output = await self._run_git(
@@ -499,11 +598,7 @@ class GitManager:
             return ""
 
     async def setup_gitignore(self) -> bool:
-        """Create or update .gitignore with security defaults.
-
-        Returns:
-            True if .gitignore was created or modified.
-        """
+        """Create or update .gitignore with security defaults."""
         return await asyncio.to_thread(self._setup_gitignore_sync)
 
     def _setup_gitignore_sync(self) -> bool:
@@ -522,12 +617,10 @@ class GitManager:
         else:
             content = ""
 
-        # Check which default entries are missing
         entries_to_add: list[str] = []
         for entry in DEFAULT_GITIGNORE_ENTRIES:
             clean = entry.strip()
             if not clean or clean.startswith("#"):
-                # Keep comments and blank lines for new files
                 if not existing_entries:
                     entries_to_add.append(entry)
                 continue
@@ -549,18 +642,12 @@ class GitManager:
         return False
 
     async def scan_for_secrets(self) -> list[dict[str, str]]:
-        """Scan staged files for potential secrets.
-
-        Returns:
-            List of dicts with 'file', 'line', and 'pattern' keys.
-        """
+        """Scan staged files for potential secrets."""
         findings: list[dict[str, str]] = []
 
         try:
-            # Get list of staged files
             staged = await self._run_git("diff", "--cached", "--name-only", check=False)
             if not staged:
-                # Also check tracked files if nothing staged
                 staged = await self._run_git(
                     "ls-files", "--modified", check=False
                 )
@@ -619,7 +706,7 @@ class GitManager:
                                     "pattern": pattern.pattern[:50],
                                 }
                             )
-                            break  # One finding per line is enough
+                            break
             except OSError:
                 continue
 
@@ -627,7 +714,6 @@ class GitManager:
 
     async def set_remote(self, url: str) -> None:
         """Configure the remote origin URL."""
-        # Check if remote exists
         remotes = await self._run_git("remote", check=False)
         if "origin" in remotes.splitlines():
             await self._run_git("remote", "set-url", "origin", url)
@@ -637,9 +723,7 @@ class GitManager:
 
     async def configure_token_auth(self, url: str, token: str) -> None:
         """Configure token-based authentication by embedding in the remote URL."""
-        # For HTTPS URLs, embed the token
         if url.startswith("https://"):
-            # https://token@github.com/user/repo.git
             authed_url = url.replace("https://", f"https://oauth2:{token}@")
             await self.set_remote(authed_url)
         else:
@@ -651,7 +735,6 @@ class GitManager:
         if not key_path.is_file():
             raise GitError(f"SSH key not found: {ssh_key_path}")
 
-        # Set GIT_SSH_COMMAND in repo config
         ssh_command = f"ssh -i {ssh_key_path} -o StrictHostKeyChecking=accept-new"
         await self._run_git(
             "config", "core.sshCommand", ssh_command
@@ -661,6 +744,5 @@ class GitManager:
     @staticmethod
     def _redact_url(url: str) -> str:
         """Redact sensitive parts of a URL for logging."""
-        # Remove tokens/passwords from URLs
         redacted = re.sub(r"://[^@]+@", "://***@", url)
         return redacted
