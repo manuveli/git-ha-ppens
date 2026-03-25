@@ -104,8 +104,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     await git_manager.configure_ssh_auth(ssh_key)
             else:
                 await git_manager.set_remote(remote_url)
+
+            # Verify remote was actually configured correctly
+            if await git_manager.is_remote_configured():
+                configured_url = await git_manager.get_remote_url()
+                _LOGGER.info(
+                    "Remote origin verified: %s",
+                    GitManager._redact_url(configured_url),
+                )
+            else:
+                _LOGGER.error(
+                    "Remote origin could not be verified after configuration. "
+                    "The URL '%s' may be invalid. Push/pull will be disabled. "
+                    "Check the remote URL in the integration options.",
+                    remote_url,
+                )
+                remote_url = ""  # Prevent push attempts
         except GitError as err:
-            _LOGGER.warning("Failed to configure remote: %s", err)
+            _LOGGER.error(
+                "Failed to configure remote: %s. Push/pull will be disabled.",
+                err,
+            )
+            remote_url = ""  # Prevent push attempts
 
     # Create initial commit if repository has no commits yet
     if not await git_manager.has_commits():
