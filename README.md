@@ -1,112 +1,200 @@
-# git-ha-ppens
+<p align="center">
+  <h1 align="center">🏠 git-ha-ppens</h1>
+  <p align="center">
+    <strong>Git version control for Home Assistant — right from your UI.</strong>
+  </p>
+</p>
 
-**Version-control your Home Assistant configuration with git — directly from the HA UI.**
+<p align="center">
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge" alt="HACS Custom"></a>
+  <a href="https://github.com/manuveli/git-ha-ppens/releases"><img src="https://img.shields.io/github/v/release/manuveli/git-ha-ppens?style=for-the-badge" alt="GitHub Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://www.home-assistant.io/"><img src="https://img.shields.io/badge/HA-2024.1+-blue?style=for-the-badge" alt="Home Assistant 2024.1+"></a>
+</p>
 
-![Status: In Development](https://img.shields.io/badge/status-in%20development-orange)
-![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+<p align="center">
+  One wrong YAML edit can break your entire Home Assistant setup — and without version control there's no way to see what changed or roll back.<br>
+  <strong>git-ha-ppens</strong> brings native git directly into Home Assistant. Commit, push, pull, and monitor your configuration history without leaving the UI or touching the command line.
+</p>
 
-> **Note:** This project is in early development. The features described below represent the planned scope. Contributions and feedback are welcome!
+---
 
-## Overview
+## 📑 Table of Contents
 
-Home Assistant users regularly modify YAML configurations, automations, scripts, and dashboards. One wrong edit can break an entire setup — and without version control, there's no easy way to see what changed or roll back.
+- [✨ Features](#-features)
+- [📥 Installation](#-installation)
+- [⚙️ Configuration](#️-configuration)
+- [🚀 Services](#-services)
+- [📊 Sensors & Entities](#-sensors--entities)
+- [⚡ Events](#-events)
+- [💡 Example Automations](#-example-automations)
+- [🛡️ Auto-Generated .gitignore](#️-auto-generated-gitignore)
+- [🔧 Troubleshooting](#-troubleshooting)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
-**git-ha-ppens** brings git version control into Home Assistant as a native custom integration. Commit, diff, push, and browse your configuration history without leaving the HA interface or touching the command line.
+---
 
-### Design Goals
+## ✨ Features
 
-- **Simple** — Set up via the HA config flow, no manual git init required
-- **Secure** — Automatic `.gitignore` management to keep secrets out of your repository
-- **Flexible** — Automatic or manual commits, optional remote push
+### 🤖 Automatic Version Control
+- 👁️ **File watcher** detects config changes in real time (powered by [watchdog](https://github.com/gorakhargosh/watchdog))
+- ⏱️ **Configurable debounce interval** (default 5 min) to batch changes and avoid excessive commits
+- 📝 **Auto-generated commit messages** listing the changed files
 
-## Planned Features
+### 🔧 Manual Control
+- **4 services** callable from automations, scripts, or Developer Tools:
+  - `git_ha_ppens.commit` — create a commit with an optional custom message
+  - `git_ha_ppens.push` — push commits to the configured remote
+  - `git_ha_ppens.pull` — pull from remote (auto-backs up uncommitted changes first)
+  - `git_ha_ppens.sync` — commit + push in one step
 
-### Automatic Version Control
+### 🛡️ Security & Secrets
+- 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
+- 🔍 **Secret detection** scans tracked files for API keys, tokens, and passwords
+- 🔔 Fires a `git_ha_ppens_secret_detected` event when potential secrets are found
 
-- Auto-commit when configuration files change (file watcher on the config directory)
-- Configurable commit interval / debounce to avoid excessive commits
-- Auto-generated commit messages (e.g., *"Auto: automations.yaml changed"*)
+### ☁️ Remote Support
+- Push to **GitHub**, **GitLab**, **Bitbucket**, or any git remote
+- **HTTPS** with personal access token or **SSH key** authentication
+- Optional **auto-push** after every commit and **auto-pull** when remote has new commits
 
-### Manual Control
+### 📊 Visibility & Monitoring
+- **5 sensors** + **1 binary sensor** for real-time git status
+- **Events** for commit, push, pull, errors, and secret detection
+- Build dashboards, notifications, and automations around your config history
 
-- Service `git_ha_ppens.commit` — create a commit with a custom message
-- Service `git_ha_ppens.push` — push commits to a configured remote
-- Service `git_ha_ppens.pull` — pull from remote
+### 🩺 Diagnostics
+- Full diagnostics support via **Settings → Devices & Services → git-ha-ppens → Diagnostics**
+- Sensitive values are **automatically redacted**
 
-### Security & Secrets
+---
 
-- Automatic `.gitignore` for `secrets.yaml`, `.storage/`, and other sensitive files
-- Warning if secrets are detected in tracked files
-- Pre-commit validation to prevent accidental secret exposure
-
-### Visibility
-
-- Sensor entities exposing git status: last commit, uncommitted changes, current branch, remote sync status
-- Binary sensor for dirty working tree
-
-### Remote Integration
-
-- Push to GitHub, GitLab, Bitbucket, or any git remote
-- SSH key or token-based authentication
-
-## Installation
+## 📥 Installation
 
 ### Prerequisites
 
-- Home Assistant 2024.1 or later
-- Git installed on the host system
-
-> **HA OS users:** Git availability may require a dedicated add-on or a container with git pre-installed.
+> **Requirements:**
+> - 🏠 Home Assistant **2024.1** or later
+> - 🔧 **Git** installed on the host system
+>
+> **HA OS users:** Git may not be available by default. You may need a dedicated add-on or container with git pre-installed.
 
 ### HACS (Recommended)
 
-1. Make sure [HACS](https://hacs.xyz/) is installed.
-2. Go to HACS → Integrations → three-dot menu → **Custom repositories**.
-3. Add `https://github.com/manuveli/git-ha-ppens` with category **Integration**.
-4. Search for *git-ha-ppens* and install.
-5. Restart Home Assistant.
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=manuveli&repository=git-ha-ppens&category=integration)
 
-### Manual
+1. Make sure [HACS](https://hacs.xyz/) is installed
+2. Click the badge above — or go to **HACS → Integrations → ⋮ → Custom repositories** and add:
+   ```
+   https://github.com/manuveli/git-ha-ppens
+   ```
+   with category **Integration**
+3. Search for **git-ha-ppens** and click **Install**
+4. **Restart** Home Assistant
+5. Go to **Settings → Devices & Services → Add Integration** and search for **git-ha-ppens**
 
-1. Download the latest release from the [Releases](https://github.com/manuveli/git-ha-ppens/releases) page.
-2. Copy the `custom_components/git_ha_ppens` folder into your `config/custom_components/` directory.
-3. Restart Home Assistant.
+### Manual Installation
 
-## Configuration
+1. Download the latest release from the [Releases](https://github.com/manuveli/git-ha-ppens/releases) page
+2. Copy the `custom_components/git_ha_ppens` folder into your `config/custom_components/` directory
+3. **Restart** Home Assistant
+4. Go to **Settings → Devices & Services → Add Integration** and search for **git-ha-ppens**
 
-1. Go to **Settings → Devices & Services → Add Integration**.
-2. Search for **git-ha-ppens**.
-3. The config flow will guide you through:
-   - **Repository path** (defaults to `/config`)
-   - **Git user name and email** for commits
-   - **Auto-commit** on/off and interval
-   - **Remote URL** (optional)
-   - **Authentication method** (SSH key / personal access token) if a remote is configured
+---
 
-All options can be changed later via the integration's Options flow.
+## ⚙️ Configuration
 
-## Services
+The integration is configured entirely through the UI. The setup flow has **3 steps**:
+
+### Step 1: 📁 Repository Settings
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `repo_path` | Path to the HA configuration directory | `/config` |
+| `git_user` | Git author name for commits | *(required)* |
+| `git_email` | Git author email for commits | *(required)* |
+
+### Step 2: 🔄 Auto-Commit Settings
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `auto_commit` | Automatically commit when files change | `false` |
+| `auto_push` | Push to remote after each auto-commit | `true` |
+| `auto_pull` | Pull new commits from remote automatically | `false` |
+| `commit_interval` | Debounce interval in seconds (30–86400) | `300` |
+| `scan_interval` | Status polling interval in seconds (10–3600) | `30` |
+
+### Step 3: ☁️ Remote Repository *(optional)*
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `remote_url` | Git remote URL (HTTPS or SSH) | *(empty)* |
+| `auth_method` | `none` / `token` / `ssh` | `none` |
+| `auth_token` | Personal access token (for HTTPS) | *(empty)* |
+| `ssh_key_path` | Path to SSH private key file | *(empty)* |
+
+> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**.
+
+---
+
+## 🚀 Services
 
 | Service | Description | Parameters |
-|---|---|---|
-| `git_ha_ppens.commit` | Create a git commit | `message` (optional) — custom commit message |
-| `git_ha_ppens.push` | Push commits to remote | — |
-| `git_ha_ppens.pull` | Pull from remote | — |
+|---------|-------------|------------|
+| `git_ha_ppens.commit` | Stage all changes and create a commit | `message` *(optional)* — custom commit message |
+| `git_ha_ppens.push` | Push commits to the configured remote | — |
+| `git_ha_ppens.pull` | Pull from remote (backs up uncommitted changes first) | — |
+| `git_ha_ppens.sync` | Commit + push in one step | `message` *(optional)* — custom commit message |
 
-## Entities
+### Example: Call sync from an automation
 
-| Entity | Type | Description |
-|---|---|---|
-| `sensor.git_ha_ppens_last_commit` | Sensor | Last commit hash (short), message as attribute |
-| `sensor.git_ha_ppens_last_commit_time` | Sensor | Timestamp of last commit |
-| `sensor.git_ha_ppens_uncommitted_changes` | Sensor | Number of uncommitted file changes |
-| `sensor.git_ha_ppens_branch` | Sensor | Current branch name |
-| `sensor.git_ha_ppens_remote_status` | Sensor | Ahead/behind count vs. remote |
-| `binary_sensor.git_ha_ppens_dirty` | Binary Sensor | On if there are uncommitted changes |
+```yaml
+action:
+  - service: git_ha_ppens.sync
+    data:
+      message: "Manual sync from automation"
+```
 
-## Example Automations
+---
 
-### Auto-push after every commit
+## 📊 Sensors & Entities
+
+### Sensors
+
+| Entity | Description | Attributes |
+|--------|-------------|------------|
+| `sensor.git_ha_ppens_last_commit` | Last commit hash (short) | `message`, `author`, `full_hash` |
+| `sensor.git_ha_ppens_last_commit_time` | Timestamp of last commit | — |
+| `sensor.git_ha_ppens_uncommitted_changes` | Number of changed files | `changed_files`, `untracked_files`, `staged_files` |
+| `sensor.git_ha_ppens_branch` | Current branch name | — |
+| `sensor.git_ha_ppens_remote_status` | Sync status (e.g. "in sync", "ahead 3") | `ahead`, `behind`, `remote_configured`, `has_upstream`, `total_commits` |
+
+### Binary Sensors
+
+| Entity | Description | Device Class |
+|--------|-------------|--------------|
+| `binary_sensor.git_ha_ppens_dirty` | `on` when there are uncommitted changes | `problem` |
+
+---
+
+## ⚡ Events
+
+Use these events as automation triggers to build notifications, dashboards, or recovery workflows.
+
+| Event | Fired when | Data |
+|-------|-----------|------|
+| `git_ha_ppens_commit` | A commit is created | `hash`, `message`, `author` |
+| `git_ha_ppens_push` | Commits are pushed | `commits_pushed` |
+| `git_ha_ppens_pull` | Commits are pulled | `commits_pulled` |
+| `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
+| `git_ha_ppens_secret_detected` | Potential secrets found in tracked files | `findings`, `count` |
+
+---
+
+## 💡 Example Automations
+
+### ⬆️ Auto-push after every commit
 
 ```yaml
 automation:
@@ -118,7 +206,7 @@ automation:
       - service: git_ha_ppens.push
 ```
 
-### Notify when changes are uncommitted for over an hour
+### 🔔 Notify when changes are uncommitted for over an hour
 
 ```yaml
 automation:
@@ -135,7 +223,7 @@ automation:
           message: "You have uncommitted configuration changes."
 ```
 
-### Weekly configuration snapshot
+### 📅 Weekly configuration snapshot
 
 ```yaml
 automation:
@@ -153,29 +241,103 @@ automation:
           message: "Weekly config snapshot"
 ```
 
-## Roadmap
+### 🚨 Alert on secret detection
 
-- [ ] Core integration scaffold (config flow, basic sensors)
-- [ ] Git commit and push services
-- [ ] Auto-commit on file change
-- [ ] `.gitignore` management and secrets protection
-- [ ] Remote authentication (SSH / token)
-- [ ] Diff view panel
-- [ ] Commit history panel
-- [ ] HACS default repository submission
+```yaml
+automation:
+  - alias: "Git: Secret detected alert"
+    trigger:
+      - platform: event
+        event_type: git_ha_ppens_secret_detected
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "⚠️ git-ha-ppens Security Alert"
+          message: "Found {{ trigger.event.data.count }} potential secret(s) in tracked files!"
+```
 
-## Contributing
+---
+
+## 🛡️ Auto-Generated .gitignore
+
+The integration automatically creates or updates `.gitignore` with sensible defaults for Home Assistant:
+
+| Category | Entries |
+|----------|---------|
+| **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
+| **Databases & logs** | `*.db`, `*.log`, `home-assistant_v2.db`, `home-assistant.log*`, `zigbee.db`, `OZW_Log.txt` |
+| **Runtime & cache** | `__pycache__/`, `deps/`, `tts/`, `.venv/`, `.cache/`, `custom_components/` |
+| **System files** | `.HA_VERSION`, `known_devices.yaml`, `ip_bans.yaml` |
+
+> 📌 Existing `.gitignore` entries are preserved — only missing defaults are appended.
+
+---
+
+## 🔧 Troubleshooting
+
+<details>
+<summary><strong>❌ "Git is not installed"</strong></summary>
+
+Home Assistant OS does not include git by default. Options:
+- Use a container/add-on that includes git
+- Install git via the SSH & Web Terminal add-on: `apk add git`
+</details>
+
+<details>
+<summary><strong>❌ Push fails with "permission denied" or "403"</strong></summary>
+
+- Verify your personal access token has the `repo` scope
+- Check that the remote URL is correct and the repository exists
+- For SSH: ensure the key path is valid and the key is added to your git provider
+</details>
+
+<details>
+<summary><strong>❌ "Remote origin is not configured"</strong></summary>
+
+Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set a remote URL in the options flow.
+</details>
+
+<details>
+<summary><strong>❌ Auto-commit not triggering</strong></summary>
+
+- Verify `auto_commit` is enabled in the integration options
+- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `__pycache__`, `*.db`, `*.log`, etc.)
+- Review HA logs for file watcher errors
+</details>
+
+<details>
+<summary><strong>❌ "Secrets detected" warning</strong></summary>
+
+- Review the flagged files and move sensitive values to `secrets.yaml`
+- Ensure `secrets.yaml` is listed in `.gitignore` (it is by default)
+- The detection uses regex patterns for common key formats (API keys, tokens, passwords)
+</details>
+
+---
+
+## 🤝 Contributing
 
 Contributions are welcome! Whether it's bug reports, feature requests, or pull requests — feel free to get involved.
 
-Development setup:
+- 🐛 **Bug reports & feature requests:** [GitHub Issues](https://github.com/manuveli/git-ha-ppens/issues)
+- 🔀 **Pull requests:** Fork, create a branch, and submit a PR
 
-1. Clone this repository.
-2. Symlink or copy `custom_components/git_ha_ppens` into your HA dev instance's `custom_components/` directory.
-3. Restart Home Assistant.
+### Development Setup
 
-Please follow Home Assistant's coding conventions (ruff, black, mypy).
+1. Clone this repository
+2. Symlink or copy `custom_components/git_ha_ppens` into your HA dev instance's `custom_components/` directory
+3. Restart Home Assistant
+4. Follow Home Assistant's coding conventions (`ruff`, `mypy`)
 
-## License
+---
+
+## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  Made with ❤️ for the Home Assistant community<br>
+  <a href="https://github.com/manuveli/git-ha-ppens">github.com/manuveli/git-ha-ppens</a>
+</p>
