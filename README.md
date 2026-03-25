@@ -1,8 +1,11 @@
 <p align="center">
-  <h1 align="center">🏠 git-ha-ppens</h1>
-  <p align="center">
-    <strong>Git version control for Home Assistant — right from your UI.</strong>
-  </p>
+  <img src="logo.png" alt="git-ha-ppens logo" width="200">
+</p>
+
+<h1 align="center">git-ha-ppens</h1>
+
+<p align="center">
+  <strong>Git version control for Home Assistant — right from your UI.</strong>
 </p>
 
 <p align="center">
