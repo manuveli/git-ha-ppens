@@ -33,6 +33,7 @@
 - [💡 Example Automations](#-example-automations)
 - [🛡️ Auto-Generated .gitignore](#️-auto-generated-gitignore)
 - [🔧 Troubleshooting](#-troubleshooting)
+- [📦 Release erstellen](#-release-erstellen)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 
@@ -315,6 +316,29 @@ Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set
 - Ensure `secrets.yaml` is listed in `.gitignore` (it is by default)
 - The detection uses regex patterns for common key formats (API keys, tokens, passwords)
 </details>
+
+---
+
+## 📦 Release erstellen
+
+Um eine neue Version zu veröffentlichen:
+
+1. **Version hochsetzen** in `custom_components/git_ha_ppens/manifest.json` → Feld `"version"` anpassen (z. B. `"1.0.0"`)
+2. **Änderungen committen und auf `main` pushen**
+3. **`main` in den Branch `release` mergen:**
+   ```bash
+   git checkout release
+   git merge main
+   git push origin release
+   ```
+4. Der GitHub Actions Workflow erstellt automatisch:
+   - Ein Git-Tag `v1.0.0`
+   - Ein GitHub Release mit automatisch generierten Release Notes
+   - Eine `git_ha_ppens.zip` als Download-Asset
+
+> 💡 **Wichtig:** Die Version in `manifest.json` muss bei jedem Release erhöht werden. Der Workflow bricht ab, wenn das Tag bereits existiert.
+
+HACS erkennt das neue Release automatisch und bietet es Nutzern als Update an.
 
 ---
 
