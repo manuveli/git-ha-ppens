@@ -104,7 +104,7 @@ class GitManager:
                 },
             )
             stdout_bytes, stderr_bytes = await process.communicate()
-            stdout = stdout_bytes.decode("utf-8", errors="replace").strip()
+            stdout = stdout_bytes.decode("utf-8", errors="replace").rstrip()
             stderr = (
                 stderr_bytes.decode("utf-8", errors="replace").strip()
                 if stderr_bytes
