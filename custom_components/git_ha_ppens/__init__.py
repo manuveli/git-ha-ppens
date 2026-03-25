@@ -19,6 +19,7 @@ from .const import (
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
     CONF_AUTO_COMMIT,
+    CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
     CONF_GIT_EMAIL,
@@ -164,7 +165,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Create coordinator
     scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    coordinator = GitHaPpensCoordinator(hass, git_manager, scan_interval)
+    auto_pull = data.get(CONF_AUTO_PULL, False)
+    coordinator = GitHaPpensCoordinator(
+        hass,
+        git_manager,
+        scan_interval,
+        auto_pull=auto_pull,
+        remote_configured=bool(remote_url),
+    )
     await coordinator.async_config_entry_first_refresh()
 
     # Setup file watcher for auto-commit
@@ -181,6 +189,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             commit_interval,
             auto_push=auto_push,
             remote_configured=bool(remote_url),
+            git_lock=coordinator.git_lock,
         )
         await file_watcher.async_start()
         _LOGGER.info(

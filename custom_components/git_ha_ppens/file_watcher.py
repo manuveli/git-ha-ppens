@@ -118,6 +118,7 @@ class GitFileWatcher:
         debounce_seconds: int = 300,
         auto_push: bool = False,
         remote_configured: bool = False,
+        git_lock: asyncio.Lock | None = None,
     ) -> None:
         """Initialize the file watcher."""
         self._hass = hass
@@ -127,6 +128,7 @@ class GitFileWatcher:
         self._debounce_seconds = debounce_seconds
         self._auto_push = auto_push
         self._remote_configured = remote_configured
+        self._git_lock = git_lock
         self._observer: Observer | None = None
         self._change_collector: _ChangeCollector | None = None
         self._debounce_handle: asyncio.TimerHandle | None = None
@@ -207,6 +209,18 @@ class GitFileWatcher:
 
         self._change_collector.clear()
 
+        await self._async_auto_commit_inner()
+
+    async def _async_auto_commit_inner(self) -> None:
+        """Perform the auto-commit, optionally guarded by the shared git lock."""
+        if self._git_lock:
+            async with self._git_lock:
+                await self._do_commit_and_push()
+        else:
+            await self._do_commit_and_push()
+
+    async def _do_commit_and_push(self) -> None:
+        """Execute the actual commit and push sequence."""
         try:
             commit_info = await self._git_manager.commit()
             if commit_info:

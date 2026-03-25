@@ -23,6 +23,7 @@ from .const import (
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
     CONF_AUTO_COMMIT,
+    CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
     CONF_GIT_EMAIL,
@@ -99,6 +100,7 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_AUTO_COMMIT, default=True): bool,
                     vol.Required(CONF_AUTO_PUSH, default=True): bool,
+                    vol.Required(CONF_AUTO_PULL, default=False): bool,
                     vol.Required(
                         CONF_COMMIT_INTERVAL,
                         default=DEFAULT_COMMIT_INTERVAL,
@@ -225,6 +227,10 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_AUTO_PUSH,
                         default=current.get(CONF_AUTO_PUSH, True),
+                    ): bool,
+                    vol.Required(
+                        CONF_AUTO_PULL,
+                        default=current.get(CONF_AUTO_PULL, False),
                     ): bool,
                     vol.Required(
                         CONF_COMMIT_INTERVAL,
