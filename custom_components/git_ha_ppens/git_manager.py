@@ -207,6 +207,28 @@ class GitManager:
         except GitError:
             return False
 
+    async def is_remote_configured(self) -> bool:
+        """Check if the remote 'origin' is configured with a valid URL."""
+        try:
+            result = await self._run_git(
+                "remote", "get-url", "origin", check=False
+            )
+            return bool(result) and "fatal" not in result.lower() and "error" not in result.lower()
+        except GitError:
+            return False
+
+    async def get_remote_url(self) -> str:
+        """Return the configured remote URL (empty string if not set)."""
+        try:
+            result = await self._run_git(
+                "remote", "get-url", "origin", check=False
+            )
+            if result and "fatal" not in result.lower() and "error" not in result.lower():
+                return result
+        except GitError:
+            pass
+        return ""
+
     async def get_status(self) -> GitStatus:
         """Get the complete repository status."""
         status = GitStatus()
@@ -380,6 +402,14 @@ class GitManager:
         Raises:
             GitError: If push fails after all retry attempts.
         """
+        # Pre-check: verify remote is configured before attempting any push
+        if not await self.is_remote_configured():
+            raise GitError(
+                "Remote 'origin' is not configured. "
+                "Please set a valid remote URL in the integration options "
+                "(Settings → Devices & Services → git-ha-ppens → Configure)."
+            )
+
         branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
         has_upstream = await self._has_upstream()
 
@@ -415,7 +445,7 @@ class GitManager:
             error_lower = str(err).lower()
             _LOGGER.warning("Push attempt 1 failed: %s", err)
 
-            # Check if it's a permission/auth error — don't retry these
+            # Check if it's a permission/auth/config error — don't retry these
             if any(keyword in error_lower for keyword in [
                 "permission denied",
                 "403",
@@ -424,11 +454,15 @@ class GitManager:
                 "could not read username",
                 "invalid credentials",
                 "authorization failed",
+                "does not appear to be a git repository",
+                "could not read from remote repository",
+                "repository not found",
             ]):
                 _LOGGER.error(
-                    "Push failed due to authentication/permission error. "
-                    "Check your Personal Access Token permissions (needs 'repo' scope for GitHub). "
-                    "Error: %s",
+                    "Push failed due to authentication/permission/configuration error. "
+                    "Check: 1) Remote URL is correct, "
+                    "2) Repository exists on GitHub, "
+                    "3) PAT has 'repo' scope. Error: %s",
                     err,
                 )
                 raise
@@ -511,6 +545,14 @@ class GitManager:
         Returns:
             Number of commits pulled.
         """
+        # Pre-check: verify remote is configured
+        if not await self.is_remote_configured():
+            raise GitError(
+                "Remote 'origin' is not configured. "
+                "Please set a valid remote URL in the integration options "
+                "(Settings → Devices & Services → git-ha-ppens → Configure)."
+            )
+
         # Backup uncommitted changes before pull
         if backup:
             porcelain = await self._run_git("status", "--porcelain")
