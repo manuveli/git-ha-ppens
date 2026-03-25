@@ -92,6 +92,7 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     "tts/",
     ".venv/",
     "custom_components/",
+    "www/snapshots/",
     "",
     "# Zigbee2MQTT",
     "zigbee2mqtt/state.json",
