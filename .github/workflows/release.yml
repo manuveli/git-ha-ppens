@@ -33,7 +33,7 @@ jobs:
       - name: Create zip
         run: |
           cd custom_components/git_ha_ppens
-          zip -r ../../git_ha_ppens.zip .
+          zip -r ../../git_ha_ppens_${{ steps.version.outputs.version }}.zip .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -41,4 +41,4 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
           generate_release_notes: true
-          files: git_ha_ppens.zip
+          files: git_ha_ppens_${{ steps.version.outputs.version }}.zip
