@@ -336,6 +336,18 @@ Contributions are welcome! Whether it's bug reports, feature requests, or pull r
 
 ---
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=manuveli%2Fgit-ha-ppens&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&legend=top-left" />
+ </picture>
+</a>
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
