@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
@@ -26,9 +27,23 @@ async def async_get_config_entry_diagnostics(
 
     if git_manager:
         # Git info
+        repo_path = git_manager.repo_path
+        try:
+            repo_stat = os.stat(repo_path)
+            repo_owner_uid = repo_stat.st_uid
+            process_uid = os.getuid()
+            uid_mismatch = repo_owner_uid != process_uid
+        except OSError:
+            repo_owner_uid = None
+            process_uid = os.getuid()
+            uid_mismatch = None
+
         diagnostics["git"] = {
             "version": await git_manager.get_git_version(),
             "repo_initialized": await git_manager.is_repo_initialized(),
+            "repo_owner_uid": repo_owner_uid,
+            "process_uid": process_uid,
+            "uid_mismatch": uid_mismatch,
         }
 
         # Current status
