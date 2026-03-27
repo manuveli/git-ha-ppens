@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="git-ha-ppens logo" width="200">
+  <img src="custom_components/git_ha_ppens/brand/logo.png" alt="git-ha-ppens logo" width="200">
 </p>
 
 <h1 align="center">git-ha-ppens</h1>
@@ -268,9 +268,11 @@ The integration automatically creates or updates `.gitignore` with sensible defa
 | Category | Entries |
 |----------|---------|
 | **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
-| **Databases & logs** | `*.db`, `*.log`, `home-assistant_v2.db`, `home-assistant.log*`, `zigbee.db`, `OZW_Log.txt` |
-| **Runtime & cache** | `__pycache__/`, `deps/`, `tts/`, `.venv/`, `.cache/`, `custom_components/` |
+| **Databases & logs** | `*.db`, `*.db-shm`, `*.db-wal`, `*.log`, `home-assistant_v2.db`, `home-assistant.log*`, `zigbee.db`, `OZW_Log.txt` |
 | **System files** | `.HA_VERSION`, `known_devices.yaml`, `ip_bans.yaml` |
+| **Python cache** | `__pycache__/`, `*.pyc`, `*.pyo` |
+| **Runtime & other** | `.git/`, `deps/`, `tts/`, `.venv/`, `.cache/`, `.claude/`, `custom_components/`, `www/snapshots/`, `.ha_run.lock`, `.exports`, `.timeline`, `.vacuum` |
+| **Zigbee2MQTT** | `zigbee2mqtt/state.json`, `zigbee2mqtt/coordinator_backup.json` |
 
 > 📌 Existing `.gitignore` entries are preserved — only missing defaults are appended.
 
