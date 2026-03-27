@@ -101,6 +101,9 @@ class GitManager:
                     **os.environ,
                     "GIT_TERMINAL_PROMPT": "0",
                     "LC_ALL": "C",
+                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_KEY_0": "safe.directory",
+                    "GIT_CONFIG_VALUE_0": os.path.realpath(self._repo_path),
                 },
             )
             stdout_bytes, stderr_bytes = await process.communicate()
@@ -167,6 +170,14 @@ class GitManager:
         if not await self.is_repo_initialized():
             await self._run_git("init")
             _LOGGER.info("Initialized git repository at %s", self._repo_path)
+
+            # Verify .git was actually created
+            git_dir = repo_path / ".git"
+            if not git_dir.exists():
+                raise GitError(
+                    f"git init succeeded but .git directory was not created at "
+                    f"{self._repo_path}. Check directory permissions and ownership."
+                )
 
         # Configure user
         if self._git_user:
