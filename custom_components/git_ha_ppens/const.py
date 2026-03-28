@@ -96,6 +96,7 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     "",
     "# Zigbee2MQTT",
     "zigbee2mqtt/state.json",
+    "zigbee2mqtt/coordinator_backup.json",
     "",
     "# Sensitive/runtime files",
     ".jwt_secret",
