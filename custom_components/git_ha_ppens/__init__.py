@@ -84,6 +84,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         gitignore_updated = await git_manager.setup_gitignore()
         if gitignore_updated:
             _LOGGER.info("Updated .gitignore with security defaults")
+            # Untrack files now covered by .gitignore (only for existing repos)
+            if await git_manager.has_commits():
+                await git_manager.apply_gitignore()
     except GitError as err:
         _LOGGER.warning("Failed to update .gitignore: %s", err)
 
