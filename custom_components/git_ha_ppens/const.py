@@ -108,6 +108,10 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     ".exports",
     ".timeline",
     ".vacuum",
+    "",
+    "# Editor swap files",
+    "*.swp",
+    "*.swo",
 ]
 
 # Secret detection patterns (regex)

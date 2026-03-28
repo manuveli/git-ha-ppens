@@ -694,6 +694,16 @@ class GitManager:
 
         return False
 
+    async def apply_gitignore(self) -> None:
+        """Remove tracked files that are now covered by .gitignore.
+
+        Runs 'git rm -r --cached .' followed by 'git add -A'
+        to re-apply .gitignore rules to the index.
+        """
+        await self._run_git("rm", "-r", "--cached", ".", check=False)
+        await self._run_git("add", "-A")
+        _LOGGER.info("Re-applied .gitignore rules to tracked files")
+
     async def scan_for_secrets(self) -> list[dict[str, str]]:
         """Scan staged files for potential secrets."""
         findings: list[dict[str, str]] = []
