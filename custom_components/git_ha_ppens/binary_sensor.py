@@ -50,6 +50,7 @@ class GitHaPpensDirtySensor(
             "model": "Git Version Control",
             "sw_version": "0.2.5",
             "entry_type": "service",
+            "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }
 
     @property
