@@ -48,7 +48,7 @@ class GitHaPpensDirtySensor(
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.1.0",
+            "sw_version": "0.2.5",
             "entry_type": "service",
         }
 
