@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
+from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
 
 from .const import (
     AUTH_NONE,
@@ -28,6 +30,8 @@ from .const import (
     CONF_COMMIT_INTERVAL,
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
+    CONF_GITIGNORE_CONTENT,
+    CONF_GITIGNORE_CUSTOM,
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
@@ -197,7 +201,16 @@ class GitHaPpensOptionsFlow(OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options."""
+        """Show menu with options categories."""
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["general", "gitignore"],
+        )
+
+    async def async_step_general(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage general options."""
         if user_input is not None:
             # Merge options with existing data
             new_data = {**self._config_entry.data, **user_input}
@@ -209,7 +222,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         current = self._config_entry.data
 
         return self.async_show_form(
-            step_id="init",
+            step_id="general",
             data_schema=vol.Schema(
                 {
                     vol.Required(
@@ -269,3 +282,70 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                 }
             ),
         )
+
+    async def async_step_gitignore(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage .gitignore entries."""
+        if user_input is not None:
+            gitignore_content = user_input[CONF_GITIGNORE_CONTENT]
+            # Normalize line endings
+            gitignore_content = gitignore_content.replace("\r\n", "\n")
+
+            # Store custom flag in config entry data
+            new_data = {
+                **self._config_entry.data,
+                CONF_GITIGNORE_CUSTOM: True,
+            }
+            self.hass.config_entries.async_update_entry(
+                self._config_entry, data=new_data
+            )
+
+            # Write .gitignore to disk
+            repo_path = self._config_entry.data[CONF_REPO_PATH]
+            await asyncio.to_thread(self._write_gitignore, repo_path, gitignore_content)
+
+            # Apply gitignore rules to git index
+            entry_data = self.hass.data.get(DOMAIN, {}).get(
+                self._config_entry.entry_id, {}
+            )
+            git_manager = entry_data.get("git_manager")
+            if git_manager:
+                try:
+                    await git_manager.apply_gitignore()
+                except Exception:
+                    _LOGGER.warning("Failed to apply .gitignore changes to git index")
+
+            return self.async_create_entry(title="", data={})
+
+        # Read current .gitignore content from disk
+        repo_path = self._config_entry.data[CONF_REPO_PATH]
+        current_content = await asyncio.to_thread(self._read_gitignore, repo_path)
+
+        return self.async_show_form(
+            step_id="gitignore",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_GITIGNORE_CONTENT,
+                        default=current_content,
+                    ): TextSelector(TextSelectorConfig(multiline=True)),
+                }
+            ),
+        )
+
+    @staticmethod
+    def _read_gitignore(repo_path: str) -> str:
+        """Read .gitignore content from disk."""
+        gitignore_path = Path(repo_path) / ".gitignore"
+        if gitignore_path.exists():
+            return gitignore_path.read_text(encoding="utf-8")
+        return ""
+
+    @staticmethod
+    def _write_gitignore(repo_path: str, content: str) -> None:
+        """Write .gitignore content to disk."""
+        gitignore_path = Path(repo_path) / ".gitignore"
+        if content and not content.endswith("\n"):
+            content += "\n"
+        gitignore_path.write_text(content, encoding="utf-8")

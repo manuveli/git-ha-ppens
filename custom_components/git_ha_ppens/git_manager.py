@@ -650,12 +650,16 @@ class GitManager:
         except GitError:
             return ""
 
-    async def setup_gitignore(self) -> bool:
+    async def setup_gitignore(self, skip_defaults: bool = False) -> bool:
         """Create or update .gitignore with security defaults."""
-        return await asyncio.to_thread(self._setup_gitignore_sync)
+        return await asyncio.to_thread(self._setup_gitignore_sync, skip_defaults)
 
-    def _setup_gitignore_sync(self) -> bool:
+    def _setup_gitignore_sync(self, skip_defaults: bool = False) -> bool:
         """Synchronous implementation of setup_gitignore."""
+        if skip_defaults:
+            # User manages .gitignore via UI; don't append defaults
+            return False
+
         gitignore_path = Path(self._repo_path) / ".gitignore"
         existing_entries: set[str] = set()
         modified = False
