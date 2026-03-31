@@ -267,7 +267,7 @@ The integration automatically creates or updates `.gitignore` with sensible defa
 
 | Category | Entries |
 |----------|---------|
-| **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
+| **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.ssh/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
 | **Databases & logs** | `*.db`, `*.db-shm`, `*.db-wal`, `*.log`, `home-assistant_v2.db`, `home-assistant.log*`, `zigbee.db`, `OZW_Log.txt` |
 | **System files** | `.HA_VERSION`, `known_devices.yaml`, `ip_bans.yaml` |
 | **Python cache** | `__pycache__/`, `*.pyc`, `*.pyo` |
@@ -307,7 +307,7 @@ Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set
 <summary><strong>❌ Auto-commit not triggering</strong></summary>
 
 - Verify `auto_commit` is enabled in the integration options
-- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `__pycache__`, `*.db`, `*.log`, etc.)
+- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `.ssh`, `__pycache__`, `*.db`, `*.log`, etc.)
 - Review HA logs for file watcher errors
 </details>
 
