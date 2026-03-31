@@ -65,6 +65,13 @@
     "step": {
       "init": {
         "title": "git-ha-ppens Options",
+        "menu_options": {
+          "general": "General Settings",
+          "gitignore": "Edit .gitignore"
+        }
+      },
+      "general": {
+        "title": "General Settings",
         "description": "Adjust your git-ha-ppens settings.",
         "data": {
           "git_user": "Git user name",
@@ -78,6 +85,16 @@
           "auth_method": "Authentication method",
           "auth_token": "Personal access token",
           "ssh_key_path": "SSH private key path"
+        }
+      },
+      "gitignore": {
+        "title": "Edit .gitignore",
+        "description": "Edit the .gitignore file contents. One pattern per line. Changes are applied immediately.",
+        "data": {
+          "gitignore_content": ".gitignore entries"
+        },
+        "data_description": {
+          "gitignore_content": "Full contents of the .gitignore file. Standard gitignore syntax: one pattern per line, lines starting with # are comments."
         }
       }
     }
