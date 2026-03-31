@@ -20,6 +20,8 @@ CONF_AUTH_METHOD: Final = "auth_method"
 CONF_AUTH_TOKEN: Final = "auth_token"
 CONF_SSH_KEY_PATH: Final = "ssh_key_path"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
+CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
+CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
 
 # Authentication methods
 AUTH_NONE: Final = "none"
