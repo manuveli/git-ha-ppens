@@ -122,7 +122,7 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `auto_commit` | Automatically commit when files change | `false` |
+| `auto_commit` | Automatically commit when files change | `true` |
 | `auto_push` | Push to remote after each auto-commit | `true` |
 | `auto_pull` | Pull new commits from remote automatically | `false` |
 | `commit_interval` | Debounce interval in seconds (30–86400) | `300` |
@@ -267,12 +267,13 @@ The integration automatically creates or updates `.gitignore` with sensible defa
 
 | Category | Entries |
 |----------|---------|
-| **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
+| **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.ssh/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
 | **Databases & logs** | `*.db`, `*.db-shm`, `*.db-wal`, `*.log`, `home-assistant_v2.db`, `home-assistant.log*`, `zigbee.db`, `OZW_Log.txt` |
 | **System files** | `.HA_VERSION`, `known_devices.yaml`, `ip_bans.yaml` |
 | **Python cache** | `__pycache__/`, `*.pyc`, `*.pyo` |
 | **Runtime & other** | `.git/`, `deps/`, `tts/`, `.venv/`, `.cache/`, `.claude/`, `custom_components/`, `www/snapshots/`, `.ha_run.lock`, `.exports`, `.timeline`, `.vacuum` |
 | **Zigbee2MQTT** | `zigbee2mqtt/state.json`, `zigbee2mqtt/coordinator_backup.json` |
+| **Editor swap files** | `*.swp`, `*.swo` |
 
 > 📌 Existing `.gitignore` entries are preserved — only missing defaults are appended.
 
@@ -306,7 +307,7 @@ Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set
 <summary><strong>❌ Auto-commit not triggering</strong></summary>
 
 - Verify `auto_commit` is enabled in the integration options
-- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `__pycache__`, `*.db`, `*.log`, etc.)
+- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `.ssh`, `__pycache__`, `*.db`, `*.log`, etc.)
 - Review HA logs for file watcher errors
 </details>
 
