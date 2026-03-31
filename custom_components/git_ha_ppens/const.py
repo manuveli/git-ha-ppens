@@ -66,6 +66,7 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     ".storage/",
     ".cloud/",
     "tls/",
+    ".ssh/",
     "",
     "# Database and logs",
     "*.db",
@@ -130,6 +131,7 @@ SECRET_PATTERNS: Final = [
 WATCHER_IGNORE_PATTERNS: Final = [
     ".git",
     ".storage",
+    ".ssh",
     "__pycache__",
     "*.pyc",
     "*.pyo",
