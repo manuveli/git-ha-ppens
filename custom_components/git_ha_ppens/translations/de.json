@@ -2,28 +2,28 @@
   "config": {
     "step": {
       "user": {
-        "title": "Repository Einstellungen",
-        "description": "Konfiguriere das Git-Repository für deine Home-Assistant Konfiguration.",
+        "title": "Repository-Einstellungen",
+        "description": "Konfiguriere das Git-Repository für deine Home-Assistant-Konfiguration.",
         "data": {
           "repo_path": "Konfigurationspfad",
-          "git_user": "Git Benutzername",
-          "git_email": "Git E-Mail"
+          "git_user": "Git-Benutzername",
+          "git_email": "Git-E-Mail"
         },
         "data_description": {
-          "repo_path": "Pfad zum HomeAssistant Konfigurationsverzeichnis. Normalerweise /config.",
+          "repo_path": "Pfad zum Home-Assistant-Konfigurationsverzeichnis. Normalerweise /config.",
           "git_user": "Der Name, der als Commit-Autor angezeigt wird.",
           "git_email": "Die E-Mail, die als Commit-Autor angezeigt wird."
         }
       },
       "commit_settings": {
-        "title": "Auto-Commit Einstellungen",
-        "description": "Konfiguriere das automatische Commit Verhalten.",
+        "title": "Auto-Commit-Einstellungen",
+        "description": "Konfiguriere das automatische Commit-Verhalten.",
         "data": {
           "auto_commit": "Aktiviere Auto-Commit bei Dateiänderung",
           "auto_push": "Aktiviere Auto-Push nach jedem Commit",
           "auto_pull": "Aktiviere Auto-Pull vom Remote-Repository",
-          "commit_interval": "Auto-Commit Verzögerungsintervall (Sekunden)",
-          "scan_interval": "Status Abfrageintervall (Sekunden)"
+          "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
+          "scan_interval": "Status-Abfrageintervall (Sekunden)"
         },
         "data_description": {
           "auto_commit": "Committet automatisch, wenn sich Konfigurationsdateien ändern.",
@@ -64,7 +64,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "git-ha-ppens Einstellungen",
+        "title": "git-ha-ppens-Einstellungen",
         "menu_options": {
           "general": "Allgemeine Einstellungen",
           "gitignore": ".gitignore bearbeiten"
@@ -74,13 +74,13 @@
         "title": "Allgemeine Einstellungen",
         "description": "Passe deine git-ha-ppens-Einstellungen an.",
         "data": {
-          "git_user": "Git Benutzername",
-          "git_email": "Git E-Mail",
+          "git_user": "Git-Benutzername",
+          "git_email": "Git-E-Mail",
           "auto_commit": "Aktiviere Auto-Commit bei Dateiänderung",
           "auto_push": "Aktiviere Auto-Push nach jedem Commit",
           "auto_pull": "Aktiviere Auto-Pull vom Remote-Repository",
-          "commit_interval": "Auto-Commit Verzögerungsintervall (Sekunden)",
-          "scan_interval": "Status Abfrageintervall (Sekunden)",
+          "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
+          "scan_interval": "Status-Abfrageintervall (Sekunden)",
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
