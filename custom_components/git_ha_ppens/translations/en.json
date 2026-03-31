@@ -85,6 +85,19 @@
           "auth_method": "Authentication method",
           "auth_token": "Personal access token",
           "ssh_key_path": "SSH private key path"
+        },
+        "data_description": {
+          "git_user": "The name that will appear as the commit author.",
+          "git_email": "The email that will appear as the commit author.",
+          "auto_commit": "Automatically commit when configuration files change.",
+          "auto_push": "Automatically push to the remote repository after each auto-commit. Requires a configured remote.",
+          "auto_pull": "Automatically pull new commits from the remote repository when detected. Requires a configured remote.",
+          "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
+          "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
+          "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
+          "auth_method": "How to authenticate with the remote.",
+          "auth_token": "Personal access token for HTTPS authentication.",
+          "ssh_key_path": "Path to the SSH private key file (e.g., /config/.ssh/id_ed25519)."
         }
       },
       "gitignore": {
