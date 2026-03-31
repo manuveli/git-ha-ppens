@@ -1,0 +1,126 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Repository-Einstellungen",
+        "description": "Konfiguriere das Git-Repository für deine Home Assistant Konfiguration.",
+        "data": {
+          "repo_path": "Pfad zum Konfigurationsverzeichnis",
+          "git_user": "Git-Benutzername (für Commits)",
+          "git_email": "Git-E-Mail (für Commits)"
+        },
+        "data_description": {
+          "repo_path": "Pfad zum Home Assistant Konfigurationsverzeichnis. Normalerweise /config.",
+          "git_user": "Der Name, der als Commit-Autor erscheint.",
+          "git_email": "Die E-Mail-Adresse, die als Commit-Autor erscheint."
+        }
+      },
+      "commit_settings": {
+        "title": "Auto-Commit-Einstellungen",
+        "description": "Automatisches Commit-Verhalten konfigurieren.",
+        "data": {
+          "auto_commit": "Auto-Commit bei Dateiänderungen aktivieren",
+          "auto_push": "Auto-Push nach jedem Commit aktivieren",
+          "auto_pull": "Auto-Pull vom Remote aktivieren",
+          "commit_interval": "Auto-Commit Verzögerungsintervall (Sekunden)",
+          "scan_interval": "Status-Abfrageintervall (Sekunden)"
+        },
+        "data_description": {
+          "auto_commit": "Automatisch committen, wenn sich Konfigurationsdateien ändern.",
+          "auto_push": "Nach jedem Auto-Commit automatisch in das Remote-Repository pushen. Erfordert ein konfiguriertes Remote.",
+          "auto_pull": "Neue Commits automatisch vom Remote-Repository pullen, wenn erkannt. Erfordert ein konfiguriertes Remote.",
+          "commit_interval": "Diese Anzahl von Sekunden nach der letzten Änderung warten, bevor automatisch committet wird. Minimum 30, Maximum 86400 (24h).",
+          "scan_interval": "Wie oft der Git-Status für Sensor-Updates abgefragt wird. Minimum 10, Maximum 3600."
+        }
+      },
+      "remote": {
+        "title": "Remote-Repository (Optional)",
+        "description": "Ein Remote-Repository für Push/Pull konfigurieren. URL leer lassen, um zu überspringen.",
+        "data": {
+          "remote_url": "Remote-URL",
+          "auth_method": "Authentifizierungsmethode",
+          "auth_token": "Persönlicher Zugriffstoken",
+          "ssh_key_path": "SSH-Privatschlüsselpfad"
+        },
+        "data_description": {
+          "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
+          "auth_method": "Authentifizierungsmethode für das Remote.",
+          "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
+          "ssh_key_path": "Pfad zur SSH-Privatschlüsseldatei (z.B. /config/.ssh/id_ed25519)."
+        }
+      }
+    },
+    "error": {
+      "path_not_found": "Der angegebene Pfad existiert nicht.",
+      "git_not_installed": "Git ist nicht installiert oder nicht im PATH gefunden.",
+      "invalid_remote_url": "Ungültige Remote-URL. Muss mit https://, git@ oder ssh:// beginnen.",
+      "token_required": "Für die Token-Authentifizierung ist ein persönlicher Zugriffstoken erforderlich.",
+      "ssh_key_not_found": "Die angegebene SSH-Schlüsseldatei existiert nicht."
+    },
+    "abort": {
+      "already_configured": "Dieser Konfigurationspfad ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "git-ha-ppens Einstellungen",
+        "menu_options": {
+          "general": "Allgemeine Einstellungen",
+          "gitignore": ".gitignore bearbeiten"
+        }
+      },
+      "general": {
+        "title": "Allgemeine Einstellungen",
+        "description": "git-ha-ppens Einstellungen anpassen.",
+        "data": {
+          "git_user": "Git-Benutzername",
+          "git_email": "Git-E-Mail",
+          "auto_commit": "Auto-Commit aktivieren",
+          "auto_push": "Auto-Push nach jedem Commit aktivieren",
+          "auto_pull": "Auto-Pull vom Remote aktivieren",
+          "commit_interval": "Auto-Commit Verzögerungsintervall (Sekunden)",
+          "scan_interval": "Status-Abfrageintervall (Sekunden)",
+          "remote_url": "Remote-URL",
+          "auth_method": "Authentifizierungsmethode",
+          "auth_token": "Persönlicher Zugriffstoken",
+          "ssh_key_path": "SSH-Privatschlüsselpfad"
+        }
+      },
+      "gitignore": {
+        "title": ".gitignore bearbeiten",
+        "description": ".gitignore Dateiinhalt bearbeiten. Ein Muster pro Zeile. Änderungen werden sofort übernommen.",
+        "data": {
+          "gitignore_content": ".gitignore Einträge"
+        },
+        "data_description": {
+          "gitignore_content": "Vollständiger Inhalt der .gitignore-Datei. Standard-Gitignore-Syntax: ein Muster pro Zeile, Zeilen die mit # beginnen sind Kommentare."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_commit": {
+        "name": "Letzter Commit"
+      },
+      "last_commit_time": {
+        "name": "Zeitpunkt letzter Commit"
+      },
+      "uncommitted_changes": {
+        "name": "Nicht committete Änderungen"
+      },
+      "branch": {
+        "name": "Branch"
+      },
+      "remote_status": {
+        "name": "Remote-Status"
+      }
+    },
+    "binary_sensor": {
+      "dirty": {
+        "name": "Nicht committete Änderungen"
+      }
+    }
+  }
+}
