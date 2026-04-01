@@ -12,6 +12,7 @@ from watchdog.observers import Observer
 
 from homeassistant.core import HomeAssistant
 
+from .ai_commit import async_generate_ai_commit_message
 from .const import EVENT_COMMIT, EVENT_ERROR, EVENT_PUSH, WATCHER_IGNORE_PATTERNS
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitError, GitManager
@@ -119,6 +120,8 @@ class GitFileWatcher:
         auto_push: bool = False,
         remote_configured: bool = False,
         git_lock: asyncio.Lock | None = None,
+        ai_commit_enabled: bool = False,
+        ai_agent_id: str = "",
     ) -> None:
         """Initialize the file watcher."""
         self._hass = hass
@@ -129,6 +132,8 @@ class GitFileWatcher:
         self._auto_push = auto_push
         self._remote_configured = remote_configured
         self._git_lock = git_lock
+        self._ai_commit_enabled = ai_commit_enabled
+        self._ai_agent_id = ai_agent_id
         self._observer: Observer | None = None
         self._change_collector: _ChangeCollector | None = None
         self._debounce_handle: asyncio.TimerHandle | None = None
@@ -222,7 +227,21 @@ class GitFileWatcher:
     async def _do_commit_and_push(self) -> None:
         """Execute the actual commit and push sequence."""
         try:
-            commit_info = await self._git_manager.commit()
+            message = None
+            if self._ai_commit_enabled:
+                try:
+                    diff = await self._git_manager.get_diff()
+                    porcelain = await self._git_manager._run_git(
+                        "status", "--porcelain", check=False
+                    )
+                    if diff or porcelain:
+                        message = await async_generate_ai_commit_message(
+                            self._hass, diff, porcelain, self._ai_agent_id
+                        )
+                except GitError:
+                    pass
+
+            commit_info = await self._git_manager.commit(message)
             if commit_info:
                 self._hass.bus.async_fire(
                     EVENT_COMMIT,
