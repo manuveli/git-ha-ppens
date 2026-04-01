@@ -20,6 +20,8 @@ CONF_AUTH_METHOD: Final = "auth_method"
 CONF_AUTH_TOKEN: Final = "auth_token"
 CONF_SSH_KEY_PATH: Final = "ssh_key_path"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
+CONF_AI_COMMIT_MESSAGES: Final = "ai_commit_messages"
+CONF_AI_AGENT_ID: Final = "ai_agent_id"
 CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
 CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
 
@@ -33,6 +35,7 @@ DEFAULT_REPO_PATH: Final = "/config"
 DEFAULT_COMMIT_INTERVAL: Final = 300  # seconds (5 minutes)
 DEFAULT_SCAN_INTERVAL: Final = 30  # seconds
 DEFAULT_BRANCH: Final = "main"
+DEFAULT_AI_DIFF_MAX_CHARS: Final = 4000
 
 # Events
 EVENT_COMMIT: Final = f"{DOMAIN}_commit"
@@ -56,6 +59,7 @@ SERVICE_COMMIT: Final = "commit"
 SERVICE_PUSH: Final = "push"
 SERVICE_PULL: Final = "pull"
 SERVICE_SYNC: Final = "sync"
+SERVICE_DIFF: Final = "diff"
 
 # Service parameters
 ATTR_MESSAGE: Final = "message"

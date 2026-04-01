@@ -140,7 +140,7 @@ class GitHaPpensSensor(
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.3.1",
+            "sw_version": "0.4.0",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }

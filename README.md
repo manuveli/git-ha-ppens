@@ -27,6 +27,7 @@
 - [✨ Features](#-features)
 - [📥 Installation](#-installation)
 - [⚙️ Configuration](#️-configuration)
+- [🤖 AI Commit-Messages](#-ai-commit-messages)
 - [🚀 Services](#-services)
 - [📊 Sensors & Entities](#-sensors--entities)
 - [⚡ Events](#-events)
@@ -138,6 +139,35 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | `ssh_key_path` | Path to SSH private key file | *(empty)* |
 
 > 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**.
+
+---
+
+## 🤖 AI Commit-Messages
+
+By default, **git-ha-ppens** generates simple commit messages listing the changed files — for example `Auto: config.yaml changed` or `Auto: 3 files changed`. This works great out of the box and **does not require any AI setup**.
+
+If you want more descriptive, context-aware commit messages, you can optionally enable **AI-generated commit messages**. The integration uses Home Assistant's built-in [Conversation](https://www.home-assistant.io/integrations/conversation/) service to analyze the git diff and generate a meaningful commit message — powered by whichever AI agent you have configured in HA (OpenAI, Google Generative AI, Ollama, etc.).
+
+### ✅ Enabling AI Commit-Messages
+
+AI commit messages can be enabled during the initial setup (Step 2: Auto-Commit Settings) or at any time later via **Settings → Devices & Services → git-ha-ppens → Configure**.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `ai_commit_messages` | Enable AI-generated commit messages | `false` |
+| `ai_agent_id` | Entity ID of the conversation agent to use (e.g. `conversation.chatgpt`) | *(empty)* |
+
+> 💡 **Tip:** Leave `ai_agent_id` empty to use Home Assistant's default conversation agent. If you have multiple AI agents configured, you can specify exactly which one should generate your commit messages.
+
+### 🛡️ Fallback Behavior
+
+AI commit messages are designed to **never interfere** with normal operation:
+
+- 🔒 If AI is **disabled** (default), the integration works exactly as before — no AI code is executed at all
+- ⚠️ If AI is **enabled** but the conversation agent is **unavailable** or returns an error, the integration silently falls back to the standard auto-generated message
+- ✅ **Commits are never blocked** by AI failures — your configuration changes are always saved regardless of AI availability
+
+> 📌 **No AI? No problem.** The integration is fully functional without any AI agent configured. The AI feature is a purely optional enhancement.
 
 ---
 
