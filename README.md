@@ -123,7 +123,7 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `auto_commit` | Automatically commit when files change | `false` |
+| `auto_commit` | Automatically commit when files change | `true` |
 | `auto_push` | Push to remote after each auto-commit | `true` |
 | `auto_pull` | Pull new commits from remote automatically | `false` |
 | `commit_interval` | Debounce interval in seconds (30–86400) | `300` |
@@ -297,12 +297,13 @@ The integration automatically creates or updates `.gitignore` with sensible defa
 
 | Category | Entries |
 |----------|---------|
-| **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
+| **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.ssh/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
 | **Databases & logs** | `*.db`, `*.db-shm`, `*.db-wal`, `*.log`, `home-assistant_v2.db`, `home-assistant.log*`, `zigbee.db`, `OZW_Log.txt` |
 | **System files** | `.HA_VERSION`, `known_devices.yaml`, `ip_bans.yaml` |
 | **Python cache** | `__pycache__/`, `*.pyc`, `*.pyo` |
 | **Runtime & other** | `.git/`, `deps/`, `tts/`, `.venv/`, `.cache/`, `.claude/`, `custom_components/`, `www/snapshots/`, `.ha_run.lock`, `.exports`, `.timeline`, `.vacuum` |
 | **Zigbee2MQTT** | `zigbee2mqtt/state.json`, `zigbee2mqtt/coordinator_backup.json` |
+| **Editor swap files** | `*.swp`, `*.swo` |
 
 > 📌 Existing `.gitignore` entries are preserved — only missing defaults are appended.
 
@@ -336,7 +337,7 @@ Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set
 <summary><strong>❌ Auto-commit not triggering</strong></summary>
 
 - Verify `auto_commit` is enabled in the integration options
-- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `__pycache__`, `*.db`, `*.log`, etc.)
+- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `.ssh`, `__pycache__`, `*.db`, `*.log`, etc.)
 - Review HA logs for file watcher errors
 </details>
 
@@ -363,6 +364,18 @@ Contributions are welcome! Whether it's bug reports, feature requests, or pull r
 2. Symlink or copy `custom_components/git_ha_ppens` into your HA dev instance's `custom_components/` directory
 3. Restart Home Assistant
 4. Follow Home Assistant's coding conventions (`ruff`, `mypy`)
+
+---
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=manuveli%2Fgit-ha-ppens&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ---
 

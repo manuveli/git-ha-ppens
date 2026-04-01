@@ -27,6 +27,7 @@ from .const import (
     CONF_COMMIT_INTERVAL,
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
+    CONF_GITIGNORE_CUSTOM,
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
@@ -85,9 +86,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Setup .gitignore
     try:
-        gitignore_updated = await git_manager.setup_gitignore()
+        skip_defaults = data.get(CONF_GITIGNORE_CUSTOM, False)
+        gitignore_updated = await git_manager.setup_gitignore(skip_defaults=skip_defaults)
         if gitignore_updated:
             _LOGGER.info("Updated .gitignore with security defaults")
+            # Untrack files now covered by .gitignore (only for existing repos)
+            if await git_manager.has_commits():
+                await git_manager.apply_gitignore()
     except GitError as err:
         _LOGGER.warning("Failed to update .gitignore: %s", err)
 

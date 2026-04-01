@@ -22,6 +22,8 @@ CONF_SSH_KEY_PATH: Final = "ssh_key_path"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_AI_COMMIT_MESSAGES: Final = "ai_commit_messages"
 CONF_AI_AGENT_ID: Final = "ai_agent_id"
+CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
+CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
 
 # Authentication methods
 AUTH_NONE: Final = "none"
@@ -70,6 +72,7 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     ".storage/",
     ".cloud/",
     "tls/",
+    ".ssh/",
     "",
     "# Database and logs",
     "*.db",
@@ -112,6 +115,10 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     ".exports",
     ".timeline",
     ".vacuum",
+    "",
+    "# Editor swap files",
+    "*.swp",
+    "*.swo",
 ]
 
 # Secret detection patterns (regex)
@@ -130,6 +137,7 @@ SECRET_PATTERNS: Final = [
 WATCHER_IGNORE_PATTERNS: Final = [
     ".git",
     ".storage",
+    ".ssh",
     "__pycache__",
     "*.pyc",
     "*.pyo",

@@ -650,12 +650,16 @@ class GitManager:
         except GitError:
             return ""
 
-    async def setup_gitignore(self) -> bool:
+    async def setup_gitignore(self, skip_defaults: bool = False) -> bool:
         """Create or update .gitignore with security defaults."""
-        return await asyncio.to_thread(self._setup_gitignore_sync)
+        return await asyncio.to_thread(self._setup_gitignore_sync, skip_defaults)
 
-    def _setup_gitignore_sync(self) -> bool:
+    def _setup_gitignore_sync(self, skip_defaults: bool = False) -> bool:
         """Synchronous implementation of setup_gitignore."""
+        if skip_defaults:
+            # User manages .gitignore via UI; don't append defaults
+            return False
+
         gitignore_path = Path(self._repo_path) / ".gitignore"
         existing_entries: set[str] = set()
         modified = False
@@ -693,6 +697,16 @@ class GitManager:
             return True
 
         return False
+
+    async def apply_gitignore(self) -> None:
+        """Remove tracked files that are now covered by .gitignore.
+
+        Runs 'git rm -r --cached .' followed by 'git add -A'
+        to re-apply .gitignore rules to the index.
+        """
+        await self._run_git("rm", "-r", "--cached", ".", check=False)
+        await self._run_git("add", "-A")
+        _LOGGER.info("Re-applied .gitignore rules to tracked files")
 
     async def scan_for_secrets(self) -> list[dict[str, str]]:
         """Scan staged files for potential secrets."""
