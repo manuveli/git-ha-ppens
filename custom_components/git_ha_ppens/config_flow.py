@@ -20,6 +20,8 @@ from .const import (
     AUTH_NONE,
     AUTH_SSH,
     AUTH_TOKEN,
+    CONF_AI_AGENT_ID,
+    CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
     CONF_AUTO_COMMIT,
@@ -109,6 +111,12 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_SCAN_INTERVAL,
                         default=DEFAULT_SCAN_INTERVAL,
                     ): vol.All(int, vol.Range(min=10, max=3600)),
+                    vol.Required(
+                        CONF_AI_COMMIT_MESSAGES, default=False
+                    ): bool,
+                    vol.Optional(
+                        CONF_AI_AGENT_ID, default=""
+                    ): str,
                 }
             ),
         )
@@ -265,6 +273,14 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                     vol.Optional(
                         CONF_SSH_KEY_PATH,
                         default=current.get(CONF_SSH_KEY_PATH, ""),
+                    ): str,
+                    vol.Required(
+                        CONF_AI_COMMIT_MESSAGES,
+                        default=current.get(CONF_AI_COMMIT_MESSAGES, False),
+                    ): bool,
+                    vol.Optional(
+                        CONF_AI_AGENT_ID,
+                        default=current.get(CONF_AI_AGENT_ID, ""),
                     ): str,
                 }
             ),
