@@ -12,10 +12,13 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.helpers.event import async_track_time_interval
 
+from .ai_commit import async_generate_ai_commit_message
 from .const import (
     ATTR_MESSAGE,
     AUTH_SSH,
     AUTH_TOKEN,
+    CONF_AI_AGENT_ID,
+    CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
     CONF_AUTO_COMMIT,
@@ -37,6 +40,7 @@ from .const import (
     EVENT_PUSH,
     EVENT_SECRET_DETECTED,
     SERVICE_COMMIT,
+    SERVICE_DIFF,
     SERVICE_PULL,
     SERVICE_PUSH,
     SERVICE_SYNC,
@@ -186,6 +190,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if data.get(CONF_AUTO_COMMIT, False):
         commit_interval = data.get(CONF_COMMIT_INTERVAL, 300)
         auto_push = data.get(CONF_AUTO_PUSH, True)
+        ai_commit_enabled = data.get(CONF_AI_COMMIT_MESSAGES, False)
+        ai_agent_id = data.get(CONF_AI_AGENT_ID, "") if ai_commit_enabled else ""
         file_watcher = GitFileWatcher(
             hass,
             git_manager,
@@ -195,6 +201,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             auto_push=auto_push,
             remote_configured=bool(remote_url),
             git_lock=coordinator.git_lock,
+            ai_commit_enabled=ai_commit_enabled,
+            ai_agent_id=ai_agent_id,
         )
         await file_watcher.async_start()
         _LOGGER.info(
@@ -276,7 +284,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Remove services if no more entries
         if not hass.data[DOMAIN]:
-            for service in (SERVICE_COMMIT, SERVICE_PUSH, SERVICE_PULL, SERVICE_SYNC):
+            for service in (SERVICE_COMMIT, SERVICE_PUSH, SERVICE_PULL, SERVICE_SYNC, SERVICE_DIFF):
                 hass.services.async_remove(DOMAIN, service)
 
     return unload_ok
@@ -299,6 +307,23 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             message = call.data.get(ATTR_MESSAGE)
+
+            if not message and entry.data.get(CONF_AI_COMMIT_MESSAGES, False):
+                try:
+                    diff = await git_manager.get_diff()
+                    porcelain = await git_manager._run_git(
+                        "status", "--porcelain", check=False
+                    )
+                    if diff or porcelain:
+                        message = await async_generate_ai_commit_message(
+                            hass,
+                            diff,
+                            porcelain,
+                            entry.data.get(CONF_AI_AGENT_ID, ""),
+                        )
+                except GitError:
+                    pass
+
             commit_info = await git_manager.commit(message)
 
             if commit_info:
@@ -368,6 +393,22 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             message = call.data.get(ATTR_MESSAGE)
 
+            if not message and entry.data.get(CONF_AI_COMMIT_MESSAGES, False):
+                try:
+                    diff = await git_manager.get_diff()
+                    porcelain = await git_manager._run_git(
+                        "status", "--porcelain", check=False
+                    )
+                    if diff or porcelain:
+                        message = await async_generate_ai_commit_message(
+                            hass,
+                            diff,
+                            porcelain,
+                            entry.data.get(CONF_AI_AGENT_ID, ""),
+                        )
+                except GitError:
+                    pass
+
             # Commit first
             commit_info = await git_manager.commit(message)
             if commit_info:
@@ -398,6 +439,22 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 EVENT_ERROR, {"operation": "sync", "error": str(err)}
             )
 
+    async def async_handle_diff(call: ServiceCall) -> dict:
+        """Handle the diff service call."""
+        try:
+            git_manager, coordinator = _get_manager_and_coordinator(call)
+            diff = await git_manager.get_diff()
+            porcelain = await git_manager._run_git(
+                "status", "--porcelain", check=False
+            )
+            return {
+                "diff": diff or "",
+                "summary": porcelain or "",
+            }
+        except GitError as err:
+            _LOGGER.error("Diff failed: %s", err)
+            return {"diff": "", "summary": "", "error": str(err)}
+
     # Only register services once
     if not hass.services.has_service(DOMAIN, SERVICE_COMMIT):
         hass.services.async_register(
@@ -411,4 +468,10 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         )
         hass.services.async_register(
             DOMAIN, SERVICE_SYNC, async_handle_sync, schema=SERVICE_COMMIT_SCHEMA
+        )
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_DIFF,
+            async_handle_diff,
+            supports_response=SupportsResponse.ONLY,
         )

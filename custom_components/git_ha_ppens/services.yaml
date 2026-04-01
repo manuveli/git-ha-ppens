@@ -29,3 +29,7 @@ sync:
       example: "Weekly config sync"
       selector:
         text:
+
+diff:
+  name: Diff
+  description: Get the current git diff of uncommitted changes. Returns response data with the diff content and a status summary.
