@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/manuveli/git-ha-ppens/main/custom_components/git_ha_ppens/brand/logo.png" alt="git-ha-ppens logo" width="200">
+  <img src="img/logo@2x.png" alt="git-ha-ppens logo" width="200">
 </p>
 
 <h1 align="center">git-ha-ppens</h1>
