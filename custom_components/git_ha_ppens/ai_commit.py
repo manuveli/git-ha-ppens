@@ -18,13 +18,7 @@ AI_COMMIT_PROMPT = (
     "commit message (one line, max 72 characters).\n"
     "Use conventional commit style (e.g. feat:, fix:, chore:, refactor:).\n"
     "Focus on WHAT changed and WHY, not raw file names.\n"
-    "Do NOT include any explanation — output ONLY the commit message line.\n"
-    "\n"
-    "Changed files (git status):\n"
-    "{porcelain}\n"
-    "\n"
-    "Git diff:\n"
-    "{diff}"
+    "Do NOT include any explanation — output ONLY the commit message line."
 )
 
 
@@ -47,9 +41,12 @@ async def async_generate_ai_commit_message(
     if len(diff) > DEFAULT_AI_DIFF_MAX_CHARS:
         truncated_diff += "\n\n[...diff truncated...]"
 
-    prompt = AI_COMMIT_PROMPT.format(
-        porcelain=porcelain or "(no status output)",
-        diff=truncated_diff or "(no diff — only new/deleted files)",
+    prompt = (
+        AI_COMMIT_PROMPT
+        + "\n\nChanged files (git status):\n"
+        + (porcelain or "(no status output)")
+        + "\n\nGit diff:\n"
+        + (truncated_diff or "(no diff — only new/deleted files)")
     )
 
     service_data: dict = {"text": prompt}
@@ -75,6 +72,14 @@ async def async_generate_ai_commit_message(
         if len(message) > 200:
             message = message[:200]
         if not message:
+            return None
+
+        # Detect error responses from the conversation agent
+        lower = message.lower()
+        if "sorry" in lower and ("template" in lower or "problem" in lower):
+            _LOGGER.warning(
+                "Conversation agent returned error response: %s", message
+            )
             return None
 
         _LOGGER.debug("AI generated commit message: %s", message)
