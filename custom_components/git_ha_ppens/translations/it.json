@@ -1,0 +1,145 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Impostazioni del Repository",
+        "description": "Configura il repository git per la tua configurazione di Home Assistant.",
+        "data": {
+          "repo_path": "Percorso della directory di configurazione",
+          "git_user": "Nome utente Git (per i commit)",
+          "git_email": "Email Git (per i commit)"
+        },
+        "data_description": {
+          "repo_path": "Percorso della directory di configurazione di Home Assistant. Di solito /config.",
+          "git_user": "Il nome che apparirà come autore del commit.",
+          "git_email": "L'email che apparirà come autore del commit."
+        }
+      },
+      "commit_settings": {
+        "title": "Impostazioni Auto-Commit",
+        "description": "Configura il comportamento dell'auto-commit.",
+        "data": {
+          "auto_commit": "Abilita auto-commit alla modifica dei file",
+          "auto_push": "Abilita auto-push dopo ogni commit",
+          "auto_pull": "Abilita auto-pull dal remote",
+          "commit_interval": "Intervallo di ritardo dell'auto-commit (secondi)",
+          "scan_interval": "Intervallo di aggiornamento dello stato (secondi)",
+          "ai_commit_messages": "Usa l'IA per i messaggi di commit",
+          "ai_agent_id": "Entity ID dell'agente di conversazione"
+        },
+        "data_description": {
+          "auto_commit": "Committa automaticamente quando i file di configurazione vengono modificati.",
+          "auto_push": "Pusha automaticamente verso il repository remoto dopo ogni auto-commit. Richiede un remote configurato.",
+          "auto_pull": "Pulla automaticamente i nuovi commit dal repository remoto quando vengono rilevate modifiche. Richiede un remote configurato.",
+          "commit_interval": "Tempo di attesa in secondi dopo l'ultima modifica prima di committare automaticamente. Minimo 30, massimo 86400 (24h).",
+          "scan_interval": "Frequenza di controllo dello stato git per l'aggiornamento dei sensori. Minimo 10, massimo 3600 (1h).",
+          "ai_commit_messages": "Usa un agente di conversazione IA configurato per generare messaggi di commit descrittivi dal diff git.",
+          "ai_agent_id": "L'entity ID dell'agente di conversazione da usare (es. conversation.chatgpt). Lascia vuoto per usare l'agente predefinito."
+        }
+      },
+      "remote": {
+        "title": "Repository Remoto (opzionale)",
+        "description": "Configura un repository remoto per push/pull. Lascia l'URL vuoto per saltare.",
+        "data": {
+          "remote_url": "URL remoto",
+          "auth_method": "Metodo di autenticazione",
+          "auth_token": "Token di accesso personale",
+          "ssh_key_path": "Percorso della chiave privata SSH"
+        },
+        "data_description": {
+          "remote_url": "L'URL del remote git (es. https://github.com/user/repo.git o git@github.com:user/repo.git).",
+          "auth_method": "Metodo di autenticazione per il remote.",
+          "auth_token": "Token di accesso personale per l'autenticazione HTTPS.",
+          "ssh_key_path": "Percorso del file della chiave privata SSH (es. /config/.ssh/id_ed25519)."
+        }
+      }
+    },
+    "error": {
+      "path_not_found": "Il percorso specificato non esiste.",
+      "git_not_installed": "Git non è installato o non è stato trovato nel PATH.",
+      "invalid_remote_url": "URL remoto non valido. Deve iniziare con https://, git@ o ssh://.",
+      "token_required": "Per l'autenticazione tramite token è necessario un token di accesso personale.",
+      "ssh_key_not_found": "Il file della chiave SSH specificato non esiste."
+    },
+    "abort": {
+      "already_configured": "Questo percorso di configurazione è già configurato."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni git-ha-ppens",
+        "menu_options": {
+          "general": "Impostazioni generali",
+          "gitignore": "Modifica .gitignore"
+        }
+      },
+      "general": {
+        "title": "Impostazioni generali",
+        "description": "Modifica le tue impostazioni di git-ha-ppens.",
+        "data": {
+          "git_user": "Nome utente Git",
+          "git_email": "Email Git",
+          "auto_commit": "Abilita auto-commit",
+          "auto_push": "Abilita auto-push dopo ogni commit",
+          "auto_pull": "Abilita auto-pull dal remote",
+          "commit_interval": "Intervallo di ritardo dell'auto-commit (secondi)",
+          "scan_interval": "Intervallo di aggiornamento dello stato (secondi)",
+          "remote_url": "URL remoto",
+          "auth_method": "Metodo di autenticazione",
+          "auth_token": "Token di accesso personale",
+          "ssh_key_path": "Percorso della chiave privata SSH",
+          "ai_commit_messages": "Usa l'IA per i messaggi di commit",
+          "ai_agent_id": "Entity ID dell'agente di conversazione"
+        },
+        "data_description": {
+          "git_user": "Il nome che apparirà come autore del commit.",
+          "git_email": "L'email che apparirà come autore del commit.",
+          "auto_commit": "Committa automaticamente quando i file di configurazione vengono modificati.",
+          "auto_push": "Pusha automaticamente verso il repository remoto dopo ogni auto-commit. Richiede un remote configurato.",
+          "auto_pull": "Pulla automaticamente i nuovi commit dal repository remoto quando vengono rilevate modifiche. Richiede un remote configurato.",
+          "commit_interval": "Tempo di attesa in secondi dopo l'ultima modifica prima di committare automaticamente. Minimo 30, massimo 86400 (24h).",
+          "scan_interval": "Frequenza di controllo dello stato git per l'aggiornamento dei sensori. Minimo 10, massimo 3600 (1h).",
+          "remote_url": "L'URL del remote git (es. https://github.com/user/repo.git o git@github.com:user/repo.git).",
+          "auth_method": "Metodo di autenticazione per il remote.",
+          "auth_token": "Token di accesso personale per l'autenticazione HTTPS.",
+          "ssh_key_path": "Percorso del file della chiave privata SSH (es. /config/.ssh/id_ed25519)."
+        }
+      },
+      "gitignore": {
+        "title": "Modifica .gitignore",
+        "description": "Modifica il contenuto del file .gitignore. Un pattern per riga. Le modifiche vengono applicate immediatamente.",
+        "data": {
+          "gitignore_content": "Voci .gitignore"
+        },
+        "data_description": {
+          "gitignore_content": "Contenuto completo del file .gitignore. Sintassi gitignore standard: un pattern per riga, le righe che iniziano con # sono commenti."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_commit": {
+        "name": "Ultimo Commit"
+      },
+      "last_commit_time": {
+        "name": "Ora Ultimo Commit"
+      },
+      "uncommitted_changes": {
+        "name": "Modifiche Non Committate"
+      },
+      "branch": {
+        "name": "Branch"
+      },
+      "remote_status": {
+        "name": "Stato Remoto"
+      }
+    },
+    "binary_sensor": {
+      "dirty": {
+        "name": "Modifiche Non Committate"
+      }
+    }
+  }
+}

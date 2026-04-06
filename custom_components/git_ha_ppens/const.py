@@ -119,6 +119,9 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     "# Editor swap files",
     "*.swp",
     "*.swo",
+    "",
+    "# Claude Code",
+    "CLAUDE.md",
 ]
 
 # Secret detection patterns (regex)
@@ -133,22 +136,51 @@ SECRET_PATTERNS: Final = [
     r"sk-[a-zA-Z0-9]{32,}",  # OpenAI-style keys
 ]
 
-# File patterns to ignore when watching for changes
+# File patterns to ignore when watching for changes.
+# Mirrors DEFAULT_GITIGNORE_ENTRIES: anything gitignored should also not trigger
+# the watcher (changes to ignored files are never committed anyway).
+# Format: bare name (matched against path parts or exact filename), or "*.ext".
+# Paths with "/" are not supported here — use the parent directory name instead.
 WATCHER_IGNORE_PATTERNS: Final = [
+    # Version control
     ".git",
+    # Sensitive files
+    "secrets.yaml",
     ".storage",
+    ".cloud",
     ".ssh",
-    "__pycache__",
-    "*.pyc",
-    "*.pyo",
+    "tls",
+    ".jwt_secret",
+    "SERVICE_ACCOUNT.json",
+    # Database and logs
     "*.db",
     "*.db-shm",
     "*.db-wal",
     "*.log",
-    "home-assistant_v2.db",
-    "home-assistant.log",
     "OZW_Log.txt",
+    # System / runtime files
+    ".HA_VERSION",
+    "known_devices.yaml",
+    "ip_bans.yaml",
+    ".ha_run.lock",
+    ".exports",
+    ".timeline",
+    ".vacuum",
+    # Python cache
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    # Directories
     "deps",
     "tts",
     ".venv",
+    "custom_components",
+    "snapshots",
+    ".cache",
+    ".claude",
+    # Editor swap files
+    "*.swp",
+    "*.swo",
+    # Claude Code
+    "CLAUDE.md",
 ]
