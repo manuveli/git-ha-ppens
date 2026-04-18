@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-04-18
+
+### Added
+- Added Changelog Functionality
+
 ## [0.4.3] - 2026-04-06
 
 ### Added
@@ -93,6 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.3...HEAD
+[0.4.4]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.0...v0.4.1
