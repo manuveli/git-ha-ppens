@@ -1,0 +1,145 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Repository Ayarları",
+        "description": "Home Assistant yapılandırman için git repository'sini yapılandır.",
+        "data": {
+          "repo_path": "Yapılandırma dizin yolu",
+          "git_user": "Git kullanıcı adı (commit'ler için)",
+          "git_email": "Git e-postası (commit'ler için)"
+        },
+        "data_description": {
+          "repo_path": "Home Assistant yapılandırma dizininin yolu. Genellikle /config.",
+          "git_user": "Commit yazarı olarak görünecek isim.",
+          "git_email": "Commit yazarı olarak görünecek e-posta."
+        }
+      },
+      "commit_settings": {
+        "title": "Auto-Commit Ayarları",
+        "description": "Otomatik commit davranışını yapılandır.",
+        "data": {
+          "auto_commit": "Dosya değişikliklerinde auto-commit'i etkinleştir",
+          "auto_push": "Her commit'ten sonra auto-push'u etkinleştir",
+          "auto_pull": "Remote'tan auto-pull'u etkinleştir",
+          "commit_interval": "Auto-commit bekleme süresi (saniye)",
+          "scan_interval": "Durum sorgulama aralığı (saniye)",
+          "ai_commit_messages": "Commit mesajları için yapay zeka kullan",
+          "ai_agent_id": "Conversation agent entity ID'si"
+        },
+        "data_description": {
+          "auto_commit": "Yapılandırma dosyaları değiştiğinde otomatik olarak commit atar.",
+          "auto_push": "Her auto-commit'ten sonra remote repository'ye otomatik olarak push yapar. Yapılandırılmış bir remote gerektirir.",
+          "auto_pull": "Remote repository'deki yeni commit'leri algıladığında otomatik olarak pull yapar. Yapılandırılmış bir remote gerektirir.",
+          "commit_interval": "Son değişiklikten sonra otomatik commit atmadan önce beklenecek saniye sayısı. Minimum 30, maksimum 86400 (24s).",
+          "scan_interval": "Sensör güncellemeleri için git durumunun ne sıklıkta sorgulanacağı. Minimum 10, maksimum 3600 (1s).",
+          "ai_commit_messages": "Git diff'inden açıklayıcı commit mesajları oluşturmak için yapılandırılmış bir yapay zeka conversation agent'ı kullanır.",
+          "ai_agent_id": "Kullanılacak conversation agent'ın entity ID'si (örn. conversation.chatgpt). Varsayılan agent'ı kullanmak için boş bırak."
+        }
+      },
+      "remote": {
+        "title": "Remote Repository (İsteğe bağlı)",
+        "description": "Push/pull için bir remote repository yapılandır. Atlamak için URL'yi boş bırak.",
+        "data": {
+          "remote_url": "Remote URL",
+          "auth_method": "Kimlik doğrulama yöntemi",
+          "auth_token": "Kişisel erişim token'ı",
+          "ssh_key_path": "SSH özel anahtar yolu"
+        },
+        "data_description": {
+          "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
+          "auth_method": "Remote ile kimlik doğrulama yöntemi.",
+          "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
+          "ssh_key_path": "SSH özel anahtar dosyasının yolu (örn. /config/.ssh/id_ed25519)."
+        }
+      }
+    },
+    "error": {
+      "path_not_found": "Belirtilen yol mevcut değil.",
+      "git_not_installed": "Git yüklü değil veya PATH içinde bulunamadı.",
+      "invalid_remote_url": "Geçersiz remote URL. https://, git@ veya ssh:// ile başlamalı.",
+      "token_required": "Token kimlik doğrulaması için kişisel erişim token'ı gereklidir.",
+      "ssh_key_not_found": "Belirtilen SSH anahtar dosyası mevcut değil."
+    },
+    "abort": {
+      "already_configured": "Bu yapılandırma yolu zaten yapılandırılmış."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "git-ha-ppens Seçenekleri",
+        "menu_options": {
+          "general": "Genel ayarlar",
+          "gitignore": ".gitignore düzenle"
+        }
+      },
+      "general": {
+        "title": "Genel ayarlar",
+        "description": "git-ha-ppens ayarlarını düzenle.",
+        "data": {
+          "git_user": "Git kullanıcı adı",
+          "git_email": "Git e-postası",
+          "auto_commit": "Auto-commit'i etkinleştir",
+          "auto_push": "Her commit'ten sonra auto-push'u etkinleştir",
+          "auto_pull": "Remote'tan auto-pull'u etkinleştir",
+          "commit_interval": "Auto-commit bekleme süresi (saniye)",
+          "scan_interval": "Durum sorgulama aralığı (saniye)",
+          "remote_url": "Remote URL",
+          "auth_method": "Kimlik doğrulama yöntemi",
+          "auth_token": "Kişisel erişim token'ı",
+          "ssh_key_path": "SSH özel anahtar yolu",
+          "ai_commit_messages": "Commit mesajları için yapay zeka kullan",
+          "ai_agent_id": "Conversation agent entity ID'si"
+        },
+        "data_description": {
+          "git_user": "Commit yazarı olarak görünecek isim.",
+          "git_email": "Commit yazarı olarak görünecek e-posta.",
+          "auto_commit": "Yapılandırma dosyaları değiştiğinde otomatik olarak commit atar.",
+          "auto_push": "Her auto-commit'ten sonra remote repository'ye otomatik olarak push yapar. Yapılandırılmış bir remote gerektirir.",
+          "auto_pull": "Remote repository'deki yeni commit'leri algıladığında otomatik olarak pull yapar. Yapılandırılmış bir remote gerektirir.",
+          "commit_interval": "Son değişiklikten sonra otomatik commit atmadan önce beklenecek saniye sayısı. Minimum 30, maksimum 86400 (24s).",
+          "scan_interval": "Sensör güncellemeleri için git durumunun ne sıklıkta sorgulanacağı. Minimum 10, maksimum 3600 (1s).",
+          "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
+          "auth_method": "Remote ile kimlik doğrulama yöntemi.",
+          "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
+          "ssh_key_path": "SSH özel anahtar dosyasının yolu (örn. /config/.ssh/id_ed25519)."
+        }
+      },
+      "gitignore": {
+        "title": ".gitignore düzenle",
+        "description": ".gitignore dosyasının içeriğini düzenle. Her satıra bir desen. Değişiklikler hemen uygulanır.",
+        "data": {
+          "gitignore_content": ".gitignore girdileri"
+        },
+        "data_description": {
+          "gitignore_content": ".gitignore dosyasının tam içeriği. Standart gitignore söz dizimi: her satıra bir desen, # ile başlayan satırlar yorumdur."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_commit": {
+        "name": "Son Commit"
+      },
+      "last_commit_time": {
+        "name": "Son Commit Zamanı"
+      },
+      "uncommitted_changes": {
+        "name": "Commit'lenmemiş Değişiklikler"
+      },
+      "branch": {
+        "name": "Branch"
+      },
+      "remote_status": {
+        "name": "Remote Durumu"
+      }
+    },
+    "binary_sensor": {
+      "dirty": {
+        "name": "Commit'lenmemiş Değişiklikler"
+      }
+    }
+  }
+}
