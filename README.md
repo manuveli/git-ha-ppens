@@ -371,7 +371,7 @@ automation:
 
 ## 🛡️ Auto-Generated .gitignore
 
-The integration automatically creates or updates `.gitignore` with sensible defaults for Home Assistant.
+The integration automatically creates a `.gitignore` with sensible defaults for Home Assistant on first setup.
 
 You can customize the `.gitignore` entries at any time via **Settings → Devices & Services → git-ha-ppens → Configure → Edit .gitignore**. The built-in editor lets you add, remove, or modify entries directly from the UI.
 
@@ -385,7 +385,7 @@ You can customize the `.gitignore` entries at any time via **Settings → Device
 | **Zigbee2MQTT** | `zigbee2mqtt/state.json`, `zigbee2mqtt/coordinator_backup.json` |
 | **Editor swap files** | `*.swp`, `*.swo` |
 
-> 📌 Existing `.gitignore` entries are preserved — only missing defaults are appended.
+> 📌 Defaults are applied once during initial setup. After that, you can freely edit `.gitignore` — your changes will be preserved across restarts.
 
 ---
 
