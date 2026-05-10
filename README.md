@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  One wrong YAML edit can break your entire Home Assistant setup — and without version control there's no way to see what changed or roll back.<br>
-  <strong>git-ha-ppens</strong> brings native git directly into Home Assistant. Commit, push, pull, and monitor your configuration history without leaving the UI or touching the command line.
+  <strong>GitOps for Home Assistant.</strong> Edit your config in VS Code or directly on GitHub, push the changes, and your HA instance pulls them automatically. Roll back any breaking change by reverting a commit. Review config changes in a pull request before they ever reach your live system.<br><br>
+  git-ha-ppens brings native git directly into Home Assistant — auto-commit on file change, auto-push to your remote, and now <strong>auto-pull</strong> when new commits arrive. All configured through the UI, no command line needed.
 </p>
 
 ---
@@ -25,6 +25,7 @@
 ## 📑 Table of Contents
 
 - [✨ Features](#-features)
+- [🔁 GitOps Workflow](#-gitops-workflow)
 - [📥 Installation](#-installation)
 - [⚙️ Configuration](#️-configuration)
 - [🤖 AI Commit-Messages](#-ai-commit-messages)
@@ -46,11 +47,17 @@
 - ⏱️ **Configurable debounce interval** (default 5 min) to batch changes and avoid excessive commits
 - 📝 **Auto-generated commit messages** listing the changed files
 
+### 🔁 Auto-Sync (GitOps)
+- 🔄 **Periodic git fetch** checks the remote on a configurable interval (default 5 min, range 60–3600s)
+- ⬇️ **Auto-pull** when the integration detects your instance is behind the remote
+- ⬆️ **Auto-push** after every auto-commit to keep the remote up to date
+
 ### 🔧 Manual Control
-- **5 services** callable from automations, scripts, or Developer Tools:
+- **6 services** callable from automations, scripts, or Developer Tools:
   - `git_ha_ppens.commit` — create a commit with an optional custom message
   - `git_ha_ppens.push` — push commits to the configured remote
   - `git_ha_ppens.pull` — pull from remote (auto-backs up uncommitted changes first)
+  - `git_ha_ppens.fetch` — fetch from remote without merging (updates ahead/behind counts)
   - `git_ha_ppens.sync` — commit + push in one step
   - `git_ha_ppens.diff` — get the current diff of uncommitted changes
 
@@ -60,18 +67,51 @@
 - 🔔 Fires a `git_ha_ppens_secret_detected` event when potential secrets are found
 
 ### ☁️ Remote Support
-- Push to **GitHub**, **GitLab**, **Bitbucket**, or any git remote
+- Push and pull from **GitHub**, **GitLab**, **Bitbucket**, or any git remote
 - **HTTPS** with personal access token or **SSH key** authentication
-- Optional **auto-push** after every commit and **auto-pull** when remote has new commits
 
 ### 📊 Visibility & Monitoring
-- **5 sensors** + **1 binary sensor** for real-time git status
-- **Events** for commit, push, pull, errors, and secret detection
+- **10 sensors** + **1 binary sensor** for real-time git status
+- **Events** for commit, push, pull, fetch, errors, and secret detection
 - Build dashboards, notifications, and automations around your config history
 
 ### 🩺 Diagnostics
 - Full diagnostics support via **Settings → Devices & Services → git-ha-ppens → Diagnostics**
 - Sensitive values are **automatically redacted**
+
+---
+
+## 🔁 GitOps Workflow
+
+GitOps means your git repository is the **single source of truth** for your Home Assistant configuration. Instead of editing files directly on your HA instance, you manage changes through git — and your instance automatically stays in sync.
+
+With git-ha-ppens you get a full GitOps loop without any extra tooling:
+
+```
+Edit config in VS Code / GitHub  →  push to remote
+         ↓
+git-ha-ppens fetches periodically (default: every 5 min)
+         ↓
+Detects your instance is behind  →  auto-pull
+         ↓
+Home Assistant is up to date ✓
+```
+
+### Why this matters
+
+- **Edit from anywhere** — use your local editor, the GitHub web UI, or any other git client. Changes reach HA automatically.
+- **Review before it goes live** — open a pull request for config changes and merge only when you're ready.
+- **Instant rollback** — revert a commit on GitHub and your HA instance pulls the rollback automatically.
+- **Full history** — every config change is a commit. Know exactly what changed, when, and why.
+
+### Enabling the GitOps loop
+
+1. Configure a remote repository (GitHub, GitLab, etc.) in the integration setup
+2. Enable **Auto-Pull** in the commit settings
+3. Set a **Fetch Interval** (default 5 min) so the integration checks for remote changes periodically
+4. Optionally enable **Auto-Push** to send local changes upstream automatically
+
+That's it. From this point on, your HA config and your git remote stay in sync automatically.
 
 ---
 
@@ -126,9 +166,10 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 |--------|-------------|---------|
 | `auto_commit` | Automatically commit when files change | `true` |
 | `auto_push` | Push to remote after each auto-commit | `true` |
-| `auto_pull` | Pull new commits from remote automatically | `false` |
+| `auto_pull` | Pull automatically when the instance is behind the remote | `false` |
 | `commit_interval` | Debounce interval in seconds (30–86400) | `300` |
 | `scan_interval` | Status polling interval in seconds (10–3600) | `30` |
+| `fetch_interval` | How often to fetch from remote in seconds (60–3600) | `300` |
 
 ### Step 3: ☁️ Remote Repository *(optional)*
 
@@ -179,6 +220,7 @@ AI commit messages are designed to **never interfere** with normal operation:
 | `git_ha_ppens.commit` | Stage all changes and create a commit | `message` *(optional)* — custom commit message |
 | `git_ha_ppens.push` | Push commits to the configured remote | — |
 | `git_ha_ppens.pull` | Pull from remote (backs up uncommitted changes first) | — |
+| `git_ha_ppens.fetch` | Fetch from remote without merging — updates the ahead/behind counts | — |
 | `git_ha_ppens.sync` | Commit + push in one step | `message` *(optional)* — custom commit message |
 | `git_ha_ppens.diff` | Get the current diff of uncommitted changes | — *(returns response data)* |
 
@@ -214,6 +256,11 @@ action:
 | `sensor.git_ha_ppens_uncommitted_changes` | Number of changed files | `changed_files`, `untracked_files`, `staged_files` |
 | `sensor.git_ha_ppens_branch` | Current branch name | — |
 | `sensor.git_ha_ppens_remote_status` | Sync status (e.g. "in sync", "ahead 3") | `ahead`, `behind`, `remote_configured`, `has_upstream`, `total_commits` |
+| `sensor.git_ha_ppens_commits_ahead` | Number of local commits not yet pushed | — |
+| `sensor.git_ha_ppens_commits_behind` | Number of remote commits not yet pulled | — |
+| `sensor.git_ha_ppens_last_fetch_time` | Timestamp of last successful fetch | — |
+| `sensor.git_ha_ppens_last_pull_time` | Timestamp of last successful pull | — |
+| `sensor.git_ha_ppens_last_push_time` | Timestamp of last successful push | — |
 
 ### Binary Sensors
 
@@ -232,12 +279,31 @@ Use these events as automation triggers to build notifications, dashboards, or r
 | `git_ha_ppens_commit` | A commit is created | `hash`, `message`, `author` |
 | `git_ha_ppens_push` | Commits are pushed | `commits_pushed` |
 | `git_ha_ppens_pull` | Commits are pulled | `commits_pulled` |
+| `git_ha_ppens_fetch` | A fetch completes | — |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
 | `git_ha_ppens_secret_detected` | Potential secrets found in tracked files | `findings`, `count` |
 
 ---
 
 ## 💡 Example Automations
+
+### 🔔 Notify when your instance is behind the remote
+
+A useful GitOps signal: let HA notify you when new commits are available on the remote but haven't been pulled yet (e.g. if auto-pull is disabled).
+
+```yaml
+automation:
+  - alias: "Git: Notify when behind remote"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.git_ha_ppens_commits_behind
+        above: 0
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "git-ha-ppens"
+          message: "{{ states('sensor.git_ha_ppens_commits_behind') }} new commit(s) available on the remote."
+```
 
 ### ⬆️ Auto-push after every commit
 
