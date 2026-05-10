@@ -25,6 +25,7 @@ CONF_AI_AGENT_ID: Final = "ai_agent_id"
 CONF_FETCH_INTERVAL: Final = "fetch_interval"
 CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
 CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
+CONF_GITIGNORE_INITIALIZED: Final = "gitignore_initialized"
 
 # Authentication methods
 AUTH_NONE: Final = "none"

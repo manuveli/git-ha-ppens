@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-05-10
+
+### Fixed
+- `.gitignore` defaults were re-applied on every HA restart, overwriting manual user edits and potentially removing user-added files from tracking
+
 ## [0.6.1] - 2026-05-10
 
 ### Added
@@ -115,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...HEAD
+[0.6.2]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.5.0...v0.6.1
 [0.5.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.3...v0.4.4

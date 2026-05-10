@@ -29,6 +29,7 @@ from .const import (
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
     CONF_GITIGNORE_CUSTOM,
+    CONF_GITIGNORE_INITIALIZED,
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
@@ -88,17 +89,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Failed to initialize git repository: %s", err)
         return False
 
-    # Setup .gitignore
-    try:
-        skip_defaults = data.get(CONF_GITIGNORE_CUSTOM, False)
-        gitignore_updated = await git_manager.setup_gitignore(skip_defaults=skip_defaults)
-        if gitignore_updated:
-            _LOGGER.info("Updated .gitignore with security defaults")
-            # Untrack files now covered by .gitignore (only for existing repos)
-            if await git_manager.has_commits():
-                await git_manager.apply_gitignore()
-    except GitError as err:
-        _LOGGER.warning("Failed to update .gitignore: %s", err)
+    # Setup .gitignore (only on first setup, not every restart)
+    gitignore_initialized = data.get(CONF_GITIGNORE_INITIALIZED, False)
+    if not gitignore_initialized:
+        try:
+            skip_defaults = data.get(CONF_GITIGNORE_CUSTOM, False)
+            gitignore_updated = await git_manager.setup_gitignore(
+                skip_defaults=skip_defaults
+            )
+            if gitignore_updated:
+                _LOGGER.info("Updated .gitignore with security defaults")
+                if await git_manager.has_commits():
+                    await git_manager.apply_gitignore()
+        except GitError as err:
+            _LOGGER.warning("Failed to update .gitignore: %s", err)
+
+        hass.config_entries.async_update_entry(
+            entry, data={**data, CONF_GITIGNORE_INITIALIZED: True}
+        )
 
     # Configure remote if specified (must happen BEFORE initial commit so push works)
     remote_url = data.get(CONF_REMOTE_URL, "")
