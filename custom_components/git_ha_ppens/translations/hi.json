@@ -24,6 +24,7 @@
           "auto_pull": "Remote से auto-pull सक्षम करें",
           "commit_interval": "Auto-commit विलंब अंतराल (सेकंड)",
           "scan_interval": "स्टेटस पोलिंग अंतराल (सेकंड)",
+          "fetch_interval": "रिमोट फ़ेच अंतराल (सेकंड)",
           "ai_commit_messages": "Commit संदेशों के लिए AI का उपयोग करें",
           "ai_agent_id": "Conversation agent entity ID"
         },
@@ -33,6 +34,7 @@
           "auto_pull": "जब remote repository में नए commits का पता चलता है, तो स्वचालित रूप से pull करता है। कॉन्फ़िगर किया गया remote आवश्यक है।",
           "commit_interval": "अंतिम बदलाव के बाद स्वचालित commit से पहले प्रतीक्षा के सेकंड। न्यूनतम 30, अधिकतम 86400 (24 घंटे).",
           "scan_interval": "Sensor अपडेट के लिए git status कितनी बार जांचा जाए। न्यूनतम 10, अधिकतम 3600 (1 घंटा).",
+          "fetch_interval": "नए कमिट्स की जांच के लिए रिमोट से कितनी बार फ़ेच करना है। न्यूनतम 60, अधिकतम 3600।",
           "ai_commit_messages": "Git diff से वर्णनात्मक commit संदेश उत्पन्न करने के लिए एक कॉन्फ़िगर किए गए AI conversation agent का उपयोग करें।",
           "ai_agent_id": "उपयोग करने के लिए conversation agent का entity ID (उदा. conversation.chatgpt)। डिफ़ॉल्ट agent का उपयोग करने के लिए खाली छोड़ें।"
         }
@@ -85,6 +87,7 @@
           "auto_pull": "Remote से auto-pull सक्षम करें",
           "commit_interval": "Auto-commit विलंब अंतराल (सेकंड)",
           "scan_interval": "स्टेटस पोलिंग अंतराल (सेकंड)",
+          "fetch_interval": "रिमोट फ़ेच अंतराल (सेकंड)",
           "remote_url": "Remote URL",
           "auth_method": "प्रमाणीकरण विधि",
           "auth_token": "व्यक्तिगत एक्सेस token",
@@ -100,6 +103,7 @@
           "auto_pull": "जब remote repository में नए commits का पता चलता है, तो स्वचालित रूप से pull करता है। कॉन्फ़िगर किया गया remote आवश्यक है।",
           "commit_interval": "अंतिम बदलाव के बाद स्वचालित commit से पहले प्रतीक्षा के सेकंड। न्यूनतम 30, अधिकतम 86400 (24 घंटे).",
           "scan_interval": "Sensor अपडेट के लिए git status कितनी बार जांचा जाए। न्यूनतम 10, अधिकतम 3600 (1 घंटा).",
+          "fetch_interval": "नए कमिट्स की जांच के लिए रिमोट से कितनी बार फ़ेच करना है। न्यूनतम 60, अधिकतम 3600।",
           "remote_url": "Git remote URL (उदा. https://github.com/user/repo.git या git@github.com:user/repo.git).",
           "auth_method": "Remote के साथ प्रमाणीकरण की विधि।",
           "auth_token": "HTTPS प्रमाणीकरण के लिए व्यक्तिगत एक्सेस token।",
@@ -134,6 +138,21 @@
       },
       "remote_status": {
         "name": "Remote स्थिति"
+      },
+      "last_fetch_time": {
+        "name": "अंतिम फ़ेच समय"
+      },
+      "last_pull_time": {
+        "name": "अंतिम पुल समय"
+      },
+      "last_push_time": {
+        "name": "अंतिम पुश समय"
+      },
+      "commits_behind": {
+        "name": "पीछे कमिट्स"
+      },
+      "commits_ahead": {
+        "name": "आगे कमिट्स"
       }
     },
     "binary_sensor": {

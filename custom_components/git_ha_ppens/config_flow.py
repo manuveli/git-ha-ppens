@@ -30,6 +30,7 @@ from .const import (
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
+    CONF_FETCH_INTERVAL,
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
     CONF_GITIGNORE_CONTENT,
@@ -39,6 +40,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_SSH_KEY_PATH,
     DEFAULT_COMMIT_INTERVAL,
+    DEFAULT_FETCH_INTERVAL,
     DEFAULT_REPO_PATH,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -115,6 +117,10 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_SCAN_INTERVAL,
                         default=DEFAULT_SCAN_INTERVAL,
                     ): vol.All(int, vol.Range(min=10, max=3600)),
+                    vol.Required(
+                        CONF_FETCH_INTERVAL,
+                        default=DEFAULT_FETCH_INTERVAL,
+                    ): vol.All(int, vol.Range(min=60, max=3600)),
                     vol.Required(
                         CONF_AI_COMMIT_MESSAGES, default=False
                     ): bool,
@@ -265,6 +271,12 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                         ),
                     ): vol.All(int, vol.Range(min=10, max=3600)),
+                    vol.Required(
+                        CONF_FETCH_INTERVAL,
+                        default=current.get(
+                            CONF_FETCH_INTERVAL, DEFAULT_FETCH_INTERVAL
+                        ),
+                    ): vol.All(int, vol.Range(min=60, max=3600)),
                     vol.Optional(
                         CONF_REMOTE_URL,
                         default=current.get(CONF_REMOTE_URL, ""),

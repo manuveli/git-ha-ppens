@@ -24,6 +24,7 @@
           "auto_pull": "Activer l'auto-pull depuis le remote",
           "commit_interval": "Intervalle de temporisation de l'auto-commit (secondes)",
           "scan_interval": "Intervalle de vérification du statut (secondes)",
+          "fetch_interval": "Intervalle de récupération distant (secondes)",
           "ai_commit_messages": "Utiliser l'IA pour les messages de commit",
           "ai_agent_id": "Entity ID de l'agent de conversation"
         },
@@ -33,6 +34,7 @@
           "auto_pull": "Pulle automatiquement les nouveaux commits depuis le dépôt distant lorsque des modifications sont détectées. Nécessite un remote configuré.",
           "commit_interval": "Temps d'attente en secondes après la dernière modification avant de commiter automatiquement. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "Fréquence de vérification du statut git pour la mise à jour des capteurs. Minimum 10, maximum 3600 (1h).",
+          "fetch_interval": "Fréquence de récupération depuis le dépôt distant pour vérifier les nouveaux commits. Minimum 60, maximum 3600.",
           "ai_commit_messages": "Utilise un agent de conversation IA configuré pour générer des messages de commit descriptifs à partir du diff git.",
           "ai_agent_id": "L'entity ID de l'agent de conversation à utiliser (ex. conversation.chatgpt). Laisse vide pour utiliser l'agent par défaut."
         }
@@ -85,6 +87,7 @@
           "auto_pull": "Activer l'auto-pull depuis le remote",
           "commit_interval": "Intervalle de temporisation de l'auto-commit (secondes)",
           "scan_interval": "Intervalle de vérification du statut (secondes)",
+          "fetch_interval": "Intervalle de récupération distant (secondes)",
           "remote_url": "URL distante",
           "auth_method": "Méthode d'authentification",
           "auth_token": "Token d'accès personnel",
@@ -100,6 +103,7 @@
           "auto_pull": "Pulle automatiquement les nouveaux commits depuis le dépôt distant lorsque des modifications sont détectées. Nécessite un remote configuré.",
           "commit_interval": "Temps d'attente en secondes après la dernière modification avant de commiter automatiquement. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "Fréquence de vérification du statut git pour la mise à jour des capteurs. Minimum 10, maximum 3600 (1h).",
+          "fetch_interval": "Fréquence de récupération depuis le dépôt distant pour vérifier les nouveaux commits. Minimum 60, maximum 3600.",
           "remote_url": "L'URL du remote git (ex. https://github.com/user/repo.git ou git@github.com:user/repo.git).",
           "auth_method": "Méthode d'authentification pour le remote.",
           "auth_token": "Token d'accès personnel pour l'authentification HTTPS.",
@@ -134,6 +138,21 @@
       },
       "remote_status": {
         "name": "Statut Distant"
+      },
+      "last_fetch_time": {
+        "name": "Dernière récupération"
+      },
+      "last_pull_time": {
+        "name": "Dernier pull"
+      },
+      "last_push_time": {
+        "name": "Dernier push"
+      },
+      "commits_behind": {
+        "name": "Commits en retard"
+      },
+      "commits_ahead": {
+        "name": "Commits en avance"
       }
     },
     "binary_sensor": {

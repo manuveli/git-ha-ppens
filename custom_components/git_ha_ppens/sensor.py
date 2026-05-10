@@ -25,7 +25,8 @@ from .git_manager import GitStatus
 class GitHaPpensSensorDescription(SensorEntityDescription):
     """Describes a git-ha-ppens sensor."""
 
-    value_fn: Callable[[GitStatus], str | int | datetime | None]
+    value_fn: Callable[[GitStatus], str | int | datetime | None] | None = None
+    coordinator_value_fn: Callable[[GitHaPpensCoordinator], str | int | datetime | None] | None = None
     extra_attrs_fn: Callable[[GitStatus], dict] | None = None
 
 
@@ -78,6 +79,41 @@ SENSOR_DESCRIPTIONS: tuple[GitHaPpensSensorDescription, ...] = (
             "has_upstream": s.has_upstream,
             "total_commits": s.total_commits,
         },
+    ),
+    GitHaPpensSensorDescription(
+        key="last_fetch_time",
+        translation_key="last_fetch_time",
+        icon="mdi:cloud-download-outline",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        coordinator_value_fn=lambda c: c.last_fetch_time,
+    ),
+    GitHaPpensSensorDescription(
+        key="last_pull_time",
+        translation_key="last_pull_time",
+        icon="mdi:source-pull",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        coordinator_value_fn=lambda c: c.last_pull_time,
+    ),
+    GitHaPpensSensorDescription(
+        key="last_push_time",
+        translation_key="last_push_time",
+        icon="mdi:source-merge",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        coordinator_value_fn=lambda c: c.last_push_time,
+    ),
+    GitHaPpensSensorDescription(
+        key="commits_behind",
+        translation_key="commits_behind",
+        icon="mdi:arrow-down-bold",
+        native_unit_of_measurement="commits",
+        value_fn=lambda s: max(s.behind, 0),
+    ),
+    GitHaPpensSensorDescription(
+        key="commits_ahead",
+        translation_key="commits_ahead",
+        icon="mdi:arrow-up-bold",
+        native_unit_of_measurement="commits",
+        value_fn=lambda s: max(s.ahead, 0),
     ),
 )
 
@@ -140,7 +176,7 @@ class GitHaPpensSensor(
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.5.0",
+            "sw_version": "0.6.0",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }
@@ -148,9 +184,13 @@ class GitHaPpensSensor(
     @property
     def native_value(self) -> str | int | datetime | None:
         """Return the sensor value."""
+        if self.entity_description.coordinator_value_fn is not None:
+            return self.entity_description.coordinator_value_fn(self.coordinator)
         if self.coordinator.data is None:
             return None
-        return self.entity_description.value_fn(self.coordinator.data)
+        if self.entity_description.value_fn is not None:
+            return self.entity_description.value_fn(self.coordinator.data)
+        return None
 
     @property
     def extra_state_attributes(self) -> dict | None:

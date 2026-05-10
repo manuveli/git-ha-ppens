@@ -262,6 +262,7 @@ class GitFileWatcher:
                 if self._auto_push and self._remote_configured:
                     try:
                         commits_pushed = await self._git_manager.push()
+                        self._coordinator.record_push_time()
                         self._hass.bus.async_fire(
                             EVENT_PUSH,
                             {"commits_pushed": commits_pushed, "auto": True},

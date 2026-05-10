@@ -23,14 +23,16 @@
           "auto_push": "Aktiviere Auto-Push nach jedem Commit",
           "auto_pull": "Aktiviere Auto-Pull vom Remote-Repository",
           "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
-          "scan_interval": "Status-Abfrageintervall (Sekunden)"
+          "scan_interval": "Status-Abfrageintervall (Sekunden)",
+          "fetch_interval": "Remote-Abfrageintervall (Sekunden)"
         },
         "data_description": {
           "auto_commit": "Committet automatisch, wenn sich Konfigurationsdateien ändern.",
           "auto_push": "Pusht automatisch nach jedem Auto-Commit. Erfordert ein konfiguriertes Remote-Repository.",
           "auto_pull": "Pullt automatisch neue Commits vom Remote-Repository, wenn Änderungen erkannt werden. Erfordert ein konfiguriertes Remote-Repository.",
           "commit_interval": "Wartezeit in Sekunden nach der letzten Änderung, bevor automatisch committet wird. Minimum 30, Maximum 86400 (24h).",
-          "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h)."
+          "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h).",
+          "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600."
         }
       },
       "remote": {
@@ -81,6 +83,7 @@
           "auto_pull": "Aktiviere Auto-Pull vom Remote-Repository",
           "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
           "scan_interval": "Status-Abfrageintervall (Sekunden)",
+          "fetch_interval": "Remote-Abfrageintervall (Sekunden)",
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
@@ -94,6 +97,7 @@
           "auto_pull": "Pullt automatisch neue Commits vom Remote-Repository, wenn Änderungen erkannt werden. Erfordert ein konfiguriertes Remote-Repository.",
           "commit_interval": "Wartezeit in Sekunden nach der letzten Änderung, bevor automatisch committet wird. Minimum 30, Maximum 86400 (24h).",
           "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h).",
+          "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600.",
           "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
           "auth_method": "Authentifizierungsmethode für das Remote-Repository.",
           "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
@@ -128,6 +132,21 @@
       },
       "remote_status": {
         "name": "Remote-Status"
+      },
+      "last_fetch_time": {
+        "name": "Letzter Fetch"
+      },
+      "last_pull_time": {
+        "name": "Letzter Pull"
+      },
+      "last_push_time": {
+        "name": "Letzter Push"
+      },
+      "commits_behind": {
+        "name": "Commits zurück"
+      },
+      "commits_ahead": {
+        "name": "Commits voraus"
       }
     },
     "binary_sensor": {

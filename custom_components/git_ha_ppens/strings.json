@@ -25,7 +25,8 @@
           "commit_interval": "Auto-commit debounce interval (seconds)",
           "scan_interval": "Status polling interval (seconds)",
           "ai_commit_messages": "Use AI for commit messages",
-          "ai_agent_id": "Conversation agent entity ID"
+          "ai_agent_id": "Conversation agent entity ID",
+          "fetch_interval": "Remote fetch interval (seconds)"
         },
         "data_description": {
           "auto_commit": "Automatically commit when configuration files change.",
@@ -34,7 +35,8 @@
           "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "ai_commit_messages": "Use a configured AI conversation agent to generate descriptive commit messages from the git diff.",
-          "ai_agent_id": "The entity ID of the conversation agent to use (e.g., conversation.chatgpt). Leave empty to use the default agent."
+          "ai_agent_id": "The entity ID of the conversation agent to use (e.g., conversation.chatgpt). Leave empty to use the default agent.",
+          "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600."
         }
       },
       "remote": {
@@ -90,8 +92,8 @@
           "auth_token": "Personal access token",
           "ssh_key_path": "SSH private key path",
           "ai_commit_messages": "Use AI for commit messages",
-          "ai_agent_id": "Conversation agent entity ID"
-          "ssh_key_path": "SSH private key path"
+          "ai_agent_id": "Conversation agent entity ID",
+          "fetch_interval": "Remote fetch interval (seconds)"
         },
         "data_description": {
           "git_user": "The name that will appear as the commit author.",
@@ -101,6 +103,7 @@
           "auto_pull": "Automatically pull new commits from the remote repository when detected. Requires a configured remote.",
           "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
+          "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600.",
           "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
           "auth_method": "How to authenticate with the remote.",
           "auth_token": "Personal access token for HTTPS authentication.",
@@ -135,6 +138,21 @@
       },
       "remote_status": {
         "name": "Remote Status"
+      },
+      "last_fetch_time": {
+        "name": "Last Fetch Time"
+      },
+      "last_pull_time": {
+        "name": "Last Pull Time"
+      },
+      "last_push_time": {
+        "name": "Last Push Time"
+      },
+      "commits_behind": {
+        "name": "Commits Behind"
+      },
+      "commits_ahead": {
+        "name": "Commits Ahead"
       }
     },
     "binary_sensor": {

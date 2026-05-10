@@ -547,6 +547,21 @@ class GitManager:
             )
             raise
 
+    async def fetch(self) -> None:
+        """Fetch from the configured remote without merging.
+
+        Raises:
+            GitError: If remote is not configured or fetch fails.
+        """
+        if not await self.is_remote_configured():
+            raise GitError(
+                "Remote 'origin' is not configured."
+            )
+
+        branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
+        await self._run_git("fetch", "origin", branch)
+        _LOGGER.debug("Fetched from origin/%s", branch)
+
     async def pull(self, backup: bool = True) -> int:
         """Pull from the configured remote.
 

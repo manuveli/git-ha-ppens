@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import voluptuous as vol
 
@@ -25,6 +25,7 @@ from .const import (
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
+    CONF_FETCH_INTERVAL,
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
     CONF_GITIGNORE_CUSTOM,
@@ -32,15 +33,18 @@ from .const import (
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
     CONF_SSH_KEY_PATH,
+    DEFAULT_FETCH_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     EVENT_COMMIT,
     EVENT_ERROR,
+    EVENT_FETCH,
     EVENT_PULL,
     EVENT_PUSH,
     EVENT_SECRET_DETECTED,
     SERVICE_COMMIT,
     SERVICE_DIFF,
+    SERVICE_FETCH,
     SERVICE_PULL,
     SERVICE_PUSH,
     SERVICE_SYNC,
@@ -175,12 +179,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create coordinator
     scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     auto_pull = data.get(CONF_AUTO_PULL, False)
+    fetch_interval = data.get(CONF_FETCH_INTERVAL, DEFAULT_FETCH_INTERVAL)
     coordinator = GitHaPpensCoordinator(
         hass,
         git_manager,
         scan_interval,
         auto_pull=auto_pull,
         remote_configured=bool(remote_url),
+        fetch_interval=fetch_interval,
     )
     await coordinator.async_config_entry_first_refresh()
 
@@ -284,7 +290,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Remove services if no more entries
         if not hass.data[DOMAIN]:
-            for service in (SERVICE_COMMIT, SERVICE_PUSH, SERVICE_PULL, SERVICE_SYNC, SERVICE_DIFF):
+            for service in (SERVICE_COMMIT, SERVICE_PUSH, SERVICE_PULL, SERVICE_FETCH, SERVICE_SYNC, SERVICE_DIFF):
                 hass.services.async_remove(DOMAIN, service)
 
     return unload_ok
@@ -356,6 +362,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             commits_pushed = await git_manager.push()
+            coordinator.record_push_time()
 
             hass.bus.async_fire(
                 EVENT_PUSH, {"commits_pushed": commits_pushed}
@@ -374,9 +381,10 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             commits_pulled = await git_manager.pull(backup=True)
+            coordinator.record_pull_time()
 
             hass.bus.async_fire(
-                EVENT_PULL, {"commits_pulled": commits_pulled}
+                EVENT_PULL, {"commits_pulled": commits_pulled, "auto": False}
             )
             _LOGGER.info("Pulled %d commit(s) from remote", commits_pulled)
             await coordinator.async_request_refresh()
@@ -385,6 +393,23 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             _LOGGER.error("Pull failed: %s", err)
             hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "pull", "error": str(err)}
+            )
+
+    async def async_handle_fetch(call: ServiceCall) -> None:
+        """Handle the fetch service call."""
+        try:
+            git_manager, coordinator = _get_manager_and_coordinator(call)
+            await git_manager.fetch()
+            coordinator._last_fetch_time = datetime.now(tz=timezone.utc)
+
+            hass.bus.async_fire(EVENT_FETCH, {"auto": False})
+            _LOGGER.info("Fetched from remote")
+            await coordinator.async_request_refresh()
+
+        except GitError as err:
+            _LOGGER.error("Fetch failed: %s", err)
+            hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "fetch", "error": str(err)}
             )
 
     async def async_handle_sync(call: ServiceCall) -> None:
@@ -426,6 +451,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
             # Then push
             commits_pushed = await git_manager.push()
+            coordinator.record_push_time()
             hass.bus.async_fire(
                 EVENT_PUSH, {"commits_pushed": commits_pushed}
             )
@@ -465,6 +491,9 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         )
         hass.services.async_register(
             DOMAIN, SERVICE_PULL, async_handle_pull
+        )
+        hass.services.async_register(
+            DOMAIN, SERVICE_FETCH, async_handle_fetch
         )
         hass.services.async_register(
             DOMAIN, SERVICE_SYNC, async_handle_sync, schema=SERVICE_COMMIT_SCHEMA

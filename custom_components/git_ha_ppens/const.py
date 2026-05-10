@@ -22,6 +22,7 @@ CONF_SSH_KEY_PATH: Final = "ssh_key_path"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_AI_COMMIT_MESSAGES: Final = "ai_commit_messages"
 CONF_AI_AGENT_ID: Final = "ai_agent_id"
+CONF_FETCH_INTERVAL: Final = "fetch_interval"
 CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
 CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
 
@@ -34,6 +35,7 @@ AUTH_SSH: Final = "ssh"
 DEFAULT_REPO_PATH: Final = "/config"
 DEFAULT_COMMIT_INTERVAL: Final = 300  # seconds (5 minutes)
 DEFAULT_SCAN_INTERVAL: Final = 30  # seconds
+DEFAULT_FETCH_INTERVAL: Final = 300  # seconds (5 minutes)
 DEFAULT_BRANCH: Final = "main"
 DEFAULT_AI_DIFF_MAX_CHARS: Final = 4000
 
@@ -42,6 +44,7 @@ EVENT_COMMIT: Final = f"{DOMAIN}_commit"
 EVENT_PUSH: Final = f"{DOMAIN}_push"
 EVENT_PULL: Final = f"{DOMAIN}_pull"
 EVENT_ERROR: Final = f"{DOMAIN}_error"
+EVENT_FETCH: Final = f"{DOMAIN}_fetch"
 EVENT_SECRET_DETECTED: Final = f"{DOMAIN}_secret_detected"
 
 # Sensor keys
@@ -59,6 +62,7 @@ SERVICE_COMMIT: Final = "commit"
 SERVICE_PUSH: Final = "push"
 SERVICE_PULL: Final = "pull"
 SERVICE_SYNC: Final = "sync"
+SERVICE_FETCH: Final = "fetch"
 SERVICE_DIFF: Final = "diff"
 
 # Service parameters
