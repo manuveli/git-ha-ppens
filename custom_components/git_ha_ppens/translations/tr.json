@@ -24,6 +24,7 @@
           "auto_pull": "Remote'tan auto-pull'u etkinleştir",
           "commit_interval": "Auto-commit bekleme süresi (saniye)",
           "scan_interval": "Durum sorgulama aralığı (saniye)",
+          "fetch_interval": "Uzak getirme aralığı (saniye)",
           "ai_commit_messages": "Commit mesajları için yapay zeka kullan",
           "ai_agent_id": "Conversation agent entity ID'si"
         },
@@ -33,6 +34,7 @@
           "auto_pull": "Remote repository'deki yeni commit'leri algıladığında otomatik olarak pull yapar. Yapılandırılmış bir remote gerektirir.",
           "commit_interval": "Son değişiklikten sonra otomatik commit atmadan önce beklenecek saniye sayısı. Minimum 30, maksimum 86400 (24s).",
           "scan_interval": "Sensör güncellemeleri için git durumunun ne sıklıkta sorgulanacağı. Minimum 10, maksimum 3600 (1s).",
+          "fetch_interval": "Yeni commit'leri kontrol etmek için uzaktan ne sıklıkta getirileceği. Minimum 60, maksimum 3600.",
           "ai_commit_messages": "Git diff'inden açıklayıcı commit mesajları oluşturmak için yapılandırılmış bir yapay zeka conversation agent'ı kullanır.",
           "ai_agent_id": "Kullanılacak conversation agent'ın entity ID'si (örn. conversation.chatgpt). Varsayılan agent'ı kullanmak için boş bırak."
         }
@@ -85,6 +87,7 @@
           "auto_pull": "Remote'tan auto-pull'u etkinleştir",
           "commit_interval": "Auto-commit bekleme süresi (saniye)",
           "scan_interval": "Durum sorgulama aralığı (saniye)",
+          "fetch_interval": "Uzak getirme aralığı (saniye)",
           "remote_url": "Remote URL",
           "auth_method": "Kimlik doğrulama yöntemi",
           "auth_token": "Kişisel erişim token'ı",
@@ -100,6 +103,7 @@
           "auto_pull": "Remote repository'deki yeni commit'leri algıladığında otomatik olarak pull yapar. Yapılandırılmış bir remote gerektirir.",
           "commit_interval": "Son değişiklikten sonra otomatik commit atmadan önce beklenecek saniye sayısı. Minimum 30, maksimum 86400 (24s).",
           "scan_interval": "Sensör güncellemeleri için git durumunun ne sıklıkta sorgulanacağı. Minimum 10, maksimum 3600 (1s).",
+          "fetch_interval": "Yeni commit'leri kontrol etmek için uzaktan ne sıklıkta getirileceği. Minimum 60, maksimum 3600.",
           "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
           "auth_method": "Remote ile kimlik doğrulama yöntemi.",
           "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
@@ -134,6 +138,21 @@
       },
       "remote_status": {
         "name": "Remote Durumu"
+      },
+      "last_fetch_time": {
+        "name": "Son getirme zamanı"
+      },
+      "last_pull_time": {
+        "name": "Son çekme zamanı"
+      },
+      "last_push_time": {
+        "name": "Son gönderme zamanı"
+      },
+      "commits_behind": {
+        "name": "Gerideki commitler"
+      },
+      "commits_ahead": {
+        "name": "İlerideki commitler"
       }
     },
     "binary_sensor": {

@@ -18,6 +18,10 @@ pull:
   name: Pull
   description: Pull changes from the configured remote repository. Uncommitted changes will be auto-saved as a backup commit before pulling.
 
+fetch:
+  name: Fetch
+  description: Fetch new commits from the remote repository without merging. Updates the behind/ahead commit counts.
+
 sync:
   name: Sync
   description: Commit all changes and push to the remote repository in one step.

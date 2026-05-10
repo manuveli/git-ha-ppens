@@ -24,6 +24,7 @@
           "auto_pull": "Activar auto-pull desde el remote",
           "commit_interval": "Intervalo de espera del auto-commit (segundos)",
           "scan_interval": "Intervalo de consulta de estado (segundos)",
+          "fetch_interval": "Intervalo de consulta remota (segundos)",
           "ai_commit_messages": "Usar IA para mensajes de commit",
           "ai_agent_id": "Entity ID del agente de conversación"
         },
@@ -33,6 +34,7 @@
           "auto_pull": "Pullea automáticamente los nuevos commits del repositorio remoto cuando se detectan cambios. Requiere un remote configurado.",
           "commit_interval": "Tiempo de espera en segundos después del último cambio antes de committear automáticamente. Mínimo 30, máximo 86400 (24h).",
           "scan_interval": "Frecuencia de consulta del estado git para la actualización de sensores. Mínimo 10, máximo 3600 (1h).",
+          "fetch_interval": "Con qué frecuencia se consulta el remoto para buscar nuevos commits. Mínimo 60, máximo 3600.",
           "ai_commit_messages": "Usa un agente de conversación IA configurado para generar mensajes de commit descriptivos a partir del diff git.",
           "ai_agent_id": "El entity ID del agente de conversación a usar (ej. conversation.chatgpt). Deja vacío para usar el agente predeterminado."
         }
@@ -85,6 +87,7 @@
           "auto_pull": "Activar auto-pull desde el remote",
           "commit_interval": "Intervalo de espera del auto-commit (segundos)",
           "scan_interval": "Intervalo de consulta de estado (segundos)",
+          "fetch_interval": "Intervalo de consulta remota (segundos)",
           "remote_url": "URL remota",
           "auth_method": "Método de autenticación",
           "auth_token": "Token de acceso personal",
@@ -100,6 +103,7 @@
           "auto_pull": "Pullea automáticamente los nuevos commits del repositorio remoto cuando se detectan cambios. Requiere un remote configurado.",
           "commit_interval": "Tiempo de espera en segundos después del último cambio antes de committear automáticamente. Mínimo 30, máximo 86400 (24h).",
           "scan_interval": "Frecuencia de consulta del estado git para la actualización de sensores. Mínimo 10, máximo 3600 (1h).",
+          "fetch_interval": "Con qué frecuencia se consulta el remoto para buscar nuevos commits. Mínimo 60, máximo 3600.",
           "remote_url": "La URL del remote git (ej. https://github.com/user/repo.git o git@github.com:user/repo.git).",
           "auth_method": "Método de autenticación para el remote.",
           "auth_token": "Token de acceso personal para autenticación HTTPS.",
@@ -134,6 +138,21 @@
       },
       "remote_status": {
         "name": "Estado Remoto"
+      },
+      "last_fetch_time": {
+        "name": "Última consulta"
+      },
+      "last_pull_time": {
+        "name": "Último pull"
+      },
+      "last_push_time": {
+        "name": "Último push"
+      },
+      "commits_behind": {
+        "name": "Commits detrás"
+      },
+      "commits_ahead": {
+        "name": "Commits adelante"
       }
     },
     "binary_sensor": {
