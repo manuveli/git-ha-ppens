@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-05-10
+
+### Added
+- Periodic `git fetch` with configurable `fetch_interval` (default 300s)
+- New sensors: Last Fetch Time, Last Pull Time, Last Push Time, Commits Behind, Commits Ahead
+- New `git_ha_ppens.fetch` service for manual fetch without merge
+- `fetch_interval` option in setup and configuration UI
+
+### Fixed
+- Auto-pull never triggered because status polling did not fetch from remote first
+- JSON syntax error in `strings.json` (duplicate `ssh_key_path` key)
+
 ## [0.5.0] - 2026-04-18
 
 ### Added
@@ -102,7 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `.gitignore` entries for common HA files
 - Automated release workflow for HACS
 
-[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.5.0...v0.6.1
 [0.5.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.2...v0.4.3
