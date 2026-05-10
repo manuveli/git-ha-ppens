@@ -30,6 +30,12 @@ jobs:
             exit 1
           fi
 
+      - name: Extract release notes from CHANGELOG
+        id: release_notes
+        uses: ffurrer2/extract-release-notes@v3
+        with:
+          changelog_file: CHANGELOG.md
+
       - name: Create zip
         run: |
           cd custom_components/git_ha_ppens
@@ -41,7 +47,7 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
-          generate_release_notes: true
+          body: ${{ steps.release_notes.outputs.release_notes }}
           files: |
             git_ha_ppens_${{ steps.version.outputs.version }}.zip
             git_ha_ppens.zip

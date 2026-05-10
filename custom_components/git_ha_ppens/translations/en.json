@@ -90,7 +90,7 @@
           "auth_token": "Personal access token",
           "ssh_key_path": "SSH private key path",
           "ai_commit_messages": "Use AI for commit messages",
-          "ai_agent_id": "Conversation agent entity ID"
+          "ai_agent_id": "Conversation agent entity ID",
           "ssh_key_path": "SSH private key path"
         },
         "data_description": {

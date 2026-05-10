@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="custom_components/git_ha_ppens/brand/logo.png" alt="git-ha-ppens logo" width="200">
+  <img src="img/logo@2x.png" alt="git-ha-ppens logo" width="200">
 </p>
 
 <h1 align="center">git-ha-ppens</h1>
@@ -47,11 +47,12 @@
 - 📝 **Auto-generated commit messages** listing the changed files
 
 ### 🔧 Manual Control
-- **4 services** callable from automations, scripts, or Developer Tools:
+- **5 services** callable from automations, scripts, or Developer Tools:
   - `git_ha_ppens.commit` — create a commit with an optional custom message
   - `git_ha_ppens.push` — push commits to the configured remote
   - `git_ha_ppens.pull` — pull from remote (auto-backs up uncommitted changes first)
   - `git_ha_ppens.sync` — commit + push in one step
+  - `git_ha_ppens.diff` — get the current diff of uncommitted changes
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
@@ -138,7 +139,7 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | `auth_token` | Personal access token (for HTTPS) | *(empty)* |
 | `ssh_key_path` | Path to SSH private key file | *(empty)* |
 
-> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**.
+> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides two sections: **General Settings** (all configuration options above) and **Edit .gitignore** (a built-in editor for customizing ignored files).
 
 ---
 
@@ -179,6 +180,7 @@ AI commit messages are designed to **never interfere** with normal operation:
 | `git_ha_ppens.push` | Push commits to the configured remote | — |
 | `git_ha_ppens.pull` | Pull from remote (backs up uncommitted changes first) | — |
 | `git_ha_ppens.sync` | Commit + push in one step | `message` *(optional)* — custom commit message |
+| `git_ha_ppens.diff` | Get the current diff of uncommitted changes | — *(returns response data)* |
 
 ### Example: Call sync from an automation
 
@@ -187,6 +189,16 @@ action:
   - service: git_ha_ppens.sync
     data:
       message: "Manual sync from automation"
+```
+
+### Example: Get the current diff
+
+The `diff` service returns response data containing the diff content and a status summary. Use it in scripts or automations to inspect changes before committing.
+
+```yaml
+action:
+  - service: git_ha_ppens.diff
+    response_variable: git_diff
 ```
 
 ---
@@ -293,7 +305,9 @@ automation:
 
 ## 🛡️ Auto-Generated .gitignore
 
-The integration automatically creates or updates `.gitignore` with sensible defaults for Home Assistant:
+The integration automatically creates or updates `.gitignore` with sensible defaults for Home Assistant.
+
+You can customize the `.gitignore` entries at any time via **Settings → Devices & Services → git-ha-ppens → Configure → Edit .gitignore**. The built-in editor lets you add, remove, or modify entries directly from the UI.
 
 | Category | Entries |
 |----------|---------|

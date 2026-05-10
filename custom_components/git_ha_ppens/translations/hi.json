@@ -1,0 +1,145 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Repository सेटिंग्स",
+        "description": "अपने Home Assistant कॉन्फ़िगरेशन के लिए git repository कॉन्फ़िगर करें।",
+        "data": {
+          "repo_path": "कॉन्फ़िगरेशन डायरेक्टरी पथ",
+          "git_user": "Git उपयोगकर्ता नाम (commits के लिए)",
+          "git_email": "Git ईमेल (commits के लिए)"
+        },
+        "data_description": {
+          "repo_path": "Home Assistant कॉन्फ़िगरेशन डायरेक्टरी का पथ। आमतौर पर /config.",
+          "git_user": "वह नाम जो commit लेखक के रूप में दिखाई देगा।",
+          "git_email": "वह ईमेल जो commit लेखक के रूप में दिखाई देगा।"
+        }
+      },
+      "commit_settings": {
+        "title": "Auto-Commit सेटिंग्स",
+        "description": "स्वचालित commit व्यवहार कॉन्फ़िगर करें।",
+        "data": {
+          "auto_commit": "फ़ाइल बदलने पर auto-commit सक्षम करें",
+          "auto_push": "हर commit के बाद auto-push सक्षम करें",
+          "auto_pull": "Remote से auto-pull सक्षम करें",
+          "commit_interval": "Auto-commit विलंब अंतराल (सेकंड)",
+          "scan_interval": "स्टेटस पोलिंग अंतराल (सेकंड)",
+          "ai_commit_messages": "Commit संदेशों के लिए AI का उपयोग करें",
+          "ai_agent_id": "Conversation agent entity ID"
+        },
+        "data_description": {
+          "auto_commit": "जब कॉन्फ़िगरेशन फ़ाइलें बदलती हैं, तो स्वचालित रूप से commit करता है।",
+          "auto_push": "हर auto-commit के बाद स्वचालित रूप से remote repository पर push करता है। कॉन्फ़िगर किया गया remote आवश्यक है।",
+          "auto_pull": "जब remote repository में नए commits का पता चलता है, तो स्वचालित रूप से pull करता है। कॉन्फ़िगर किया गया remote आवश्यक है।",
+          "commit_interval": "अंतिम बदलाव के बाद स्वचालित commit से पहले प्रतीक्षा के सेकंड। न्यूनतम 30, अधिकतम 86400 (24 घंटे).",
+          "scan_interval": "Sensor अपडेट के लिए git status कितनी बार जांचा जाए। न्यूनतम 10, अधिकतम 3600 (1 घंटा).",
+          "ai_commit_messages": "Git diff से वर्णनात्मक commit संदेश उत्पन्न करने के लिए एक कॉन्फ़िगर किए गए AI conversation agent का उपयोग करें।",
+          "ai_agent_id": "उपयोग करने के लिए conversation agent का entity ID (उदा. conversation.chatgpt)। डिफ़ॉल्ट agent का उपयोग करने के लिए खाली छोड़ें।"
+        }
+      },
+      "remote": {
+        "title": "Remote Repository (वैकल्पिक)",
+        "description": "Push/pull के लिए एक remote repository कॉन्फ़िगर करें। छोड़ने के लिए URL खाली छोड़ें।",
+        "data": {
+          "remote_url": "Remote URL",
+          "auth_method": "प्रमाणीकरण विधि",
+          "auth_token": "व्यक्तिगत एक्सेस token",
+          "ssh_key_path": "SSH निजी कुंजी पथ"
+        },
+        "data_description": {
+          "remote_url": "Git remote URL (उदा. https://github.com/user/repo.git या git@github.com:user/repo.git).",
+          "auth_method": "Remote के साथ प्रमाणीकरण की विधि।",
+          "auth_token": "HTTPS प्रमाणीकरण के लिए व्यक्तिगत एक्सेस token।",
+          "ssh_key_path": "SSH निजी कुंजी फ़ाइल का पथ (उदा. /config/.ssh/id_ed25519)."
+        }
+      }
+    },
+    "error": {
+      "path_not_found": "निर्दिष्ट पथ मौजूद नहीं है।",
+      "git_not_installed": "Git स्थापित नहीं है या PATH में नहीं मिला।",
+      "invalid_remote_url": "अमान्य remote URL। यह https://, git@ या ssh:// से शुरू होना चाहिए।",
+      "token_required": "Token प्रमाणीकरण के लिए एक व्यक्तिगत एक्सेस token आवश्यक है।",
+      "ssh_key_not_found": "निर्दिष्ट SSH कुंजी फ़ाइल मौजूद नहीं है।"
+    },
+    "abort": {
+      "already_configured": "यह कॉन्फ़िगरेशन पथ पहले से कॉन्फ़िगर है।"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "git-ha-ppens विकल्प",
+        "menu_options": {
+          "general": "सामान्य सेटिंग्स",
+          "gitignore": ".gitignore संपादित करें"
+        }
+      },
+      "general": {
+        "title": "सामान्य सेटिंग्स",
+        "description": "अपनी git-ha-ppens सेटिंग्स समायोजित करें।",
+        "data": {
+          "git_user": "Git उपयोगकर्ता नाम",
+          "git_email": "Git ईमेल",
+          "auto_commit": "Auto-commit सक्षम करें",
+          "auto_push": "हर commit के बाद auto-push सक्षम करें",
+          "auto_pull": "Remote से auto-pull सक्षम करें",
+          "commit_interval": "Auto-commit विलंब अंतराल (सेकंड)",
+          "scan_interval": "स्टेटस पोलिंग अंतराल (सेकंड)",
+          "remote_url": "Remote URL",
+          "auth_method": "प्रमाणीकरण विधि",
+          "auth_token": "व्यक्तिगत एक्सेस token",
+          "ssh_key_path": "SSH निजी कुंजी पथ",
+          "ai_commit_messages": "Commit संदेशों के लिए AI का उपयोग करें",
+          "ai_agent_id": "Conversation agent entity ID"
+        },
+        "data_description": {
+          "git_user": "वह नाम जो commit लेखक के रूप में दिखाई देगा।",
+          "git_email": "वह ईमेल जो commit लेखक के रूप में दिखाई देगा।",
+          "auto_commit": "जब कॉन्फ़िगरेशन फ़ाइलें बदलती हैं, तो स्वचालित रूप से commit करता है।",
+          "auto_push": "हर auto-commit के बाद स्वचालित रूप से remote repository पर push करता है। कॉन्फ़िगर किया गया remote आवश्यक है।",
+          "auto_pull": "जब remote repository में नए commits का पता चलता है, तो स्वचालित रूप से pull करता है। कॉन्फ़िगर किया गया remote आवश्यक है।",
+          "commit_interval": "अंतिम बदलाव के बाद स्वचालित commit से पहले प्रतीक्षा के सेकंड। न्यूनतम 30, अधिकतम 86400 (24 घंटे).",
+          "scan_interval": "Sensor अपडेट के लिए git status कितनी बार जांचा जाए। न्यूनतम 10, अधिकतम 3600 (1 घंटा).",
+          "remote_url": "Git remote URL (उदा. https://github.com/user/repo.git या git@github.com:user/repo.git).",
+          "auth_method": "Remote के साथ प्रमाणीकरण की विधि।",
+          "auth_token": "HTTPS प्रमाणीकरण के लिए व्यक्तिगत एक्सेस token।",
+          "ssh_key_path": "SSH निजी कुंजी फ़ाइल का पथ (उदा. /config/.ssh/id_ed25519)."
+        }
+      },
+      "gitignore": {
+        "title": ".gitignore संपादित करें",
+        "description": ".gitignore फ़ाइल की सामग्री संपादित करें। प्रति पंक्ति एक पैटर्न। परिवर्तन तुरंत लागू होते हैं।",
+        "data": {
+          "gitignore_content": ".gitignore प्रविष्टियाँ"
+        },
+        "data_description": {
+          "gitignore_content": ".gitignore फ़ाइल की पूर्ण सामग्री। मानक gitignore सिंटैक्स: प्रति पंक्ति एक पैटर्न, # से शुरू होने वाली पंक्तियाँ टिप्पणियाँ हैं।"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_commit": {
+        "name": "अंतिम Commit"
+      },
+      "last_commit_time": {
+        "name": "अंतिम Commit समय"
+      },
+      "uncommitted_changes": {
+        "name": "बिना Commit किए बदलाव"
+      },
+      "branch": {
+        "name": "Branch"
+      },
+      "remote_status": {
+        "name": "Remote स्थिति"
+      }
+    },
+    "binary_sensor": {
+      "dirty": {
+        "name": "बिना Commit किए बदलाव"
+      }
+    }
+  }
+}
