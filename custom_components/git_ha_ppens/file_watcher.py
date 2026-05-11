@@ -13,7 +13,7 @@ from watchdog.observers import Observer
 from homeassistant.core import HomeAssistant
 
 from .ai_commit import async_generate_ai_commit_message
-from .const import EVENT_COMMIT, EVENT_ERROR, EVENT_PUSH, WATCHER_IGNORE_PATTERNS
+from .const import EVENT_COMMIT, EVENT_ERROR, EVENT_PUSH
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitError, GitManager
 
@@ -22,6 +22,9 @@ _LOGGER = logging.getLogger(__name__)
 
 class _ChangeCollector(FileSystemEventHandler):
     """Collects file system change events for debounced processing."""
+
+    # The .git directory must always be ignored regardless of .gitignore content.
+    _ALWAYS_IGNORE: frozenset[str] = frozenset({".git"})
 
     def __init__(
         self,
@@ -33,6 +36,29 @@ class _ChangeCollector(FileSystemEventHandler):
         self._repo_path = repo_path
         self._changed_files: set[str] = set()
         self._on_change = on_change
+        self._ignore_patterns: list[str] = []
+        self._load_gitignore()
+
+    def _load_gitignore(self) -> None:
+        """Load ignore patterns from the .gitignore file on disk.
+
+        Patterns are re-read on every call so user edits take effect
+        without restarting Home Assistant.
+        """
+        gitignore_path = Path(self._repo_path) / ".gitignore"
+        patterns: list[str] = []
+        if gitignore_path.exists():
+            try:
+                content = gitignore_path.read_text(encoding="utf-8")
+                for line in content.splitlines():
+                    stripped = line.strip()
+                    if stripped and not stripped.startswith("#"):
+                        # Normalise: remove trailing slashes so "deps/" matches
+                        # bare directory names the same way "deps" does.
+                        patterns.append(stripped.rstrip("/"))
+            except OSError:
+                _LOGGER.warning("Could not read .gitignore, using empty ignore list")
+        self._ignore_patterns = patterns
 
     @property
     def changed_files(self) -> set[str]:
@@ -44,18 +70,25 @@ class _ChangeCollector(FileSystemEventHandler):
         self._changed_files.clear()
 
     def _should_ignore(self, path: str) -> bool:
-        """Check if a path should be ignored."""
+        """Check if a path should be ignored based on .gitignore contents."""
         path_obj = Path(path)
         parts = path_obj.parts
 
-        for pattern in WATCHER_IGNORE_PATTERNS:
-            # Check directory names
+        # Always ignore the .git directory itself
+        if ".git" in parts:
+            return True
+
+        # Re-read .gitignore so edits take effect without restart
+        self._load_gitignore()
+
+        for pattern in self._ignore_patterns:
+            # Check directory names (e.g. ".storage", "deps")
             if pattern in parts:
                 return True
-            # Check file extensions
+            # Check file extensions (e.g. "*.db", "*.log")
             if pattern.startswith("*.") and path_obj.suffix == pattern[1:]:
                 return True
-            # Check exact filename
+            # Check exact filename (e.g. "secrets.yaml", "CLAUDE.md")
             if path_obj.name == pattern:
                 return True
 
