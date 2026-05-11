@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-05-11
+
+### Fixed
+- File watcher now reads ignore patterns from `.gitignore` on disk instead of using a hardcoded list — removing an entry from `.gitignore` (e.g. `.storage`) now correctly enables auto-commit for those files
+
 ## [0.6.2] - 2026-05-10
 
 ### Fixed
@@ -120,6 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...HEAD
+[0.6.3]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.5.0...v0.6.1
 [0.5.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.4.4...v0.5.0
