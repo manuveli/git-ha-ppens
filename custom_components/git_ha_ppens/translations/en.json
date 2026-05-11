@@ -36,7 +36,7 @@
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600.",
           "ai_commit_messages": "Use a configured AI conversation agent to generate descriptive commit messages from the git diff.",
-          "ai_agent_id": "The entity ID of the conversation agent to use (e.g., conversation.chatgpt). Leave empty to use the default agent."
+          "ai_agent_id": "The entity ID of the conversation agent to use (e.g., conversation.chatgpt). Leave empty to disable AI commit messages and use auto-generated messages instead."
         }
       },
       "remote": {

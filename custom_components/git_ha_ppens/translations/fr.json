@@ -36,7 +36,7 @@
           "scan_interval": "Fréquence de vérification du statut git pour la mise à jour des capteurs. Minimum 10, maximum 3600 (1h).",
           "fetch_interval": "Fréquence de récupération depuis le dépôt distant pour vérifier les nouveaux commits. Minimum 60, maximum 3600.",
           "ai_commit_messages": "Utilise un agent de conversation IA configuré pour générer des messages de commit descriptifs à partir du diff git.",
-          "ai_agent_id": "L'entity ID de l'agent de conversation à utiliser (ex. conversation.chatgpt). Laisse vide pour utiliser l'agent par défaut."
+          "ai_agent_id": "L'entity ID de l'agent de conversation à utiliser (ex. conversation.chatgpt). Laisse vide pour désactiver les messages de commit IA et utiliser des messages générés automatiquement."
         }
       },
       "remote": {

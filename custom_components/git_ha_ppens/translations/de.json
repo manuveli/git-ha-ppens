@@ -24,6 +24,8 @@
           "auto_pull": "Aktiviere Auto-Pull vom Remote-Repository",
           "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
           "scan_interval": "Status-Abfrageintervall (Sekunden)",
+          "ai_commit_messages": "KI für Commit-Nachrichten verwenden",
+          "ai_agent_id": "Entity-ID des Konversationsagenten",
           "fetch_interval": "Remote-Abfrageintervall (Sekunden)"
         },
         "data_description": {
@@ -32,6 +34,8 @@
           "auto_pull": "Pullt automatisch neue Commits vom Remote-Repository, wenn Änderungen erkannt werden. Erfordert ein konfiguriertes Remote-Repository.",
           "commit_interval": "Wartezeit in Sekunden nach der letzten Änderung, bevor automatisch committet wird. Minimum 30, Maximum 86400 (24h).",
           "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h).",
+          "ai_commit_messages": "Verwendet einen konfigurierten KI-Konversationsagenten, um beschreibende Commit-Nachrichten aus dem Git-Diff zu generieren.",
+          "ai_agent_id": "Die Entity-ID des zu verwendenden Konversationsagenten (z.B. conversation.chatgpt). Leer lassen, um KI-Commit-Nachrichten zu deaktivieren und stattdessen automatisch generierte Nachrichten zu verwenden.",
           "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600."
         }
       },
@@ -84,6 +88,8 @@
           "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
           "scan_interval": "Status-Abfrageintervall (Sekunden)",
           "fetch_interval": "Remote-Abfrageintervall (Sekunden)",
+          "ai_commit_messages": "KI für Commit-Nachrichten verwenden",
+          "ai_agent_id": "Entity-ID des Konversationsagenten",
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
