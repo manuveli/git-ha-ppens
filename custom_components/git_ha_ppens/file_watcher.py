@@ -37,7 +37,6 @@ class _ChangeCollector(FileSystemEventHandler):
         self._changed_files: set[str] = set()
         self._on_change = on_change
         self._ignore_patterns: list[str] = []
-        self._load_gitignore()
 
     def _load_gitignore(self) -> None:
         """Load ignore patterns from the .gitignore file on disk.
@@ -184,6 +183,9 @@ class GitFileWatcher:
 
         self._change_collector = _ChangeCollector(
             self._repo_path, on_change=self.schedule_commit
+        )
+        await self._hass.async_add_executor_job(
+            self._change_collector._load_gitignore
         )
         self._observer = Observer()
         self._observer.schedule(

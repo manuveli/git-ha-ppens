@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-05-13
+
+### Fixed
+- Moved blocking `.gitignore` file read out of the Home Assistant event loop to prevent `Detected blocking call to read_text` warnings (#68)
+
 ## [0.6.4] - 2026-05-11
 
 ### Fixed
@@ -131,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...HEAD
+[0.6.5]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...v0.6.2
