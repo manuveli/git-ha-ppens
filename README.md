@@ -16,6 +16,11 @@
 </p>
 
 <p align="center">
+  <a href="https://www.buymeacoffee.com/manuveli"><img src="https://img.shields.io/badge/Support-Buy%20me%20a%20coffee-fdd734?logo=buy-me-a-coffee" alt="Buy me a Coffee"></a>
+  <a href="https://github.com/sponsors/manuveli"><img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?logo=github-sponsors" alt="GitHub Sponsors"></a>
+</p>
+
+<p align="center">
   <strong>GitOps for Home Assistant.</strong> Edit your config in VS Code or directly on GitHub, push the changes, and your HA instance pulls them automatically. Roll back any breaking change by reverting a commit. Review config changes in a pull request before they ever reach your live system.<br><br>
   git-ha-ppens brings native git directly into Home Assistant — auto-commit on file change, auto-push to your remote, and now <strong>auto-pull</strong> when new commits arrive. All configured through the UI, no command line needed.
 </p>
