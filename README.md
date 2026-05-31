@@ -56,6 +56,7 @@
 - 🔄 **Periodic git fetch** checks the remote on a configurable interval (default 5 min, range 60–3600s)
 - ⬇️ **Auto-pull** when the integration detects your instance is behind the remote
 - ⬆️ **Auto-push** after every auto-commit to keep the remote up to date
+- ✅ **Pre-deploy check** *(optional)* — validates the Home Assistant configuration after pulling and **automatically rolls back** if the check fails, so broken remote changes never reach your live system
 
 ### 🔧 Manual Control
 - **6 services** callable from automations, scripts, or Developer Tools:
@@ -99,6 +100,8 @@ git-ha-ppens fetches periodically (default: every 5 min)
          ↓
 Detects your instance is behind  →  auto-pull
          ↓
+(optional) Pre-deploy check  →  rollback if config is invalid
+         ↓
 Home Assistant is up to date ✓
 ```
 
@@ -107,6 +110,7 @@ Home Assistant is up to date ✓
 - **Edit from anywhere** — use your local editor, the GitHub web UI, or any other git client. Changes reach HA automatically.
 - **Review before it goes live** — open a pull request for config changes and merge only when you're ready.
 - **Instant rollback** — revert a commit on GitHub and your HA instance pulls the rollback automatically.
+- **Safe deploys** — enable the optional pre-deploy check to run a Home Assistant configuration check on incoming changes. If it fails, the pull is rolled back automatically and your instance keeps running on the last working config.
 - **Full history** — every config change is a commit. Know exactly what changed, when, and why.
 
 ### Enabling the GitOps loop
@@ -115,8 +119,11 @@ Home Assistant is up to date ✓
 2. Enable **Auto-Pull** in the commit settings
 3. Set a **Fetch Interval** (default 5 min) so the integration checks for remote changes periodically
 4. Optionally enable **Auto-Push** to send local changes upstream automatically
+5. Optionally enable the **Pre-deploy check** to validate incoming changes and roll back automatically if the config is broken
 
 That's it. From this point on, your HA config and your git remote stay in sync automatically.
+
+> 🛡️ **Pre-deploy check:** When enabled, every pull (manual or automatic) runs a Home Assistant configuration check **after** merging. If the check reports errors, git-ha-ppens performs a `git reset --hard` back to the last working commit, fires a `git_ha_ppens_check_failed` event, and creates a persistent notification listing the errors — so a bad commit on the remote can't take down your instance. This check validates the live configuration directory, so it only runs when `repo_path` is your HA config directory (e.g. `/config`).
 
 ---
 
@@ -172,6 +179,7 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | `auto_commit` | Automatically commit when files change | `true` |
 | `auto_push` | Push to remote after each auto-commit | `true` |
 | `auto_pull` | Pull automatically when the instance is behind the remote | `false` |
+| `pre_deploy_check` | Run a HA config check after pulling and roll back if it fails | `false` |
 | `commit_interval` | Debounce interval in seconds (30–86400) | `300` |
 | `scan_interval` | Status polling interval in seconds (10–3600) | `30` |
 | `fetch_interval` | How often to fetch from remote in seconds (60–3600) | `300` |
@@ -285,6 +293,7 @@ Use these events as automation triggers to build notifications, dashboards, or r
 | `git_ha_ppens_push` | Commits are pushed | `commits_pushed` |
 | `git_ha_ppens_pull` | Commits are pulled | `commits_pulled` |
 | `git_ha_ppens_fetch` | A fetch completes | — |
+| `git_ha_ppens_check_failed` | A pull was blocked and rolled back by the pre-deploy check | `errors`, `auto` |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
 | `git_ha_ppens_secret_detected` | Potential secrets found in tracked files | `findings`, `count` |
 
@@ -370,6 +379,23 @@ automation:
         data:
           title: "⚠️ git-ha-ppens Security Alert"
           message: "Found {{ trigger.event.data.count }} potential secret(s) in tracked files!"
+```
+
+### 🛡️ Alert when a pull is blocked by the pre-deploy check
+
+```yaml
+automation:
+  - alias: "Git: Pre-deploy check blocked a pull"
+    trigger:
+      - platform: event
+        event_type: git_ha_ppens_check_failed
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "🛡️ git-ha-ppens: Pull blocked"
+          message: >-
+            Config check failed, rolled back to the last working state:
+            {{ trigger.event.data.errors | join(', ') }}
 ```
 
 ---
