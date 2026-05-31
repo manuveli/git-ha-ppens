@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +50,20 @@ class CommitInfo:
 
 class GitError(Exception):
     """Raised when a git operation fails."""
+
+
+class PreDeployCheckError(GitError):
+    """Raised when a pre-deploy check fails and the pull was rolled back.
+
+    Subclasses GitError so existing ``except GitError`` paths still handle it,
+    while callers that want to react specifically can catch this first.
+    """
+
+    def __init__(self, errors: list[str]) -> None:
+        """Store the individual check error messages."""
+        self.errors = errors
+        joined = "; ".join(errors) if errors else "unknown error"
+        super().__init__(f"Pre-deploy check failed: {joined}")
 
 
 class GitManager:
@@ -206,6 +221,29 @@ class GitManager:
             return bool(result) and len(result) >= 40 and "fatal" not in result.lower()
         except GitError:
             return False
+
+    async def get_head_sha(self) -> str:
+        """Return the current HEAD commit SHA (empty string if unborn)."""
+        result = await self._run_git(
+            "rev-parse", "--verify", "HEAD", check=False
+        )
+        if result and len(result) >= 40 and "fatal" not in result.lower():
+            return result
+        return ""
+
+    async def reset_hard(self, ref: str) -> None:
+        """Hard-reset the working tree to the given ref (rollback)."""
+        await self._run_git("reset", "--hard", ref)
+        _LOGGER.info("Rolled back working tree to %s", ref[:8])
+
+    async def get_upstream_sha(self) -> str:
+        """Return the upstream tracking branch SHA (empty string if none)."""
+        result = await self._run_git(
+            "rev-parse", "--verify", "@{u}", check=False
+        )
+        if result and len(result) >= 40 and "fatal" not in result.lower():
+            return result
+        return ""
 
     async def _has_upstream(self) -> bool:
         """Check if the current branch has an upstream tracking branch."""
@@ -562,14 +600,26 @@ class GitManager:
         await self._run_git("fetch", "origin", branch)
         _LOGGER.debug("Fetched from origin/%s", branch)
 
-    async def pull(self, backup: bool = True) -> int:
+    async def pull(
+        self,
+        backup: bool = True,
+        validate: Callable[[], Awaitable[list[str]]] | None = None,
+    ) -> int:
         """Pull from the configured remote.
 
         Args:
             backup: If True, create a backup commit of uncommitted changes first.
+            validate: Optional async callback run after merging new commits. It
+                returns a list of error messages; if non-empty, the pull is
+                rolled back to the pre-pull state and PreDeployCheckError is
+                raised.
 
         Returns:
             Number of commits pulled.
+
+        Raises:
+            PreDeployCheckError: If validation fails (after rolling back).
+            GitError: If the pull itself fails.
         """
         # Pre-check: verify remote is configured
         if not await self.is_remote_configured():
@@ -598,6 +648,10 @@ class GitManager:
         except (GitError, ValueError):
             count_before = 0
 
+        # Capture HEAD right before the merge so a rollback restores this exact
+        # state (including the backup commit above) and only discards the merge.
+        pre_pull_head = await self.get_head_sha()
+
         branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
         await self._run_git("pull", "origin", branch)
 
@@ -609,6 +663,17 @@ class GitManager:
             pulled = count_after - count_before
         except (GitError, ValueError):
             pulled = 0
+
+        # Pre-deploy gate: validate the merged result before keeping it.
+        if validate is not None and pulled > 0 and pre_pull_head:
+            errors = await validate()
+            if errors:
+                _LOGGER.warning(
+                    "Pre-deploy check failed after pull; rolling back to %s",
+                    pre_pull_head[:8],
+                )
+                await self.reset_hard(pre_pull_head)
+                raise PreDeployCheckError(errors)
 
         _LOGGER.info("Pulled %d commit(s) from origin/%s", pulled, branch)
         return pulled

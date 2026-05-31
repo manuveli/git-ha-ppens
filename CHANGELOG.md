@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-31
+
+### Added
+- Optional pre-deploy check: when enabled, a Home Assistant configuration check runs after a pull/auto-pull. If the check fails, the pull is rolled back (`git reset --hard`) to the last working state, a `git_ha_ppens_check_failed` event is fired, and a persistent notification surfaces the errors — blocking broken remote changes from reaching the live system (#69)
+- New `pre_deploy_check` option in setup and configuration UI (default off)
+
 ## [0.6.5] - 2026-05-13
 
 ### Fixed
@@ -135,7 +141,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `.gitignore` entries for common HA files
 - Automated release workflow for HACS
 
-[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.2...v0.6.3

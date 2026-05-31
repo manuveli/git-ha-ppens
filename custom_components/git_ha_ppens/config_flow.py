@@ -35,6 +35,7 @@ from .const import (
     CONF_GIT_USER,
     CONF_GITIGNORE_CONTENT,
     CONF_GITIGNORE_CUSTOM,
+    CONF_PRE_DEPLOY_CHECK,
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
@@ -109,6 +110,7 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_AUTO_COMMIT, default=True): bool,
                     vol.Required(CONF_AUTO_PUSH, default=True): bool,
                     vol.Required(CONF_AUTO_PULL, default=False): bool,
+                    vol.Required(CONF_PRE_DEPLOY_CHECK, default=False): bool,
                     vol.Required(
                         CONF_COMMIT_INTERVAL,
                         default=DEFAULT_COMMIT_INTERVAL,
@@ -258,6 +260,10 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_AUTO_PULL,
                         default=current.get(CONF_AUTO_PULL, False),
+                    ): bool,
+                    vol.Required(
+                        CONF_PRE_DEPLOY_CHECK,
+                        default=current.get(CONF_PRE_DEPLOY_CHECK, False),
                     ): bool,
                     vol.Required(
                         CONF_COMMIT_INTERVAL,

@@ -4,20 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .checks import async_run_pre_deploy_check, notify_check_failed
 from .const import (
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    EVENT_CHECK_FAILED,
     EVENT_ERROR,
     EVENT_FETCH,
     EVENT_PULL,
 )
-from .git_manager import GitError, GitManager, GitStatus
+from .git_manager import GitError, GitManager, GitStatus, PreDeployCheckError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +36,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         auto_pull: bool = False,
         remote_configured: bool = False,
         fetch_interval: int = DEFAULT_FETCH_INTERVAL,
+        pre_deploy_check: bool = False,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -45,11 +49,15 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         self._auto_pull = auto_pull
         self._remote_configured = remote_configured
         self._fetch_interval = fetch_interval
+        self._pre_deploy_check = pre_deploy_check
         self.git_lock = asyncio.Lock()
 
         self._last_fetch_time: datetime | None = None
         self._last_pull_time: datetime | None = None
         self._last_push_time: datetime | None = None
+        # Remote SHA whose auto-pull was blocked by a failed pre-deploy check;
+        # skip re-attempting (and re-running the heavy check) until it changes.
+        self._blocked_remote_sha: str | None = None
 
     @property
     def last_fetch_time(self) -> datetime | None:
@@ -74,6 +82,20 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Record that a pull just happened."""
         self._last_pull_time = datetime.now(tz=timezone.utc)
 
+    def pre_deploy_validator(
+        self,
+    ) -> Callable[[], Awaitable[list[str]]] | None:
+        """Return a validation callback for pull(), or None if disabled."""
+        if not self._pre_deploy_check:
+            return None
+
+        async def _validate() -> list[str]:
+            return await async_run_pre_deploy_check(
+                self.hass, self.git_manager.repo_path
+            )
+
+        return _validate
+
     async def _async_update_data(self) -> GitStatus:
         """Fetch git status from the repository."""
         # Fetch from remote if enough time has passed
@@ -93,10 +115,28 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 )
                 return status
 
+            # Skip remote commits already blocked by a failed pre-deploy check
+            # until the remote advances, to avoid re-running the heavy check
+            # (and re-notifying) on every poll.
+            upstream_sha = await self.git_manager.get_upstream_sha()
+            if (
+                self._blocked_remote_sha is not None
+                and upstream_sha == self._blocked_remote_sha
+            ):
+                _LOGGER.debug(
+                    "Skipping auto-pull: remote %s previously blocked by "
+                    "pre-deploy check",
+                    upstream_sha[:8],
+                )
+                return status
+
             async with self.git_lock:
                 try:
-                    commits_pulled = await self.git_manager.pull(backup=True)
+                    commits_pulled = await self.git_manager.pull(
+                        backup=True, validate=self.pre_deploy_validator()
+                    )
                     self._last_pull_time = datetime.now(tz=timezone.utc)
+                    self._blocked_remote_sha = None
                     self.hass.bus.async_fire(
                         EVENT_PULL,
                         {"commits_pulled": commits_pulled, "auto": True},
@@ -107,6 +147,22 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                     )
 
                     # Re-fetch status so sensors reflect the post-pull state
+                    try:
+                        status = await self.git_manager.get_status()
+                    except GitError:
+                        pass
+
+                except PreDeployCheckError as err:
+                    _LOGGER.warning(
+                        "Auto-pull blocked by pre-deploy check: %s", err
+                    )
+                    self._blocked_remote_sha = upstream_sha or None
+                    self.hass.bus.async_fire(
+                        EVENT_CHECK_FAILED,
+                        {"errors": err.errors, "auto": True},
+                    )
+                    notify_check_failed(self.hass, err.errors)
+                    # Re-fetch status so sensors reflect the rolled-back state
                     try:
                         status = await self.git_manager.get_status()
                     except GitError:

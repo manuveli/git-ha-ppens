@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.helpers.event import async_track_time_interval
 
 from .ai_commit import async_generate_ai_commit_message
+from .checks import notify_check_failed
 from .const import (
     ATTR_MESSAGE,
     AUTH_SSH,
@@ -30,13 +31,16 @@ from .const import (
     CONF_GIT_USER,
     CONF_GITIGNORE_CUSTOM,
     CONF_GITIGNORE_INITIALIZED,
+    CONF_PRE_DEPLOY_CHECK,
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
     CONF_SSH_KEY_PATH,
     DEFAULT_FETCH_INTERVAL,
+    DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    EVENT_CHECK_FAILED,
     EVENT_COMMIT,
     EVENT_ERROR,
     EVENT_FETCH,
@@ -52,7 +56,7 @@ from .const import (
 )
 from .coordinator import GitHaPpensCoordinator
 from .file_watcher import GitFileWatcher
-from .git_manager import GitError, GitManager
+from .git_manager import GitError, GitManager, PreDeployCheckError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -188,6 +192,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     auto_pull = data.get(CONF_AUTO_PULL, False)
     fetch_interval = data.get(CONF_FETCH_INTERVAL, DEFAULT_FETCH_INTERVAL)
+    pre_deploy_check = data.get(
+        CONF_PRE_DEPLOY_CHECK, DEFAULT_PRE_DEPLOY_CHECK
+    )
     coordinator = GitHaPpensCoordinator(
         hass,
         git_manager,
@@ -195,6 +202,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         auto_pull=auto_pull,
         remote_configured=bool(remote_url),
         fetch_interval=fetch_interval,
+        pre_deploy_check=pre_deploy_check,
     )
     await coordinator.async_config_entry_first_refresh()
 
@@ -388,13 +396,23 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Handle the pull service call."""
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
-            commits_pulled = await git_manager.pull(backup=True)
+            commits_pulled = await git_manager.pull(
+                backup=True, validate=coordinator.pre_deploy_validator()
+            )
             coordinator.record_pull_time()
 
             hass.bus.async_fire(
                 EVENT_PULL, {"commits_pulled": commits_pulled, "auto": False}
             )
             _LOGGER.info("Pulled %d commit(s) from remote", commits_pulled)
+            await coordinator.async_request_refresh()
+
+        except PreDeployCheckError as err:
+            _LOGGER.warning("Pull blocked by pre-deploy check: %s", err)
+            hass.bus.async_fire(
+                EVENT_CHECK_FAILED, {"errors": err.errors, "auto": False}
+            )
+            notify_check_failed(hass, err.errors)
             await coordinator.async_request_refresh()
 
         except GitError as err:

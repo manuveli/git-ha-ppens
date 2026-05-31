@@ -26,6 +26,7 @@ CONF_FETCH_INTERVAL: Final = "fetch_interval"
 CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
 CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
 CONF_GITIGNORE_INITIALIZED: Final = "gitignore_initialized"
+CONF_PRE_DEPLOY_CHECK: Final = "pre_deploy_check"
 
 # Authentication methods
 AUTH_NONE: Final = "none"
@@ -39,6 +40,7 @@ DEFAULT_SCAN_INTERVAL: Final = 30  # seconds
 DEFAULT_FETCH_INTERVAL: Final = 300  # seconds (5 minutes)
 DEFAULT_BRANCH: Final = "main"
 DEFAULT_AI_DIFF_MAX_CHARS: Final = 4000
+DEFAULT_PRE_DEPLOY_CHECK: Final = False
 
 # Events
 EVENT_COMMIT: Final = f"{DOMAIN}_commit"
@@ -47,6 +49,7 @@ EVENT_PULL: Final = f"{DOMAIN}_pull"
 EVENT_ERROR: Final = f"{DOMAIN}_error"
 EVENT_FETCH: Final = f"{DOMAIN}_fetch"
 EVENT_SECRET_DETECTED: Final = f"{DOMAIN}_secret_detected"
+EVENT_CHECK_FAILED: Final = f"{DOMAIN}_check_failed"
 
 # Sensor keys
 SENSOR_LAST_COMMIT: Final = "last_commit"
