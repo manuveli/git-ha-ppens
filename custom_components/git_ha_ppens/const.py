@@ -42,6 +42,13 @@ DEFAULT_BRANCH: Final = "main"
 DEFAULT_AI_DIFF_MAX_CHARS: Final = 4000
 DEFAULT_PRE_DEPLOY_CHECK: Final = False
 
+# Persistent runtime storage
+STORAGE_VERSION: Final = 1
+STORAGE_KEY_PREFIX: Final = f"{DOMAIN}.runtime_state"
+STORAGE_LAST_FETCH_TIME: Final = "last_fetch_time"
+STORAGE_LAST_PULL_TIME: Final = "last_pull_time"
+STORAGE_LAST_PUSH_TIME: Final = "last_push_time"
+
 # Events
 EVENT_COMMIT: Final = f"{DOMAIN}_commit"
 EVENT_PUSH: Final = f"{DOMAIN}_push"

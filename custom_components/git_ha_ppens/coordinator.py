@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .checks import async_run_pre_deploy_check, notify_check_failed
@@ -19,6 +21,11 @@ from .const import (
     EVENT_ERROR,
     EVENT_FETCH,
     EVENT_PULL,
+    STORAGE_KEY_PREFIX,
+    STORAGE_LAST_FETCH_TIME,
+    STORAGE_LAST_PULL_TIME,
+    STORAGE_LAST_PUSH_TIME,
+    STORAGE_VERSION,
 )
 from .git_manager import GitError, GitManager, GitStatus, PreDeployCheckError
 
@@ -31,6 +38,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     def __init__(
         self,
         hass: HomeAssistant,
+        entry_id: str,
         git_manager: GitManager,
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         auto_pull: bool = False,
@@ -46,6 +54,10 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             update_interval=timedelta(seconds=scan_interval),
         )
         self.git_manager = git_manager
+        self._entry_id = entry_id
+        self._store: Store[dict[str, str]] = Store(
+            hass, STORAGE_VERSION, f"{STORAGE_KEY_PREFIX}.{entry_id}"
+        )
         self._auto_pull = auto_pull
         self._remote_configured = remote_configured
         self._fetch_interval = fetch_interval
@@ -74,13 +86,115 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Return the last push timestamp."""
         return self._last_push_time
 
-    def record_push_time(self) -> None:
+    async def async_load_stored_timestamps(self) -> None:
+        """Load persisted operation timestamps for this config entry."""
+        try:
+            data = await self._store.async_load()
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning(
+                "Could not load stored runtime state for git-ha-ppens entry %s: %s",
+                self._entry_id,
+                err,
+            )
+            return
+
+        if not data:
+            return
+
+        if not isinstance(data, Mapping):
+            _LOGGER.warning(
+                "Ignoring invalid stored runtime state for git-ha-ppens entry %s",
+                self._entry_id,
+            )
+            return
+
+        self._last_fetch_time = self._parse_stored_timestamp(
+            data, STORAGE_LAST_FETCH_TIME
+        )
+        self._last_pull_time = self._parse_stored_timestamp(
+            data, STORAGE_LAST_PULL_TIME
+        )
+        self._last_push_time = self._parse_stored_timestamp(
+            data, STORAGE_LAST_PUSH_TIME
+        )
+
+    async def async_record_fetch_time(self) -> None:
+        """Record that a fetch just happened."""
+        self._last_fetch_time = datetime.now(tz=timezone.utc)
+        await self._async_save_timestamps()
+
+    async def async_record_push_time(self) -> None:
         """Record that a push just happened."""
         self._last_push_time = datetime.now(tz=timezone.utc)
+        await self._async_save_timestamps()
 
-    def record_pull_time(self) -> None:
+    async def async_record_pull_time(self) -> None:
         """Record that a pull just happened."""
         self._last_pull_time = datetime.now(tz=timezone.utc)
+        await self._async_save_timestamps()
+
+    def _parse_stored_timestamp(
+        self, data: Mapping[str, Any], key: str
+    ) -> datetime | None:
+        """Parse a stored ISO timestamp as UTC."""
+        value = data.get(key)
+        if value in (None, ""):
+            return None
+        if not isinstance(value, str):
+            _LOGGER.warning(
+                "Ignoring invalid %s value in stored runtime state", key
+            )
+            return None
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            _LOGGER.warning(
+                "Ignoring malformed %s value in stored runtime state: %s",
+                key,
+                value,
+            )
+            return None
+
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    async def _async_save_timestamps(self) -> None:
+        """Persist operation timestamps for this config entry."""
+        data = {
+            STORAGE_LAST_FETCH_TIME: self._format_timestamp(
+                self._last_fetch_time
+            ),
+            STORAGE_LAST_PULL_TIME: self._format_timestamp(
+                self._last_pull_time
+            ),
+            STORAGE_LAST_PUSH_TIME: self._format_timestamp(
+                self._last_push_time
+            ),
+        }
+        try:
+            await self._store.async_save(
+                {
+                    key: value
+                    for key, value in data.items()
+                    if value is not None
+                }
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning(
+                "Could not save runtime state for git-ha-ppens entry %s: %s",
+                self._entry_id,
+                err,
+            )
+
+    @staticmethod
+    def _format_timestamp(value: datetime | None) -> str | None:
+        """Format a timestamp for storage."""
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).isoformat()
 
     def pre_deploy_validator(
         self,
@@ -135,7 +249,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                     commits_pulled = await self.git_manager.pull(
                         backup=True, validate=self.pre_deploy_validator()
                     )
-                    self._last_pull_time = datetime.now(tz=timezone.utc)
+                    await self.async_record_pull_time()
                     self._blocked_remote_sha = None
                     self.hass.bus.async_fire(
                         EVENT_PULL,
@@ -193,7 +307,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         async with self.git_lock:
             try:
                 await self.git_manager.fetch()
-                self._last_fetch_time = datetime.now(tz=timezone.utc)
+                await self.async_record_fetch_time()
                 self.hass.bus.async_fire(
                     EVENT_FETCH,
                     {"auto": True},
@@ -202,7 +316,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             except GitError as err:
                 _LOGGER.warning("Auto-fetch failed: %s", err)
                 # Record time even on failure to avoid hammering a broken remote
-                self._last_fetch_time = datetime.now(tz=timezone.utc)
+                await self.async_record_fetch_time()
                 self.hass.bus.async_fire(
                     EVENT_ERROR,
                     {"operation": "auto_fetch", "error": str(err)},

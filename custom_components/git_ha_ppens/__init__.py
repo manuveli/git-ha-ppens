@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 import voluptuous as vol
 
@@ -114,6 +114,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Configure remote if specified (must happen BEFORE initial commit so push works)
     remote_url = data.get(CONF_REMOTE_URL, "")
+    initial_push_succeeded = False
     if remote_url:
         try:
             auth_method = data.get(CONF_AUTH_METHOD, "")
@@ -167,6 +168,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if remote_url and data.get(CONF_AUTO_PUSH, True):
                     try:
                         commits_pushed = await git_manager.push()
+                        initial_push_succeeded = True
                         _LOGGER.info(
                             "Initial push: %d commit(s) pushed to remote",
                             commits_pushed,
@@ -197,6 +199,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     coordinator = GitHaPpensCoordinator(
         hass,
+        entry.entry_id,
         git_manager,
         scan_interval,
         auto_pull=auto_pull,
@@ -204,6 +207,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         fetch_interval=fetch_interval,
         pre_deploy_check=pre_deploy_check,
     )
+    await coordinator.async_load_stored_timestamps()
+    if initial_push_succeeded:
+        await coordinator.async_record_push_time()
     await coordinator.async_config_entry_first_refresh()
 
     # Setup file watcher for auto-commit
@@ -378,7 +384,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             commits_pushed = await git_manager.push()
-            coordinator.record_push_time()
+            await coordinator.async_record_push_time()
 
             hass.bus.async_fire(
                 EVENT_PUSH, {"commits_pushed": commits_pushed}
@@ -399,7 +405,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             commits_pulled = await git_manager.pull(
                 backup=True, validate=coordinator.pre_deploy_validator()
             )
-            coordinator.record_pull_time()
+            await coordinator.async_record_pull_time()
 
             hass.bus.async_fire(
                 EVENT_PULL, {"commits_pulled": commits_pulled, "auto": False}
@@ -426,7 +432,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             await git_manager.fetch()
-            coordinator._last_fetch_time = datetime.now(tz=timezone.utc)
+            await coordinator.async_record_fetch_time()
 
             hass.bus.async_fire(EVENT_FETCH, {"auto": False})
             _LOGGER.info("Fetched from remote")
@@ -477,7 +483,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
             # Then push
             commits_pushed = await git_manager.push()
-            coordinator.record_push_time()
+            await coordinator.async_record_push_time()
             hass.bus.async_fire(
                 EVENT_PUSH, {"commits_pushed": commits_pushed}
             )

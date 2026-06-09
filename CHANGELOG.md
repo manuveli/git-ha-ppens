@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-09
+
+### Fixed
+- Persist last fetch, pull, and push timestamps across Home Assistant restarts (#71)
+
 ## [0.7.0] - 2026-05-31
 
 ### Added
@@ -142,6 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.7.0...HEAD
+[0.7.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/manuveli/git-ha-ppens/compare/v0.6.3...v0.6.4
