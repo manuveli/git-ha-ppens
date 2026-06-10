@@ -96,7 +96,7 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
         """Run the configured git operation."""
         try:
             if self.entity_description.operation == "push":
-                await self.coordinator.async_manual_push()
+                await self.coordinator.async_manual_commit_and_push()
             elif self.entity_description.operation == "pull":
                 await self.coordinator.async_manual_pull()
             else:

@@ -12,12 +12,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .ai_commit import async_generate_ai_commit_message
 from .checks import async_run_pre_deploy_check, notify_check_failed
 from .const import (
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     EVENT_CHECK_FAILED,
+    EVENT_COMMIT,
     EVENT_ERROR,
     EVENT_FETCH,
     EVENT_PULL,
@@ -46,6 +48,8 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         remote_configured: bool = False,
         fetch_interval: int = DEFAULT_FETCH_INTERVAL,
         pre_deploy_check: bool = False,
+        ai_commit_enabled: bool = False,
+        ai_agent_id: str = "",
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -63,6 +67,8 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         self._remote_configured = remote_configured
         self._fetch_interval = fetch_interval
         self._pre_deploy_check = pre_deploy_check
+        self._ai_commit_enabled = ai_commit_enabled
+        self._ai_agent_id = ai_agent_id
         self.git_lock = asyncio.Lock()
 
         self._last_fetch_time: datetime | None = None
@@ -218,6 +224,59 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
         self.hass.bus.async_fire(EVENT_PUSH, {"commits_pushed": commits_pushed})
         _LOGGER.info("Pushed %d commit(s) to remote", commits_pushed)
+        await self.async_request_refresh()
+        return commits_pushed
+
+    async def async_manual_commit_and_push(self) -> int:
+        """Commit all pending changes and immediately push them."""
+        try:
+            async with self.git_lock:
+                message = None
+                if self._ai_commit_enabled:
+                    try:
+                        diff = await self.git_manager.get_diff()
+                        porcelain = await self.git_manager._run_git(
+                            "status", "--porcelain", check=False
+                        )
+                        if diff or porcelain:
+                            message = await async_generate_ai_commit_message(
+                                self.hass,
+                                diff,
+                                porcelain,
+                                self._ai_agent_id,
+                            )
+                    except GitError:
+                        pass
+
+                commit_info = await self.git_manager.commit(message)
+                if commit_info:
+                    self.hass.bus.async_fire(
+                        EVENT_COMMIT,
+                        {
+                            "hash": commit_info.hash_short,
+                            "message": commit_info.message,
+                            "author": commit_info.author,
+                            "auto": False,
+                        },
+                    )
+                    _LOGGER.info(
+                        "Push button committed: %s - %s",
+                        commit_info.hash_short,
+                        commit_info.message,
+                    )
+
+                commits_pushed = await self.git_manager.push()
+                await self.async_record_push_time()
+        except GitError as err:
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "push", "error": str(err)}
+            )
+            raise
+
+        self.hass.bus.async_fire(
+            EVENT_PUSH, {"commits_pushed": commits_pushed, "auto": False}
+        )
+        _LOGGER.info("Push button pushed %d commit(s) to remote", commits_pushed)
         await self.async_request_refresh()
         return commits_pushed
 

@@ -198,6 +198,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         remote_configured=bool(remote_url),
         fetch_interval=fetch_interval,
         pre_deploy_check=pre_deploy_check,
+        ai_commit_enabled=data.get(CONF_AI_COMMIT_MESSAGES, False),
+        ai_agent_id=data.get(CONF_AI_AGENT_ID, ""),
     )
     await coordinator.async_load_stored_timestamps()
     if initial_push_succeeded:

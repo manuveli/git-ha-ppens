@@ -231,8 +231,10 @@ AI commit messages are designed to **never interfere** with normal operation:
 ## 🚀 Services
 
 When a remote repository is configured, the git-ha-ppens device page also
-provides **Push**, **Pull**, and **Fetch** buttons under **Controls**. These
-buttons run the same operations as the corresponding services below.
+provides **Push**, **Pull**, and **Fetch** buttons under **Controls**. The Push
+button first commits all pending changes using the configured standard or AI
+commit-message behavior, then immediately pushes them to the remote. Pull and
+Fetch run the same operations as the corresponding services below.
 
 | Service | Description | Parameters |
 |---------|-------------|------------|
