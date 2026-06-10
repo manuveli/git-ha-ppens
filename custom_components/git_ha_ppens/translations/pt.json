@@ -173,7 +173,16 @@
       },
       "fetch": {
         "name": "Buscar"
+      },
+      "discard_changes": {
+        "name": "Descartar alterações locais"
       }
+    }
+  },
+  "services": {
+    "discard_changes": {
+      "name": "Descartar alterações locais",
+      "description": "Descarta permanentemente alterações preparadas e não preparadas em ficheiros monitorizados. Os ficheiros não monitorizados são preservados."
     }
   }
 }

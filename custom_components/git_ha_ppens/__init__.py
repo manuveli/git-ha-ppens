@@ -44,6 +44,7 @@ from .const import (
     EVENT_PUSH,
     EVENT_SECRET_DETECTED,
     SERVICE_COMMIT,
+    SERVICE_DISCARD_CHANGES,
     SERVICE_DIFF,
     SERVICE_FETCH,
     SERVICE_PULL,
@@ -311,6 +312,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_FETCH,
                 SERVICE_SYNC,
                 SERVICE_DIFF,
+                SERVICE_DISCARD_CHANGES,
             ):
                 hass.services.async_remove(DOMAIN, service)
 
@@ -402,6 +404,14 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         except GitError as err:
             _LOGGER.error("Fetch failed: %s", err)
 
+    async def async_handle_discard_changes(call: ServiceCall) -> None:
+        """Handle the discard changes service call."""
+        try:
+            _, coordinator = _get_manager_and_coordinator(call)
+            await coordinator.async_discard_changes()
+        except GitError as err:
+            _LOGGER.error("Discard changes failed: %s", err)
+
     async def async_handle_sync(call: ServiceCall) -> None:
         """Handle the sync service call (commit + push)."""
         try:
@@ -471,6 +481,11 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         hass.services.async_register(DOMAIN, SERVICE_PUSH, async_handle_push)
         hass.services.async_register(DOMAIN, SERVICE_PULL, async_handle_pull)
         hass.services.async_register(DOMAIN, SERVICE_FETCH, async_handle_fetch)
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_DISCARD_CHANGES,
+            async_handle_discard_changes,
+        )
         hass.services.async_register(
             DOMAIN, SERVICE_SYNC, async_handle_sync, schema=SERVICE_COMMIT_SCHEMA
         )

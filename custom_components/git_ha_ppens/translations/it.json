@@ -173,7 +173,16 @@
       },
       "fetch": {
         "name": "Recupera"
+      },
+      "discard_changes": {
+        "name": "Scarta modifiche locali"
       }
+    }
+  },
+  "services": {
+    "discard_changes": {
+      "name": "Scarta modifiche locali",
+      "description": "Scarta definitivamente le modifiche preparate e non preparate ai file tracciati. I file non tracciati vengono mantenuti."
     }
   }
 }

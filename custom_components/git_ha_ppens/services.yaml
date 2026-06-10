@@ -22,6 +22,10 @@ fetch:
   name: Fetch
   description: Fetch new commits from the remote repository without merging. Updates the behind/ahead commit counts.
 
+discard_changes:
+  name: Discard local changes
+  description: Permanently discard staged and unstaged changes to tracked files. Untracked files are preserved.
+
 sync:
   name: Sync
   description: Commit all changes and push to the remote repository in one step.

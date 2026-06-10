@@ -324,6 +324,25 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         _LOGGER.info("Fetched from remote")
         await self.async_request_refresh()
 
+    async def async_discard_changes(self) -> int:
+        """Discard staged and unstaged changes to tracked files."""
+        try:
+            async with self.git_lock:
+                discarded_files = await self.git_manager.discard_changes()
+        except GitError as err:
+            self.hass.bus.async_fire(
+                EVENT_ERROR,
+                {"operation": "discard_changes", "error": str(err)},
+            )
+            raise
+
+        _LOGGER.info(
+            "Discarded local changes in %d tracked file(s)",
+            discarded_files,
+        )
+        await self.async_request_refresh()
+        return discarded_files
+
     async def _async_update_data(self) -> GitStatus:
         """Fetch git status from the repository."""
         # Fetch from remote if enough time has passed

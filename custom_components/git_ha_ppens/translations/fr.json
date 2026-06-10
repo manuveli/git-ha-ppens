@@ -173,7 +173,16 @@
       },
       "fetch": {
         "name": "Récupérer"
+      },
+      "discard_changes": {
+        "name": "Annuler les modifications locales"
       }
+    }
+  },
+  "services": {
+    "discard_changes": {
+      "name": "Annuler les modifications locales",
+      "description": "Annule définitivement les modifications indexées et non indexées des fichiers suivis. Les fichiers non suivis sont conservés."
     }
   }
 }

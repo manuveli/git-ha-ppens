@@ -16,7 +16,7 @@ from .const import DOMAIN
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitError, PreDeployCheckError
 
-GitOperation = Literal["push", "pull", "fetch"]
+GitOperation = Literal["push", "pull", "fetch", "discard_changes"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -45,6 +45,13 @@ BUTTON_DESCRIPTIONS: tuple[GitHaPpensButtonDescription, ...] = (
         icon="mdi:cloud-download-outline",
         operation="fetch",
     ),
+    GitHaPpensButtonDescription(
+        key="discard_changes",
+        translation_key="discard_changes",
+        icon="mdi:undo-variant",
+        entity_registry_enabled_default=False,
+        operation="discard_changes",
+    ),
 )
 
 
@@ -57,12 +64,10 @@ async def async_setup_entry(
     coordinator: GitHaPpensCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
-    if not coordinator.remote_configured:
-        return
-
     async_add_entities(
         GitHaPpensButton(coordinator, description, entry)
         for description in BUTTON_DESCRIPTIONS
+        if description.operation == "discard_changes" or coordinator.remote_configured
     )
 
 
@@ -99,8 +104,10 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
                 await self.coordinator.async_manual_commit_and_push()
             elif self.entity_description.operation == "pull":
                 await self.coordinator.async_manual_pull()
-            else:
+            elif self.entity_description.operation == "fetch":
                 await self.coordinator.async_manual_fetch()
+            else:
+                await self.coordinator.async_discard_changes()
         except PreDeployCheckError as err:
             raise HomeAssistantError(
                 f"Pull blocked by pre-deploy check: {'; '.join(err.errors)}"
@@ -109,3 +116,17 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
             raise HomeAssistantError(
                 f"Git {self.entity_description.operation} failed: {err}"
             ) from err
+
+    @property
+    def available(self) -> bool:
+        """Return whether the configured operation can currently run."""
+        if self.entity_description.operation != "discard_changes":
+            return super().available
+
+        data = self.coordinator.data
+        return bool(
+            super().available
+            and data is not None
+            and data.total_commits > 0
+            and (data.changed_files or data.staged_files)
+        )

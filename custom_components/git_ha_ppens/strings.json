@@ -173,7 +173,16 @@
       },
       "fetch": {
         "name": "Fetch"
+      },
+      "discard_changes": {
+        "name": "Discard Local Changes"
       }
+    }
+  },
+  "services": {
+    "discard_changes": {
+      "name": "Discard Local Changes",
+      "description": "Permanently discard staged and unstaged changes to tracked files. Untracked files are preserved."
     }
   }
 }

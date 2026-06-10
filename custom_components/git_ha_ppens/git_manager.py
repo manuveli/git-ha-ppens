@@ -236,6 +236,33 @@ class GitManager:
         await self._run_git("reset", "--hard", ref)
         _LOGGER.info("Rolled back working tree to %s", ref[:8])
 
+    async def discard_changes(self) -> int:
+        """Discard staged and unstaged changes to tracked files.
+
+        Untracked files are intentionally preserved.
+
+        Returns:
+            Number of tracked files restored to HEAD.
+        """
+        if not await self.has_commits():
+            return 0
+
+        changed_output = await self._run_git(
+            "diff", "--name-only", "HEAD", check=False
+        )
+        changed_files = {
+            path.strip() for path in changed_output.splitlines() if path.strip()
+        }
+        if not changed_files:
+            return 0
+
+        await self.reset_hard("HEAD")
+        _LOGGER.info(
+            "Discarded local changes in %d tracked file(s)",
+            len(changed_files),
+        )
+        return len(changed_files)
+
     async def get_upstream_sha(self) -> str:
         """Return the upstream tracking branch SHA (empty string if none)."""
         result = await self._run_git(

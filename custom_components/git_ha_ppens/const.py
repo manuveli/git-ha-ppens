@@ -75,6 +75,7 @@ SERVICE_PULL: Final = "pull"
 SERVICE_SYNC: Final = "sync"
 SERVICE_FETCH: Final = "fetch"
 SERVICE_DIFF: Final = "diff"
+SERVICE_DISCARD_CHANGES: Final = "discard_changes"
 
 # Service parameters
 ATTR_MESSAGE: Final = "message"

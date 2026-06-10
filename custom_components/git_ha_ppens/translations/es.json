@@ -173,7 +173,16 @@
       },
       "fetch": {
         "name": "Obtener"
+      },
+      "discard_changes": {
+        "name": "Descartar cambios locales"
       }
+    }
+  },
+  "services": {
+    "discard_changes": {
+      "name": "Descartar cambios locales",
+      "description": "Descarta permanentemente los cambios preparados y no preparados en archivos rastreados. Los archivos no rastreados se conservan."
     }
   }
 }

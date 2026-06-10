@@ -173,7 +173,16 @@
       },
       "fetch": {
         "name": "Getir"
+      },
+      "discard_changes": {
+        "name": "Yerel değişiklikleri at"
       }
+    }
+  },
+  "services": {
+    "discard_changes": {
+      "name": "Yerel değişiklikleri at",
+      "description": "İzlenen dosyalardaki hazırlanmış ve hazırlanmamış değişiklikleri kalıcı olarak atar. İzlenmeyen dosyalar korunur."
     }
   }
 }

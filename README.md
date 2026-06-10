@@ -59,14 +59,15 @@
 - ✅ **Pre-deploy check** *(optional)* — validates the Home Assistant configuration after pulling and **automatically rolls back** if the check fails, so broken remote changes never reach your live system
 
 ### 🔧 Manual Control
-- **6 services** callable from automations, scripts, or Developer Tools:
+- **7 services** callable from automations, scripts, or Developer Tools:
   - `git_ha_ppens.commit` — create a commit with an optional custom message
   - `git_ha_ppens.push` — push commits to the configured remote
   - `git_ha_ppens.pull` — pull from remote (auto-backs up uncommitted changes first)
   - `git_ha_ppens.fetch` — fetch from remote without merging (updates ahead/behind counts)
   - `git_ha_ppens.sync` — commit + push in one step
   - `git_ha_ppens.diff` — get the current diff of uncommitted changes
-- **3 buttons** on the integration device page for one-click Push, Pull, and Fetch
+  - `git_ha_ppens.discard_changes` — discard tracked local changes
+- **4 buttons** on the integration device page for Push, Pull, Fetch, and optionally discarding local changes
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
@@ -79,7 +80,7 @@
 
 ### 📊 Visibility & Monitoring
 - **10 sensors** + **1 binary sensor** for real-time git status
-- **3 buttons** for Push, Pull, and Fetch when a remote is configured
+- **4 buttons** for Push, Pull, Fetch, and optionally discarding local changes
 - **Events** for commit, push, pull, fetch, errors, and secret detection
 - Build dashboards, notifications, and automations around your config history
 
@@ -230,11 +231,18 @@ AI commit messages are designed to **never interfere** with normal operation:
 
 ## 🚀 Services
 
-When a remote repository is configured, the git-ha-ppens device page also
-provides **Push**, **Pull**, and **Fetch** buttons under **Controls**. The Push
-button first commits all pending changes using the configured standard or AI
-commit-message behavior, then immediately pushes them to the remote. Pull and
-Fetch run the same operations as the corresponding services below.
+The git-ha-ppens device page provides an optional **Discard Local Changes**
+button. When a remote repository is configured, it also provides **Push**,
+**Pull**, and **Fetch** buttons under **Controls**. The Push button first commits
+all pending changes using the configured standard or AI commit-message
+behavior, then immediately pushes them to the remote. Pull and Fetch run the
+same operations as the corresponding services below.
+
+The destructive **Discard Local Changes** button is disabled by default and
+must be enabled from its entity settings. It restores staged and unstaged
+changes to tracked files back to `HEAD`. Untracked files are preserved. This is
+not `git revert`, does not reset to the remote branch, and cannot undo a change
+after auto-commit has already created a commit.
 
 | Service | Description | Parameters |
 |---------|-------------|------------|
@@ -242,6 +250,7 @@ Fetch run the same operations as the corresponding services below.
 | `git_ha_ppens.push` | Push commits to the configured remote | — |
 | `git_ha_ppens.pull` | Pull from remote (backs up uncommitted changes first) | — |
 | `git_ha_ppens.fetch` | Fetch from remote without merging — updates the ahead/behind counts | — |
+| `git_ha_ppens.discard_changes` | Permanently discard staged and unstaged changes to tracked files; untracked files are preserved | — |
 | `git_ha_ppens.sync` | Commit + push in one step | `message` *(optional)* — custom commit message |
 | `git_ha_ppens.diff` | Get the current diff of uncommitted changes | — *(returns response data)* |
 

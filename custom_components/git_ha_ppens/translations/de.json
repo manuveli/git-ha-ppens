@@ -173,7 +173,16 @@
       },
       "fetch": {
         "name": "Fetch"
+      },
+      "discard_changes": {
+        "name": "Lokale Änderungen verwerfen"
       }
+    }
+  },
+  "services": {
+    "discard_changes": {
+      "name": "Lokale Änderungen verwerfen",
+      "description": "Verwirft dauerhaft gestagte und nicht gestagte Änderungen an getrackten Dateien. Ungetrackte Dateien bleiben erhalten."
     }
   }
 }
