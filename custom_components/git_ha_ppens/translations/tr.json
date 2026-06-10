@@ -163,6 +163,17 @@
       "dirty": {
         "name": "Commit'lenmemiş Değişiklikler"
       }
+    },
+    "button": {
+      "push": {
+        "name": "Gönder"
+      },
+      "pull": {
+        "name": "Çek"
+      },
+      "fetch": {
+        "name": "Getir"
+      }
     }
   }
 }

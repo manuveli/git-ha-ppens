@@ -21,6 +21,7 @@ from .const import (
     EVENT_ERROR,
     EVENT_FETCH,
     EVENT_PULL,
+    EVENT_PUSH,
     STORAGE_KEY_PREFIX,
     STORAGE_LAST_FETCH_TIME,
     STORAGE_LAST_PULL_TIME,
@@ -86,6 +87,11 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Return the last push timestamp."""
         return self._last_push_time
 
+    @property
+    def remote_configured(self) -> bool:
+        """Return whether a remote repository is configured."""
+        return self._remote_configured
+
     async def async_load_stored_timestamps(self) -> None:
         """Load persisted operation timestamps for this config entry."""
         try:
@@ -141,9 +147,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         if value in (None, ""):
             return None
         if not isinstance(value, str):
-            _LOGGER.warning(
-                "Ignoring invalid %s value in stored runtime state", key
-            )
+            _LOGGER.warning("Ignoring invalid %s value in stored runtime state", key)
             return None
         try:
             parsed = datetime.fromisoformat(value)
@@ -162,23 +166,13 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     async def _async_save_timestamps(self) -> None:
         """Persist operation timestamps for this config entry."""
         data = {
-            STORAGE_LAST_FETCH_TIME: self._format_timestamp(
-                self._last_fetch_time
-            ),
-            STORAGE_LAST_PULL_TIME: self._format_timestamp(
-                self._last_pull_time
-            ),
-            STORAGE_LAST_PUSH_TIME: self._format_timestamp(
-                self._last_push_time
-            ),
+            STORAGE_LAST_FETCH_TIME: self._format_timestamp(self._last_fetch_time),
+            STORAGE_LAST_PULL_TIME: self._format_timestamp(self._last_pull_time),
+            STORAGE_LAST_PUSH_TIME: self._format_timestamp(self._last_push_time),
         }
         try:
             await self._store.async_save(
-                {
-                    key: value
-                    for key, value in data.items()
-                    if value is not None
-                }
+                {key: value for key, value in data.items() if value is not None}
             )
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
@@ -210,6 +204,67 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
         return _validate
 
+    async def async_manual_push(self) -> int:
+        """Push local commits and publish the manual operation result."""
+        try:
+            async with self.git_lock:
+                commits_pushed = await self.git_manager.push()
+                await self.async_record_push_time()
+        except GitError as err:
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "push", "error": str(err)}
+            )
+            raise
+
+        self.hass.bus.async_fire(EVENT_PUSH, {"commits_pushed": commits_pushed})
+        _LOGGER.info("Pushed %d commit(s) to remote", commits_pushed)
+        await self.async_request_refresh()
+        return commits_pushed
+
+    async def async_manual_pull(self) -> int:
+        """Pull remote commits and publish the manual operation result."""
+        try:
+            async with self.git_lock:
+                commits_pulled = await self.git_manager.pull(
+                    backup=True, validate=self.pre_deploy_validator()
+                )
+                await self.async_record_pull_time()
+        except PreDeployCheckError as err:
+            self.hass.bus.async_fire(
+                EVENT_CHECK_FAILED, {"errors": err.errors, "auto": False}
+            )
+            notify_check_failed(self.hass, err.errors)
+            await self.async_request_refresh()
+            raise
+        except GitError as err:
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "pull", "error": str(err)}
+            )
+            raise
+
+        self.hass.bus.async_fire(
+            EVENT_PULL, {"commits_pulled": commits_pulled, "auto": False}
+        )
+        _LOGGER.info("Pulled %d commit(s) from remote", commits_pulled)
+        await self.async_request_refresh()
+        return commits_pulled
+
+    async def async_manual_fetch(self) -> None:
+        """Fetch remote commits and publish the manual operation result."""
+        try:
+            async with self.git_lock:
+                await self.git_manager.fetch()
+                await self.async_record_fetch_time()
+        except GitError as err:
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "fetch", "error": str(err)}
+            )
+            raise
+
+        self.hass.bus.async_fire(EVENT_FETCH, {"auto": False})
+        _LOGGER.info("Fetched from remote")
+        await self.async_request_refresh()
+
     async def _async_update_data(self) -> GitStatus:
         """Fetch git status from the repository."""
         # Fetch from remote if enough time has passed
@@ -224,9 +279,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         # Auto-pull if enabled and remote has new commits
         if self._auto_pull and self._remote_configured and status.behind > 0:
             if self.git_lock.locked():
-                _LOGGER.debug(
-                    "Skipping auto-pull: another git operation in progress"
-                )
+                _LOGGER.debug("Skipping auto-pull: another git operation in progress")
                 return status
 
             # Skip remote commits already blocked by a failed pre-deploy check
@@ -267,9 +320,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         pass
 
                 except PreDeployCheckError as err:
-                    _LOGGER.warning(
-                        "Auto-pull blocked by pre-deploy check: %s", err
-                    )
+                    _LOGGER.warning("Auto-pull blocked by pre-deploy check: %s", err)
                     self._blocked_remote_sha = upstream_sha or None
                     self.hass.bus.async_fire(
                         EVENT_CHECK_FAILED,

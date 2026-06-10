@@ -66,6 +66,7 @@
   - `git_ha_ppens.fetch` — fetch from remote without merging (updates ahead/behind counts)
   - `git_ha_ppens.sync` — commit + push in one step
   - `git_ha_ppens.diff` — get the current diff of uncommitted changes
+- **3 buttons** on the integration device page for one-click Push, Pull, and Fetch
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
@@ -78,6 +79,7 @@
 
 ### 📊 Visibility & Monitoring
 - **10 sensors** + **1 binary sensor** for real-time git status
+- **3 buttons** for Push, Pull, and Fetch when a remote is configured
 - **Events** for commit, push, pull, fetch, errors, and secret detection
 - Build dashboards, notifications, and automations around your config history
 
@@ -227,6 +229,10 @@ AI commit messages are designed to **never interfere** with normal operation:
 ---
 
 ## 🚀 Services
+
+When a remote repository is configured, the git-ha-ppens device page also
+provides **Push**, **Pull**, and **Fetch** buttons under **Controls**. These
+buttons run the same operations as the corresponding services below.
 
 | Service | Description | Parameters |
 |---------|-------------|------------|

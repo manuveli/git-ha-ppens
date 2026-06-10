@@ -13,7 +13,6 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.helpers.event import async_track_time_interval
 
 from .ai_commit import async_generate_ai_commit_message
-from .checks import notify_check_failed
 from .const import (
     ATTR_MESSAGE,
     AUTH_SSH,
@@ -40,11 +39,8 @@ from .const import (
     DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    EVENT_CHECK_FAILED,
     EVENT_COMMIT,
     EVENT_ERROR,
-    EVENT_FETCH,
-    EVENT_PULL,
     EVENT_PUSH,
     EVENT_SECRET_DETECTED,
     SERVICE_COMMIT,
@@ -60,7 +56,11 @@ from .git_manager import GitError, GitManager, PreDeployCheckError
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+]
 
 SERVICE_COMMIT_SCHEMA = vol.Schema(
     {
@@ -157,13 +157,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create initial commit if repository has no commits yet
     if not await git_manager.has_commits():
         try:
-            commit_info = await git_manager.commit(
-                "Initial commit by git-ha-ppens"
-            )
+            commit_info = await git_manager.commit("Initial commit by git-ha-ppens")
             if commit_info:
-                _LOGGER.info(
-                    "Created initial commit: %s", commit_info.hash_short
-                )
+                _LOGGER.info("Created initial commit: %s", commit_info.hash_short)
                 # Auto-push initial commit if remote is configured
                 if remote_url and data.get(CONF_AUTO_PUSH, True):
                     try:
@@ -179,9 +175,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             push_err,
                         )
             else:
-                _LOGGER.warning(
-                    "Initial commit returned None — no changes to commit"
-                )
+                _LOGGER.warning("Initial commit returned None — no changes to commit")
         except GitError as err:
             _LOGGER.error(
                 "Failed to create initial commit: %s. "
@@ -194,9 +188,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     auto_pull = data.get(CONF_AUTO_PULL, False)
     fetch_interval = data.get(CONF_FETCH_INTERVAL, DEFAULT_FETCH_INTERVAL)
-    pre_deploy_check = data.get(
-        CONF_PRE_DEPLOY_CHECK, DEFAULT_PRE_DEPLOY_CHECK
-    )
+    pre_deploy_check = data.get(CONF_PRE_DEPLOY_CHECK, DEFAULT_PRE_DEPLOY_CHECK)
     coordinator = GitHaPpensCoordinator(
         hass,
         entry.entry_id,
@@ -285,9 +277,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _async_update_options(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> None:
+async def _async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update - reload the integration."""
     await hass.config_entries.async_reload(entry.entry_id)
 
@@ -312,7 +302,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Remove services if no more entries
         if not hass.data[DOMAIN]:
-            for service in (SERVICE_COMMIT, SERVICE_PUSH, SERVICE_PULL, SERVICE_FETCH, SERVICE_SYNC, SERVICE_DIFF):
+            for service in (
+                SERVICE_COMMIT,
+                SERVICE_PUSH,
+                SERVICE_PULL,
+                SERVICE_FETCH,
+                SERVICE_SYNC,
+                SERVICE_DIFF,
+            ):
                 hass.services.async_remove(DOMAIN, service)
 
     return unload_ok
@@ -375,74 +372,33 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
         except GitError as err:
             _LOGGER.error("Commit failed: %s", err)
-            hass.bus.async_fire(
-                EVENT_ERROR, {"operation": "commit", "error": str(err)}
-            )
+            hass.bus.async_fire(EVENT_ERROR, {"operation": "commit", "error": str(err)})
 
     async def async_handle_push(call: ServiceCall) -> None:
         """Handle the push service call."""
         try:
-            git_manager, coordinator = _get_manager_and_coordinator(call)
-            commits_pushed = await git_manager.push()
-            await coordinator.async_record_push_time()
-
-            hass.bus.async_fire(
-                EVENT_PUSH, {"commits_pushed": commits_pushed}
-            )
-            _LOGGER.info("Pushed %d commit(s) to remote", commits_pushed)
-            await coordinator.async_request_refresh()
-
+            _, coordinator = _get_manager_and_coordinator(call)
+            await coordinator.async_manual_push()
         except GitError as err:
             _LOGGER.error("Push failed: %s", err)
-            hass.bus.async_fire(
-                EVENT_ERROR, {"operation": "push", "error": str(err)}
-            )
 
     async def async_handle_pull(call: ServiceCall) -> None:
         """Handle the pull service call."""
         try:
-            git_manager, coordinator = _get_manager_and_coordinator(call)
-            commits_pulled = await git_manager.pull(
-                backup=True, validate=coordinator.pre_deploy_validator()
-            )
-            await coordinator.async_record_pull_time()
-
-            hass.bus.async_fire(
-                EVENT_PULL, {"commits_pulled": commits_pulled, "auto": False}
-            )
-            _LOGGER.info("Pulled %d commit(s) from remote", commits_pulled)
-            await coordinator.async_request_refresh()
-
+            _, coordinator = _get_manager_and_coordinator(call)
+            await coordinator.async_manual_pull()
         except PreDeployCheckError as err:
             _LOGGER.warning("Pull blocked by pre-deploy check: %s", err)
-            hass.bus.async_fire(
-                EVENT_CHECK_FAILED, {"errors": err.errors, "auto": False}
-            )
-            notify_check_failed(hass, err.errors)
-            await coordinator.async_request_refresh()
-
         except GitError as err:
             _LOGGER.error("Pull failed: %s", err)
-            hass.bus.async_fire(
-                EVENT_ERROR, {"operation": "pull", "error": str(err)}
-            )
 
     async def async_handle_fetch(call: ServiceCall) -> None:
         """Handle the fetch service call."""
         try:
-            git_manager, coordinator = _get_manager_and_coordinator(call)
-            await git_manager.fetch()
-            await coordinator.async_record_fetch_time()
-
-            hass.bus.async_fire(EVENT_FETCH, {"auto": False})
-            _LOGGER.info("Fetched from remote")
-            await coordinator.async_request_refresh()
-
+            _, coordinator = _get_manager_and_coordinator(call)
+            await coordinator.async_manual_fetch()
         except GitError as err:
             _LOGGER.error("Fetch failed: %s", err)
-            hass.bus.async_fire(
-                EVENT_ERROR, {"operation": "fetch", "error": str(err)}
-            )
 
     async def async_handle_sync(call: ServiceCall) -> None:
         """Handle the sync service call (commit + push)."""
@@ -477,34 +433,26 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                         "author": commit_info.author,
                     },
                 )
-                _LOGGER.info(
-                    "Sync - committed: %s", commit_info.hash_short
-                )
+                _LOGGER.info("Sync - committed: %s", commit_info.hash_short)
 
             # Then push
             commits_pushed = await git_manager.push()
             await coordinator.async_record_push_time()
-            hass.bus.async_fire(
-                EVENT_PUSH, {"commits_pushed": commits_pushed}
-            )
+            hass.bus.async_fire(EVENT_PUSH, {"commits_pushed": commits_pushed})
             _LOGGER.info("Sync - pushed %d commit(s)", commits_pushed)
 
             await coordinator.async_request_refresh()
 
         except GitError as err:
             _LOGGER.error("Sync failed: %s", err)
-            hass.bus.async_fire(
-                EVENT_ERROR, {"operation": "sync", "error": str(err)}
-            )
+            hass.bus.async_fire(EVENT_ERROR, {"operation": "sync", "error": str(err)})
 
     async def async_handle_diff(call: ServiceCall) -> dict:
         """Handle the diff service call."""
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             diff = await git_manager.get_diff()
-            porcelain = await git_manager._run_git(
-                "status", "--porcelain", check=False
-            )
+            porcelain = await git_manager._run_git("status", "--porcelain", check=False)
             return {
                 "diff": diff or "",
                 "summary": porcelain or "",
@@ -518,15 +466,9 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         hass.services.async_register(
             DOMAIN, SERVICE_COMMIT, async_handle_commit, schema=SERVICE_COMMIT_SCHEMA
         )
-        hass.services.async_register(
-            DOMAIN, SERVICE_PUSH, async_handle_push
-        )
-        hass.services.async_register(
-            DOMAIN, SERVICE_PULL, async_handle_pull
-        )
-        hass.services.async_register(
-            DOMAIN, SERVICE_FETCH, async_handle_fetch
-        )
+        hass.services.async_register(DOMAIN, SERVICE_PUSH, async_handle_push)
+        hass.services.async_register(DOMAIN, SERVICE_PULL, async_handle_pull)
+        hass.services.async_register(DOMAIN, SERVICE_FETCH, async_handle_fetch)
         hass.services.async_register(
             DOMAIN, SERVICE_SYNC, async_handle_sync, schema=SERVICE_COMMIT_SCHEMA
         )

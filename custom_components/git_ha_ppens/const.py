@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "git_ha_ppens"
-PLATFORMS: Final = ["sensor", "binary_sensor"]
+PLATFORMS: Final = ["sensor", "binary_sensor", "button"]
 
 # Configuration keys
 CONF_REPO_PATH: Final = "repo_path"

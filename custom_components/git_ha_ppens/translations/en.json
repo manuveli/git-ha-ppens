@@ -163,6 +163,17 @@
       "dirty": {
         "name": "Uncommitted Changes"
       }
+    },
+    "button": {
+      "push": {
+        "name": "Push"
+      },
+      "pull": {
+        "name": "Pull"
+      },
+      "fetch": {
+        "name": "Fetch"
+      }
     }
   }
 }

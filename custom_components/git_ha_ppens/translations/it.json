@@ -163,6 +163,17 @@
       "dirty": {
         "name": "Modifiche Non Committate"
       }
+    },
+    "button": {
+      "push": {
+        "name": "Push"
+      },
+      "pull": {
+        "name": "Pull"
+      },
+      "fetch": {
+        "name": "Recupera"
+      }
     }
   }
 }

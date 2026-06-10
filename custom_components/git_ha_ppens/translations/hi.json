@@ -163,6 +163,17 @@
       "dirty": {
         "name": "बिना Commit किए बदलाव"
       }
+    },
+    "button": {
+      "push": {
+        "name": "पुश"
+      },
+      "pull": {
+        "name": "पुल"
+      },
+      "fetch": {
+        "name": "फ़ेच"
+      }
     }
   }
 }
