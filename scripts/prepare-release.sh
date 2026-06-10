@@ -6,6 +6,7 @@ CHANGELOG="$REPO_ROOT/CHANGELOG.md"
 MANIFEST="$REPO_ROOT/custom_components/git_ha_ppens/manifest.json"
 SENSOR="$REPO_ROOT/custom_components/git_ha_ppens/sensor.py"
 BINARY_SENSOR="$REPO_ROOT/custom_components/git_ha_ppens/binary_sensor.py"
+BUTTON="$REPO_ROOT/custom_components/git_ha_ppens/button.py"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,13 +120,16 @@ PYEOF
 sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" "$MANIFEST"
 echo "  ✓ manifest.json"
 
-# ── update sensor.py + binary_sensor.py ──────────────────────────────────────
+# ── update entity platform versions ───────────────────────────────────────────
 
 sed -i '' "s/\"sw_version\": \"$CURRENT\"/\"sw_version\": \"$NEW_VERSION\"/" "$SENSOR"
 echo "  ✓ sensor.py"
 
 sed -i '' "s/\"sw_version\": \"$CURRENT\"/\"sw_version\": \"$NEW_VERSION\"/" "$BINARY_SENSOR"
 echo "  ✓ binary_sensor.py"
+
+sed -i '' "s/\"sw_version\": \"$CURRENT\"/\"sw_version\": \"$NEW_VERSION\"/" "$BUTTON"
+echo "  ✓ button.py"
 
 # ── summary ───────────────────────────────────────────────────────────────────
 
@@ -136,6 +140,7 @@ echo "Nächste Schritte:"
 echo "  1. git diff     — Änderungen prüfen"
 echo "  2. git add CHANGELOG.md custom_components/git_ha_ppens/manifest.json \\"
 echo "         custom_components/git_ha_ppens/sensor.py \\"
-echo "         custom_components/git_ha_ppens/binary_sensor.py"
+echo "         custom_components/git_ha_ppens/binary_sensor.py \\"
+echo "         custom_components/git_ha_ppens/button.py"
 echo "  3. git commit -m \"chore: prepare release v$NEW_VERSION\""
 echo "  4. Push auf release-Branch → GitHub Actions erstellt das Release"
