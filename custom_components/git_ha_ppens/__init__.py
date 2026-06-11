@@ -362,6 +362,8 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                         "hash": commit_info.hash_short,
                         "message": commit_info.message,
                         "author": commit_info.author,
+                        "changed_files": commit_info.changed_files,
+                        "auto": False,
                     },
                 )
                 _LOGGER.info(
@@ -443,6 +445,8 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                         "hash": commit_info.hash_short,
                         "message": commit_info.message,
                         "author": commit_info.author,
+                        "changed_files": commit_info.changed_files,
+                        "auto": False,
                     },
                 )
                 _LOGGER.info("Sync - committed: %s", commit_info.hash_short)

@@ -284,6 +284,7 @@ class GitFileWatcher:
                         "hash": commit_info.hash_short,
                         "message": commit_info.message,
                         "author": commit_info.author,
+                        "changed_files": commit_info.changed_files,
                         "auto": True,
                     },
                 )

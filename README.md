@@ -306,9 +306,9 @@ Use these events as automation triggers to build notifications, dashboards, or r
 
 | Event | Fired when | Data |
 |-------|-----------|------|
-| `git_ha_ppens_commit` | A commit is created | `hash`, `message`, `author` |
+| `git_ha_ppens_commit` | A commit is created | `hash`, `message`, `author`, `changed_files`, `auto` |
 | `git_ha_ppens_push` | Commits are pushed | `commits_pushed` |
-| `git_ha_ppens_pull` | Commits are pulled | `commits_pulled` |
+| `git_ha_ppens_pull` | Commits are pulled | `commits_pulled`, `changed_files`, `auto` |
 | `git_ha_ppens_fetch` | A fetch completes | — |
 | `git_ha_ppens_check_failed` | A pull was blocked and rolled back by the pre-deploy check | `errors`, `auto` |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |

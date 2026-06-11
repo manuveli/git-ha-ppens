@@ -46,6 +46,15 @@ class CommitInfo:
     message: str
     author: str
     timestamp: datetime
+    changed_files: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PullResult:
+    """Represents the result of a pull operation."""
+
+    commits_pulled: int
+    changed_files: list[str] = field(default_factory=list)
 
 
 class GitError(Exception):
@@ -419,6 +428,14 @@ class GitManager:
 
         # Stage all changes (respecting .gitignore)
         await self._run_git("add", "-A")
+        changed_files_output = await self._run_git(
+            "diff", "--cached", "--name-only"
+        )
+        changed_files = sorted(
+            path.strip()
+            for path in changed_files_output.splitlines()
+            if path.strip()
+        )
 
         # Commit
         await self._run_git("commit", "-m", message)
@@ -440,6 +457,7 @@ class GitManager:
                 message=parts[2],
                 author=parts[3],
                 timestamp=timestamp,
+                changed_files=changed_files,
             )
             _LOGGER.info("Created commit %s: %s", commit_info.hash_short, message)
             return commit_info
@@ -631,7 +649,7 @@ class GitManager:
         self,
         backup: bool = True,
         validate: Callable[[], Awaitable[list[str]]] | None = None,
-    ) -> int:
+    ) -> PullResult:
         """Pull from the configured remote.
 
         Args:
@@ -642,7 +660,7 @@ class GitManager:
                 raised.
 
         Returns:
-            Number of commits pulled.
+            Pull result containing the number of commits and changed files.
 
         Raises:
             PreDeployCheckError: If validation fails (after rolling back).
@@ -702,8 +720,25 @@ class GitManager:
                 await self.reset_hard(pre_pull_head)
                 raise PreDeployCheckError(errors)
 
+        changed_files: list[str] = []
+        if pre_pull_head:
+            changed_files_output = await self._run_git(
+                "diff",
+                "--name-only",
+                pre_pull_head,
+                "HEAD",
+            )
+            changed_files = sorted(
+                path.strip()
+                for path in changed_files_output.splitlines()
+                if path.strip()
+            )
+
         _LOGGER.info("Pulled %d commit(s) from origin/%s", pulled, branch)
-        return pulled
+        return PullResult(
+            commits_pulled=pulled,
+            changed_files=changed_files,
+        )
 
     async def get_log(self, count: int = 10) -> list[CommitInfo]:
         """Get recent commit history."""

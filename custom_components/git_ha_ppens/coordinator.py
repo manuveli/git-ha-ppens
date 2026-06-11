@@ -256,6 +256,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                             "hash": commit_info.hash_short,
                             "message": commit_info.message,
                             "author": commit_info.author,
+                            "changed_files": commit_info.changed_files,
                             "auto": False,
                         },
                     )
@@ -284,7 +285,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Pull remote commits and publish the manual operation result."""
         try:
             async with self.git_lock:
-                commits_pulled = await self.git_manager.pull(
+                pull_result = await self.git_manager.pull(
                     backup=True, validate=self.pre_deploy_validator()
                 )
                 await self.async_record_pull_time()
@@ -302,11 +303,19 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             raise
 
         self.hass.bus.async_fire(
-            EVENT_PULL, {"commits_pulled": commits_pulled, "auto": False}
+            EVENT_PULL,
+            {
+                "commits_pulled": pull_result.commits_pulled,
+                "changed_files": pull_result.changed_files,
+                "auto": False,
+            },
         )
-        _LOGGER.info("Pulled %d commit(s) from remote", commits_pulled)
+        _LOGGER.info(
+            "Pulled %d commit(s) from remote",
+            pull_result.commits_pulled,
+        )
         await self.async_request_refresh()
-        return commits_pulled
+        return pull_result.commits_pulled
 
     async def async_manual_fetch(self) -> None:
         """Fetch remote commits and publish the manual operation result."""
@@ -377,18 +386,22 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
             async with self.git_lock:
                 try:
-                    commits_pulled = await self.git_manager.pull(
+                    pull_result = await self.git_manager.pull(
                         backup=True, validate=self.pre_deploy_validator()
                     )
                     await self.async_record_pull_time()
                     self._blocked_remote_sha = None
                     self.hass.bus.async_fire(
                         EVENT_PULL,
-                        {"commits_pulled": commits_pulled, "auto": True},
+                        {
+                            "commits_pulled": pull_result.commits_pulled,
+                            "changed_files": pull_result.changed_files,
+                            "auto": True,
+                        },
                     )
                     _LOGGER.info(
                         "Auto-pull: %d commit(s) pulled from remote",
-                        commits_pulled,
+                        pull_result.commits_pulled,
                     )
 
                     # Re-fetch status so sensors reflect the post-pull state
