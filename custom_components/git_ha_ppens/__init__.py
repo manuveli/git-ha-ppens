@@ -7,9 +7,11 @@ from datetime import timedelta
 
 import voluptuous as vol
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 
 from .ai_commit import async_generate_ai_commit_message
@@ -17,6 +19,7 @@ from .const import (
     ATTR_MESSAGE,
     AUTH_SSH,
     AUTH_TOKEN,
+    button_entity_id_targets,
     CONF_AI_AGENT_ID,
     CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
@@ -68,6 +71,104 @@ SERVICE_COMMIT_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MESSAGE): str,
     }
 )
+
+BUTTON_ENTITY_ID_MIGRATION_NOTIFICATION_ID = (
+    f"{DOMAIN}_button_entity_id_migration"
+)
+
+
+def _migrate_button_entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Rename existing button entity IDs to the stable git-ha-ppens IDs."""
+    entity_registry = er.async_get(hass)
+    renamed: list[tuple[str, str]] = []
+    skipped: list[tuple[str, str, str]] = []
+
+    for unique_id, target_entity_id in button_entity_id_targets(
+        entry.entry_id
+    ).items():
+        current_entity_id = entity_registry.async_get_entity_id(
+            Platform.BUTTON, DOMAIN, unique_id
+        )
+        if current_entity_id is None or current_entity_id == target_entity_id:
+            continue
+
+        target_entry = entity_registry.async_get(target_entity_id)
+        if target_entry is not None and target_entry.unique_id != unique_id:
+            reason = "target entity ID is already registered"
+            skipped.append((current_entity_id, target_entity_id, reason))
+            _LOGGER.warning(
+                "Could not migrate %s to %s: %s",
+                current_entity_id,
+                target_entity_id,
+                reason,
+            )
+            continue
+
+        if target_entry is None and not hass.states.async_available(target_entity_id):
+            reason = "target entity ID is already in use"
+            skipped.append((current_entity_id, target_entity_id, reason))
+            _LOGGER.warning(
+                "Could not migrate %s to %s: %s",
+                current_entity_id,
+                target_entity_id,
+                reason,
+            )
+            continue
+
+        try:
+            entity_registry.async_update_entity(
+                current_entity_id, new_entity_id=target_entity_id
+            )
+        except ValueError as err:
+            skipped.append((current_entity_id, target_entity_id, str(err)))
+            _LOGGER.warning(
+                "Could not migrate %s to %s: %s",
+                current_entity_id,
+                target_entity_id,
+                err,
+            )
+            continue
+
+        renamed.append((current_entity_id, target_entity_id))
+        _LOGGER.info(
+            "Migrated button entity ID from %s to %s",
+            current_entity_id,
+            target_entity_id,
+        )
+
+    if not renamed and not skipped:
+        return
+
+    message_parts: list[str] = []
+    if renamed:
+        message_parts.append(
+            "Renamed git-ha-ppens button entity IDs to stable, "
+            "language-independent IDs:\n\n"
+            + "\n".join(f"- `{old}` -> `{new}`" for old, new in renamed)
+        )
+    if skipped:
+        message_parts.append(
+            "Skipped these button entity ID migrations because the target ID "
+            "was not free:\n\n"
+            + "\n".join(
+                f"- `{old}` -> `{new}` ({reason})"
+                for old, new, reason in skipped
+            )
+        )
+
+    message_parts.append(
+        "Home Assistant keeps entity history for registry renames, but it does "
+        "not update existing automations, dashboards, scripts, Node-RED, "
+        "AppDaemon, or other external references automatically. Please update "
+        "any references to the old button entity IDs."
+    )
+
+    persistent_notification.async_create(
+        hass,
+        "\n\n".join(message_parts),
+        title="git-ha-ppens button entity IDs changed",
+        notification_id=BUTTON_ENTITY_ID_MIGRATION_NOTIFICATION_ID,
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -251,6 +352,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "file_watcher": file_watcher,
         "periodic_unsub": periodic_unsub,
     }
+
+    _migrate_button_entity_ids(hass, entry)
 
     # Forward platform setup
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

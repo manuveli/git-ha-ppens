@@ -80,6 +80,39 @@ SERVICE_DISCARD_CHANGES: Final = "discard_changes"
 # Service parameters
 ATTR_MESSAGE: Final = "message"
 
+# Static entity IDs. These keep technical entity IDs independent from areas,
+# device names, and localized entity display names.
+SENSOR_ENTITY_IDS: Final = {
+    "last_commit": f"sensor.{DOMAIN}_last_commit",
+    "last_commit_time": f"sensor.{DOMAIN}_last_commit_time",
+    "uncommitted_changes": f"sensor.{DOMAIN}_uncommitted_changes",
+    "branch": f"sensor.{DOMAIN}_branch",
+    "remote_status": f"sensor.{DOMAIN}_remote_status",
+    "last_fetch_time": f"sensor.{DOMAIN}_last_fetch_time",
+    "last_pull_time": f"sensor.{DOMAIN}_last_pull_time",
+    "last_push_time": f"sensor.{DOMAIN}_last_push_time",
+    "commits_behind": f"sensor.{DOMAIN}_commits_behind",
+    "commits_ahead": f"sensor.{DOMAIN}_commits_ahead",
+}
+BINARY_SENSOR_ENTITY_IDS: Final = {
+    "dirty": f"binary_sensor.{DOMAIN}_dirty",
+}
+BUTTON_ENTITY_IDS: Final = {
+    "push": f"button.{DOMAIN}_push",
+    "pull": f"button.{DOMAIN}_pull",
+    "fetch": f"button.{DOMAIN}_fetch",
+    "discard_changes": f"button.{DOMAIN}_discard_changes",
+}
+
+
+def button_entity_id_targets(entry_id: str) -> dict[str, str]:
+    """Return known button unique IDs and their stable entity IDs."""
+    return {
+        f"{entry_id}_{key}": entity_id
+        for key, entity_id in BUTTON_ENTITY_IDS.items()
+    }
+
+
 # Default .gitignore entries for Home Assistant
 DEFAULT_GITIGNORE_ENTRIES: Final = [
     "# git-ha-ppens: Auto-generated .gitignore for Home Assistant",

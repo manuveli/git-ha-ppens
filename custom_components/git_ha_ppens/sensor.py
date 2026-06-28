@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, SENSOR_ENTITY_IDS
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitStatus
 
@@ -170,13 +170,14 @@ class GitHaPpensSensor(
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
+        self.entity_id = SENSOR_ENTITY_IDS[description.key]
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.8.3",
+            "sw_version": "0.9.0",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }

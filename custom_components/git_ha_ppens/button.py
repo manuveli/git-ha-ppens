@@ -12,7 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import BUTTON_ENTITY_IDS, DOMAIN
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitError, PreDeployCheckError
 
@@ -86,13 +86,14 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
         """Initialize the button."""
         super().__init__(coordinator)
         self.entity_description = description
+        self.entity_id = BUTTON_ENTITY_IDS[description.key]
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.8.3",
+            "sw_version": "0.9.0",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }
