@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 DOMAIN: Final = "git_ha_ppens"
@@ -80,8 +81,8 @@ SERVICE_DISCARD_CHANGES: Final = "discard_changes"
 # Service parameters
 ATTR_MESSAGE: Final = "message"
 
-# Static entity IDs. These keep technical entity IDs independent from areas,
-# device names, and localized entity display names.
+# Base entity IDs. Entry-specific helpers below keep technical IDs independent
+# from areas, device names, and localized entity display names.
 SENSOR_ENTITY_IDS: Final = {
     "last_commit": f"sensor.{DOMAIN}_last_commit",
     "last_commit_time": f"sensor.{DOMAIN}_last_commit_time",
@@ -104,12 +105,86 @@ BUTTON_ENTITY_IDS: Final = {
     "discard_changes": f"button.{DOMAIN}_discard_changes",
 }
 
+ENTITY_ID_KEYS: Final = {
+    "sensor": tuple(SENSOR_ENTITY_IDS),
+    "binary_sensor": tuple(BINARY_SENSOR_ENTITY_IDS),
+    "button": tuple(BUTTON_ENTITY_IDS),
+}
 
-def button_entity_id_targets(entry_id: str) -> dict[str, str]:
+
+def _slugify(value: str) -> str:
+    """Return a stable Home Assistant object-id safe slug."""
+    slug = re.sub(r"[^a-z0-9_]+", "_", value.casefold())
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    return slug or "repo"
+
+
+def repo_path_slug(repo_path: str) -> str:
+    """Return a stable slug for the configured repository path."""
+    parts = [part for part in repo_path.replace("\\", "/").split("/") if part]
+    return _slugify(parts[-1] if parts else "repo")
+
+
+def stable_entity_id(
+    platform: str,
+    key: str,
+    repo_path: str,
+    entry_id: str,
+    *,
+    include_repo_slug: bool,
+    include_entry_id: bool = False,
+) -> str:
+    """Return the desired stable entity ID for an entry entity."""
+    object_id_parts = [DOMAIN]
+    if include_repo_slug:
+        object_id_parts.append(repo_path_slug(repo_path))
+    if include_entry_id:
+        object_id_parts.append(_slugify(entry_id[:8]))
+    object_id_parts.append(key)
+    return f"{platform}.{'_'.join(object_id_parts)}"
+
+
+def stable_entity_id_targets(
+    entry_id: str,
+    repo_path: str,
+    platform: str,
+    keys: tuple[str, ...],
+    *,
+    include_repo_slug: bool,
+    include_entry_id: bool = False,
+) -> dict[str, str]:
+    """Return stable entity ID targets for one platform of a config entry."""
+    return {
+        key: stable_entity_id(
+            platform,
+            key,
+            repo_path,
+            entry_id,
+            include_repo_slug=include_repo_slug,
+            include_entry_id=include_entry_id,
+        )
+        for key in keys
+    }
+
+
+def button_entity_id_targets(
+    entry_id: str,
+    repo_path: str,
+    *,
+    include_repo_slug: bool,
+    include_entry_id: bool = False,
+) -> dict[str, str]:
     """Return known button unique IDs and their stable entity IDs."""
     return {
         f"{entry_id}_{key}": entity_id
-        for key, entity_id in BUTTON_ENTITY_IDS.items()
+        for key, entity_id in stable_entity_id_targets(
+            entry_id,
+            repo_path,
+            "button",
+            ENTITY_ID_KEYS["button"],
+            include_repo_slug=include_repo_slug,
+            include_entry_id=include_entry_id,
+        ).items()
     }
 
 

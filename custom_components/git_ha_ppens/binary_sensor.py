@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BINARY_SENSOR_ENTITY_IDS, DOMAIN
+from .const import DOMAIN
 from .coordinator import GitHaPpensCoordinator
 
 
@@ -22,7 +22,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up git-ha-ppens binary sensors from a config entry."""
     coordinator: GitHaPpensCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities([GitHaPpensDirtySensor(coordinator, entry)])
+    entity_ids: dict[str, str] = hass.data[DOMAIN][entry.entry_id]["entity_ids"][
+        "binary_sensor"
+    ]
+    async_add_entities([GitHaPpensDirtySensor(coordinator, entry, entity_ids["dirty"])])
 
 
 class GitHaPpensDirtySensor(
@@ -39,17 +42,18 @@ class GitHaPpensDirtySensor(
         self,
         coordinator: GitHaPpensCoordinator,
         entry: ConfigEntry,
+        entity_id: str,
     ) -> None:
         """Initialize the binary sensor."""
         super().__init__(coordinator)
-        self.entity_id = BINARY_SENSOR_ENTITY_IDS["dirty"]
+        self.entity_id = entity_id
         self._attr_unique_id = f"{entry.entry_id}_dirty"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.9.0",
+            "sw_version": "0.9.1",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }

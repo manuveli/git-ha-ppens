@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SENSOR_ENTITY_IDS
+from .const import DOMAIN
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitStatus
 
@@ -146,9 +146,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up git-ha-ppens sensors from a config entry."""
     coordinator: GitHaPpensCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    entity_ids: dict[str, str] = hass.data[DOMAIN][entry.entry_id]["entity_ids"][
+        "sensor"
+    ]
 
     async_add_entities(
-        GitHaPpensSensor(coordinator, description, entry)
+        GitHaPpensSensor(coordinator, description, entry, entity_ids[description.key])
         for description in SENSOR_DESCRIPTIONS
     )
 
@@ -166,18 +169,19 @@ class GitHaPpensSensor(
         coordinator: GitHaPpensCoordinator,
         description: GitHaPpensSensorDescription,
         entry: ConfigEntry,
+        entity_id: str,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self.entity_id = SENSOR_ENTITY_IDS[description.key]
+        self.entity_id = entity_id
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.9.0",
+            "sw_version": "0.9.1",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }

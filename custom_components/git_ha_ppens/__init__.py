@@ -19,7 +19,6 @@ from .const import (
     ATTR_MESSAGE,
     AUTH_SSH,
     AUTH_TOKEN,
-    button_entity_id_targets,
     CONF_AI_AGENT_ID,
     CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
@@ -42,6 +41,7 @@ from .const import (
     DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    ENTITY_ID_KEYS,
     EVENT_COMMIT,
     EVENT_ERROR,
     EVENT_PUSH,
@@ -53,6 +53,7 @@ from .const import (
     SERVICE_PULL,
     SERVICE_PUSH,
     SERVICE_SYNC,
+    stable_entity_id_targets,
 )
 from .coordinator import GitHaPpensCoordinator
 from .file_watcher import GitFileWatcher
@@ -75,17 +76,110 @@ SERVICE_COMMIT_SCHEMA = vol.Schema(
 BUTTON_ENTITY_ID_MIGRATION_NOTIFICATION_ID = (
     f"{DOMAIN}_button_entity_id_migration"
 )
+ENTRY_ENTITY_IDS = "entity_ids"
 
 
-def _migrate_button_entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> None:
+def _unique_id(entry: ConfigEntry, key: str) -> str:
+    """Return the entity unique ID for a config entry entity key."""
+    return f"{entry.entry_id}_{key}"
+
+
+def _entity_id_available_for_unique_id(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    entity_id: str,
+    unique_id: str,
+) -> bool:
+    """Return whether an entity ID can be used by the given unique ID."""
+    registry_entry = entity_registry.async_get(entity_id)
+    if registry_entry is not None:
+        return registry_entry.unique_id == unique_id
+    return hass.states.async_available(entity_id)
+
+
+def _targets_available_for_entry(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    entry: ConfigEntry,
+    targets: dict[str, dict[str, str]],
+) -> bool:
+    """Return whether all targets are available for this config entry."""
+    return all(
+        _entity_id_available_for_unique_id(
+            hass,
+            entity_registry,
+            entity_id,
+            _unique_id(entry, key),
+        )
+        for platform_targets in targets.values()
+        for key, entity_id in platform_targets.items()
+    )
+
+
+def _build_entry_entity_id_targets(
+    entry: ConfigEntry,
+    *,
+    include_repo_slug: bool,
+    include_entry_id: bool,
+) -> dict[str, dict[str, str]]:
+    """Build stable entity ID targets for a config entry."""
+    repo_path = entry.data[CONF_REPO_PATH]
+    return {
+        platform: stable_entity_id_targets(
+            entry.entry_id,
+            repo_path,
+            platform,
+            keys,
+            include_repo_slug=include_repo_slug,
+            include_entry_id=include_entry_id,
+        )
+        for platform, keys in ENTITY_ID_KEYS.items()
+    }
+
+
+def _is_primary_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Return whether this is the first git-ha-ppens config entry."""
+    entries = hass.config_entries.async_entries(DOMAIN)
+    return not entries or entries[0].entry_id == entry.entry_id
+
+
+def _resolve_entry_entity_ids(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> dict[str, dict[str, str]]:
+    """Resolve stable entity IDs for this config entry without collisions."""
+    entity_registry = er.async_get(hass)
+    targets = _build_entry_entity_id_targets(
+        entry,
+        include_repo_slug=not _is_primary_entry(hass, entry),
+        include_entry_id=False,
+    )
+    if _targets_available_for_entry(hass, entity_registry, entry, targets):
+        return targets
+
+    targets = _build_entry_entity_id_targets(
+        entry, include_repo_slug=True, include_entry_id=False
+    )
+    if _targets_available_for_entry(hass, entity_registry, entry, targets):
+        return targets
+
+    return _build_entry_entity_id_targets(
+        entry, include_repo_slug=True, include_entry_id=True
+    )
+
+
+def _migrate_button_entity_ids(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    button_entity_ids: dict[str, str],
+) -> None:
     """Rename existing button entity IDs to the stable git-ha-ppens IDs."""
     entity_registry = er.async_get(hass)
     renamed: list[tuple[str, str]] = []
     skipped: list[tuple[str, str, str]] = []
 
-    for unique_id, target_entity_id in button_entity_id_targets(
-        entry.entry_id
-    ).items():
+    for key, target_entity_id in button_entity_ids.items():
+        unique_id = _unique_id(entry, key)
         current_entity_id = entity_registry.async_get_entity_id(
             Platform.BUTTON, DOMAIN, unique_id
         )
@@ -143,7 +237,7 @@ def _migrate_button_entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> None:
     if renamed:
         message_parts.append(
             "Renamed git-ha-ppens button entity IDs to stable, "
-            "language-independent IDs:\n\n"
+            f"language-independent IDs for `{entry.title}`:\n\n"
             + "\n".join(f"- `{old}` -> `{new}`" for old, new in renamed)
         )
     if skipped:
@@ -167,7 +261,7 @@ def _migrate_button_entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> None:
         hass,
         "\n\n".join(message_parts),
         title="git-ha-ppens button entity IDs changed",
-        notification_id=BUTTON_ENTITY_ID_MIGRATION_NOTIFICATION_ID,
+        notification_id=f"{BUTTON_ENTITY_ID_MIGRATION_NOTIFICATION_ID}_{entry.entry_id}",
     )
 
 
@@ -345,15 +439,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, _periodic_check, timedelta(seconds=commit_interval)
         )
 
+    entity_ids = _resolve_entry_entity_ids(hass, entry)
+
     # Store references
     hass.data[DOMAIN][entry.entry_id] = {
         "git_manager": git_manager,
         "coordinator": coordinator,
         "file_watcher": file_watcher,
         "periodic_unsub": periodic_unsub,
+        ENTRY_ENTITY_IDS: entity_ids,
     }
 
-    _migrate_button_entity_ids(hass, entry)
+    _migrate_button_entity_ids(hass, entry, entity_ids["button"])
 
     # Forward platform setup
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

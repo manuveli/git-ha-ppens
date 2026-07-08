@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-08
+
+### Fixed
+- Make stable entity IDs multi-entry safe by using repo-based IDs for additional git-ha-ppens config entries (#75)
+- Make the #74 button entity ID migration entry-aware so multiple config entries are not migrated to the same button IDs (#75)
+
 ## [0.9.0] - 2026-06-28
 
 ### Fixed
@@ -176,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.7.0...HEAD
+[0.9.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/manuveli/git-ha-ppens/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/manuveli/git-ha-ppens/compare/v0.8.1...v0.8.2

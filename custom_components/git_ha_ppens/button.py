@@ -12,7 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BUTTON_ENTITY_IDS, DOMAIN
+from .const import DOMAIN
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitError, PreDeployCheckError
 
@@ -64,8 +64,11 @@ async def async_setup_entry(
     coordinator: GitHaPpensCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
+    entity_ids: dict[str, str] = hass.data[DOMAIN][entry.entry_id]["entity_ids"][
+        "button"
+    ]
     async_add_entities(
-        GitHaPpensButton(coordinator, description, entry)
+        GitHaPpensButton(coordinator, description, entry, entity_ids[description.key])
         for description in BUTTON_DESCRIPTIONS
         if description.operation == "discard_changes" or coordinator.remote_configured
     )
@@ -82,18 +85,19 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
         coordinator: GitHaPpensCoordinator,
         description: GitHaPpensButtonDescription,
         entry: ConfigEntry,
+        entity_id: str,
     ) -> None:
         """Initialize the button."""
         super().__init__(coordinator)
         self.entity_description = description
-        self.entity_id = BUTTON_ENTITY_IDS[description.key]
+        self.entity_id = entity_id
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "0.9.0",
+            "sw_version": "0.9.1",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }
