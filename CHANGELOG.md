@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-12
+
+### Fixed
+- Show the current HEAD above the configuration restore selector while keeping it non-selectable
+- Clarify in all translations and documentation that selecting the first earlier commit restores the state before the latest change
+
 ## [1.0.0] - 2026-07-11
 
 > 🎉 **git-ha-ppens 1.0.0 is here!**
@@ -193,6 +199,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.0.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.9.1...v1.0.0
 [0.9.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.8.3...v0.9.0

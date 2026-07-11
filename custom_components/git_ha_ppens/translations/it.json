@@ -82,7 +82,7 @@
       "restore": {"title": "Ripristina configurazione", "menu_options": {"restore_recent": "Scegli un commit recente", "restore_sha": "Inserisci lo SHA di un commit precedente"}},
       "restore_recent": {
         "title": "Scegli un commit recente",
-        "description": "Seleziona lo snapshot storico da ripristinare. Il commit corrente è escluso.",
+        "description": "**HEAD corrente (già attivo e non selezionabile):**\n{head_commit}\n\nPer annullare l’HEAD corrente, seleziona il primo commit subito sotto. Il ripristino crea un nuovo commit la cui configurazione tracciata corrisponde allo stato precedente selezionato.",
         "data": {"restore_target": "Commit storico"},
         "data_description": {"restore_target": "Il ripristino crea un nuovo commit senza riscrivere la cronologia."}
       },

@@ -88,7 +88,7 @@
       },
       "restore_recent": {
         "title": "Letzten Commit auswählen",
-        "description": "Wähle den historischen Konfigurationsstand aus, der wiederhergestellt werden soll. Der aktuelle Commit wird absichtlich nicht angeboten.",
+        "description": "**Aktueller HEAD (bereits aktiv und nicht auswählbar):**\n{head_commit}\n\nUm den aktuellen HEAD rückgängig zu machen, wähle den ersten Commit direkt darunter. Die Wiederherstellung erzeugt einen neuen Commit, dessen getrackte Konfiguration dem ausgewählten früheren Stand entspricht.",
         "data": {
           "restore_target": "Historischer Commit"
         },

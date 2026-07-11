@@ -206,6 +206,11 @@ configuration**. You can select one of the 20 most recent earlier commits or
 enter the 7–40 character SHA of any older commit that belongs to the current
 branch history.
 
+The dialog shows the current `HEAD` above the selector as active and
+non-selectable. To undo the latest commit, select the first earlier commit
+directly below it. This makes the selected entry the exact configuration state
+that will be restored.
+
 Before making changes, git-ha-ppens shows the selected commit, every newer
 commit that will be undone, the affected tracked files, and the aggregate diff
 statistics. The working tree must be completely clean, including staged,

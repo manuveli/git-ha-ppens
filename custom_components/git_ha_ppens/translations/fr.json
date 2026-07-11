@@ -85,7 +85,7 @@
       },
       "restore_recent": {
         "title": "Choisir un commit récent",
-        "description": "Sélectionnez l’instantané historique à restaurer. Le commit actuel est exclu.",
+        "description": "**HEAD actuel (déjà actif et non sélectionnable) :**\n{head_commit}\n\nPour annuler le HEAD actuel, sélectionnez le premier commit juste en dessous. La restauration crée un nouveau commit dont la configuration suivie correspond à l’état antérieur sélectionné.",
         "data": {"restore_target": "Commit historique"},
         "data_description": {"restore_target": "La restauration crée un nouveau commit sans réécrire l’historique."}
       },

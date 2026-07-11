@@ -88,7 +88,7 @@
       },
       "restore_recent": {
         "title": "Choose a recent commit",
-        "description": "Select the historical configuration snapshot to restore. The current commit is intentionally excluded.",
+        "description": "**Current HEAD (already active and not selectable):**\n{head_commit}\n\nTo undo the current HEAD, select the first commit directly below it. The restore creates a new commit whose tracked configuration matches the selected earlier state.",
         "data": {
           "restore_target": "Historical commit"
         },

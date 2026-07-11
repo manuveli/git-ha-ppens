@@ -82,7 +82,7 @@
       "restore": {"title": "Yapılandırmayı geri yükle", "menu_options": {"restore_recent": "Yakın tarihli bir commit seç", "restore_sha": "Eski bir commit SHA'sı gir"}},
       "restore_recent": {
         "title": "Yakın tarihli bir commit seç",
-        "description": "Geri yüklenecek geçmiş yapılandırma anlık görüntüsünü seçin. Geçerli commit hariç tutulur.",
+        "description": "**Geçerli HEAD (zaten etkin ve seçilemez):**\n{head_commit}\n\nGeçerli HEAD'i geri almak için hemen altındaki ilk commiti seçin. Geri yükleme, izlenen yapılandırması seçilen önceki durumla eşleşen yeni bir commit oluşturur.",
         "data": {"restore_target": "Geçmiş commit"},
         "data_description": {"restore_target": "Geri yükleme, geçmişi yeniden yazmadan yeni bir commit oluşturur."}
       },

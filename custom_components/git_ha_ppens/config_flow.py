@@ -284,10 +284,15 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         runtime = self._restore_runtime()
         options: dict[str, str] = {}
         form_errors = dict(errors or {})
+        head_commit = "—"
         if runtime is None:
             form_errors.setdefault("base", "integration_not_loaded")
         else:
             commits = await runtime[0].get_log(RESTORE_HISTORY_LIMIT + 1)
+            if commits:
+                head_commit = self._escape_markdown(
+                    self._restore_commit_label(commits[0])
+                )
             options = {
                 commit.hash: self._restore_commit_label(commit)
                 for commit in commits[1 : RESTORE_HISTORY_LIMIT + 1]
@@ -301,6 +306,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                 {vol.Required(CONF_RESTORE_TARGET): vol.In(options)}
             ),
             errors=form_errors,
+            description_placeholders={"head_commit": head_commit},
         )
 
     async def async_step_restore_recent(
