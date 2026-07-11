@@ -75,7 +75,47 @@
         "title": "git-ha-ppens-Einstellungen",
         "menu_options": {
           "general": "Allgemeine Einstellungen",
-          "gitignore": ".gitignore bearbeiten"
+          "gitignore": ".gitignore bearbeiten",
+          "restore": "Konfiguration wiederherstellen"
+        }
+      },
+      "restore": {
+        "title": "Konfiguration wiederherstellen",
+        "menu_options": {
+          "restore_recent": "Letzten Commit auswählen",
+          "restore_sha": "Älteren Commit-SHA eingeben"
+        }
+      },
+      "restore_recent": {
+        "title": "Letzten Commit auswählen",
+        "description": "Wähle den historischen Konfigurationsstand aus, der wiederhergestellt werden soll. Der aktuelle Commit wird absichtlich nicht angeboten.",
+        "data": {
+          "restore_target": "Historischer Commit"
+        },
+        "data_description": {
+          "restore_target": "Die Wiederherstellung erzeugt einen neuen Commit und schreibt die Git-Historie nicht um."
+        }
+      },
+      "restore_sha": {
+        "title": "Älteren Commit-SHA eingeben",
+        "description": "Gib 7 bis 40 hexadezimale Zeichen eines Commits ein, der ein Vorfahr des aktuellen Branches ist.",
+        "data": {
+          "restore_target": "Commit-SHA"
+        },
+        "data_description": {
+          "restore_target": "Verwende dies für Commits, die älter als die Einträge der Auswahlliste sind."
+        }
+      },
+      "restore_confirm": {
+        "title": "Wiederherstellung bestätigen",
+        "description": "Du stellst gleich `{target_hash}` — **{target_message}** von {target_author} ({target_time}) wieder her.\n\nDabei entsteht ein neuer Commit; HEAD wird nicht zurückgesetzt und die Historie nicht umgeschrieben. Vor dem Commit wird die Home-Assistant-Konfiguration geprüft.\n\n**Zurückzunehmende neuere Commits ({commit_count})**\n{commits}\n\n**Änderungen an getrackten Dateien ({file_count})**\n{files}\n\n**Diff-Statistik:** +{additions} / -{deletions}; Binärdateien: {binary_files}",
+        "data": {
+          "restore_confirm": "Ich verstehe die Auswirkungen und möchte diese Konfiguration wiederherstellen",
+          "restore_push": "Wiederherstellungs-Commit zum Remote-Repository pushen"
+        },
+        "data_description": {
+          "restore_confirm": "Erforderliche Sicherheitsbestätigung.",
+          "restore_push": "Schlägt der Push fehl, bleibt der gültige Commit lokal erhalten und kann später gepusht werden."
         }
       },
       "general": {
@@ -124,6 +164,22 @@
           "gitignore_content": "Vollständiger Inhalt der .gitignore-Datei. Standard-Gitignore-Syntax: ein Pfad pro Zeile, Zeilen beginnend mit # sind Kommentare."
         }
       }
+    },
+    "error": {
+      "integration_not_loaded": "Die Integration ist derzeit nicht geladen. Lade sie vor der Wiederherstellung neu.",
+      "no_restore_commits": "Es gibt keine früheren Commits, die wiederhergestellt werden können.",
+      "dirty_working_tree": "Committe, synchronisiere oder verwirf zuerst alle vorgemerkten, nicht vorgemerkten und ungetrackten Änderungen.",
+      "invalid_restore_target": "Der Commit ist ungültig, mehrdeutig, aktuell oder kein Vorfahr des aktuellen Branches.",
+      "restore_preview_failed": "Die Vorschau konnte nicht erzeugt werden. Prüfe die Home-Assistant-Protokolle.",
+      "stale_restore_preview": "Die Repository-Historie hat sich seit der Vorschau geändert. Wähle das Ziel erneut aus und prüfe die aktualisierten Änderungen.",
+      "confirm_restore": "Du musst die Wiederherstellung ausdrücklich bestätigen.",
+      "restore_validation_failed": "Die historische Konfiguration hat die Prüfung nicht bestanden. Alle Wiederherstellungsänderungen wurden zurückgerollt.",
+      "restore_failed": "Die Wiederherstellung ist fehlgeschlagen und wurde zurückgerollt. Prüfe die Home-Assistant-Protokolle."
+    },
+    "abort": {
+      "restore_preview_missing": "Die Vorschau ist abgelaufen. Starte die Wiederherstellung erneut.",
+      "restore_success": "Konfiguration aus `{target_hash}` wurde im neuen Commit `{restore_hash}` wiederhergestellt.",
+      "restore_success_push_failed": "Konfiguration aus `{target_hash}` wurde im neuen lokalen Commit `{restore_hash}` wiederhergestellt, aber der Push ist fehlgeschlagen. Versuche es über den Push-Button erneut."
     }
   },
   "entity": {

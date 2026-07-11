@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-11
+
+> 🎉 **git-ha-ppens 1.0.0 is here!**
+>
+> Version 1.0 marks the first stable major release of git-ha-ppens. The new Configuration Restore workflow completes the GitOps lifecycle in Home Assistant, making it possible to safely return to any previous tracked configuration directly from the UI while preserving Git history.
+
+### Added
+- Add a native, confirmation-based UI for restoring the tracked configuration tree from a recent commit or an older SHA without rewriting Git history
+- Add bounded commit and file previews, mandatory Home Assistant validation for live-configuration restores, optional remote push, and the `git_ha_ppens_restore` event
+- Security: Block historical restores while staged, unstaged, or untracked changes exist and roll back failed restores to the exact original `HEAD`
+
 ## [0.9.1] - 2026-07-08
 
 ### Fixed
@@ -181,7 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `.gitignore` entries for common HA files
 - Automated release workflow for HACS
 
-[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.9.1...v1.0.0
 [0.9.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/manuveli/git-ha-ppens/compare/v0.8.2...v0.8.3

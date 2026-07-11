@@ -68,6 +68,7 @@
   - `git_ha_ppens.diff` — get the current diff of uncommitted changes
   - `git_ha_ppens.discard_changes` — discard tracked local changes
 - **4 buttons** on the integration device page for Push, Pull, Fetch, and optionally discarding local changes
+- **Safe historical restore** from the native configuration UI, with commit selection, change preview, validation, and explicit confirmation
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
@@ -196,7 +197,38 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | `auth_token` | Personal access token (for HTTPS) | *(empty)* |
 | `ssh_key_path` | Path to SSH private key file | *(empty)* |
 
-> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides two sections: **General Settings** (all configuration options above) and **Edit .gitignore** (a built-in editor for customizing ignored files).
+> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, and **Restore configuration**.
+
+### Restore a historical configuration
+
+Open **Settings → Devices & Services → git-ha-ppens → Configure → Restore
+configuration**. You can select one of the 20 most recent earlier commits or
+enter the 7–40 character SHA of any older commit that belongs to the current
+branch history.
+
+Before making changes, git-ha-ppens shows the selected commit, every newer
+commit that will be undone, the affected tracked files, and the aggregate diff
+statistics. The working tree must be completely clean, including staged,
+unstaged, and untracked files. This prevents an unrelated local edit from being
+lost or included in the restore.
+
+After explicit confirmation, the integration restores the tracked tree from
+the selected commit and runs a Home Assistant configuration check when the
+repository is the live HA configuration directory. A failed check or Git
+operation restores the original `HEAD`, index, and working tree. On success, a
+new commit such as `revert: restore configuration to abc1234` is created. Its
+tree is verified to exactly match the selected historical commit.
+
+This operation does **not** run `git reset`, force-push, or rewrite branch
+history. It also differs from `git revert <commit>`, which only reverses the
+changes introduced by one commit rather than restoring the full configuration
+snapshot at that point. Ignored files and other files not tracked by Git are
+not part of the snapshot and remain untouched.
+
+When a remote is configured, the confirmation dialog lets you choose whether
+to push the new restore commit. The default follows the Auto-Push setting. If
+the push fails, the valid restore commit remains local and can be sent later
+with the Push button.
 
 ---
 
@@ -310,7 +342,8 @@ Use these events as automation triggers to build notifications, dashboards, or r
 | `git_ha_ppens_push` | Commits are pushed | `commits_pushed` |
 | `git_ha_ppens_pull` | Commits are pulled | `commits_pulled`, `changed_files`, `auto` |
 | `git_ha_ppens_fetch` | A fetch completes | — |
-| `git_ha_ppens_check_failed` | A pull was blocked and rolled back by the pre-deploy check | `errors`, `auto` |
+| `git_ha_ppens_check_failed` | A pull or historical restore was blocked and rolled back by the configuration check | `errors`, `auto` |
+| `git_ha_ppens_restore` | A historical snapshot was restored as a new commit | `target_hash`, `target_message`, `restore_hash`, `commits_restored`, `changed_files`, `pushed`, `auto` |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
 | `git_ha_ppens_secret_detected` | Potential secrets found in tracked files | `findings`, `count` |
 

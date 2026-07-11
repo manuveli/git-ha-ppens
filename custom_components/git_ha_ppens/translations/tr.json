@@ -75,8 +75,28 @@
         "title": "git-ha-ppens Seçenekleri",
         "menu_options": {
           "general": "Genel ayarlar",
-          "gitignore": ".gitignore düzenle"
+          "gitignore": ".gitignore düzenle",
+          "restore": "Yapılandırmayı geri yükle"
         }
+      },
+      "restore": {"title": "Yapılandırmayı geri yükle", "menu_options": {"restore_recent": "Yakın tarihli bir commit seç", "restore_sha": "Eski bir commit SHA'sı gir"}},
+      "restore_recent": {
+        "title": "Yakın tarihli bir commit seç",
+        "description": "Geri yüklenecek geçmiş yapılandırma anlık görüntüsünü seçin. Geçerli commit hariç tutulur.",
+        "data": {"restore_target": "Geçmiş commit"},
+        "data_description": {"restore_target": "Geri yükleme, geçmişi yeniden yazmadan yeni bir commit oluşturur."}
+      },
+      "restore_sha": {
+        "title": "Eski commit SHA'sı gir",
+        "description": "Geçerli dalın atası olan bir commit için 7 ila 40 onaltılık karakter girin.",
+        "data": {"restore_target": "Commit SHA'sı"},
+        "data_description": {"restore_target": "Listedekilerden daha eski commitler için kullanın."}
+      },
+      "restore_confirm": {
+        "title": "Geri yüklemeyi onayla",
+        "description": "`{target_hash}` — **{target_message}**, {target_author} ({target_time}) geri yüklenecek.\n\nHEAD sıfırlanmadan veya geçmiş yeniden yazılmadan yeni bir commit oluşturulur. Commit öncesinde Home Assistant yapılandırması doğrulanır.\n\n**Geri alınacak yeni commitler ({commit_count})**\n{commits}\n\n**İzlenen dosya değişiklikleri ({file_count})**\n{files}\n\n**İstatistikler:** +{additions} / -{deletions}; ikili dosyalar: {binary_files}",
+        "data": {"restore_confirm": "Anlıyorum ve bu yapılandırmayı geri yüklemek istiyorum", "restore_push": "Geri yükleme commitini uzak depoya gönder"},
+        "data_description": {"restore_confirm": "Zorunlu güvenlik onayı.", "restore_push": "Push başarısız olursa geçerli commit yerelde kalır ve daha sonra gönderilebilir."}
       },
       "general": {
         "title": "Genel ayarlar",
@@ -124,6 +144,22 @@
           "gitignore_content": ".gitignore dosyasının tam içeriği. Standart gitignore söz dizimi: her satıra bir desen, # ile başlayan satırlar yorumdur."
         }
       }
+    },
+    "error": {
+      "integration_not_loaded": "Entegrasyon yüklü değil. Geri yüklemeden önce yeniden yükleyin.",
+      "no_restore_commits": "Geri yüklenecek daha eski commit yok.",
+      "dirty_working_tree": "Geri yüklemeden önce tüm yerel değişiklikleri commit edin, eşitleyin veya atın.",
+      "invalid_restore_target": "Commit geçersiz, belirsiz, geçerli commit veya geçerli dalın atası değil.",
+      "restore_preview_failed": "Önizleme oluşturulamadı. Günlükleri kontrol edin.",
+      "stale_restore_preview": "Önizlemeden sonra geçmiş değişti. Hedefi yeniden seçin.",
+      "confirm_restore": "Geri yüklemeyi açıkça onaylamalısınız.",
+      "restore_validation_failed": "Geçmiş yapılandırma doğrulanamadı ve tüm değişiklikler geri alındı.",
+      "restore_failed": "Geri yükleme başarısız oldu ve geri alındı. Günlükleri kontrol edin."
+    },
+    "abort": {
+      "restore_preview_missing": "Önizlemenin süresi doldu. Geri yüklemeyi yeniden başlatın.",
+      "restore_success": "Yapılandırma `{target_hash}` kaynağından yeni `{restore_hash}` commitinde geri yüklendi.",
+      "restore_success_push_failed": "Yapılandırma `{target_hash}` kaynağından yerel `{restore_hash}` commitinde geri yüklendi, ancak push başarısız oldu. Yeniden denemek için Push düğmesini kullanın."
     }
   },
   "entity": {

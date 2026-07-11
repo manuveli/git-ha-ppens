@@ -75,8 +75,31 @@
         "title": "Opciones de git-ha-ppens",
         "menu_options": {
           "general": "Configuración general",
-          "gitignore": "Editar .gitignore"
+          "gitignore": "Editar .gitignore",
+          "restore": "Restaurar configuración"
         }
+      },
+      "restore": {
+        "title": "Restaurar configuración",
+        "menu_options": {"restore_recent": "Elegir un commit reciente", "restore_sha": "Introducir el SHA de un commit anterior"}
+      },
+      "restore_recent": {
+        "title": "Elegir un commit reciente",
+        "description": "Selecciona la instantánea histórica que deseas restaurar. El commit actual se excluye.",
+        "data": {"restore_target": "Commit histórico"},
+        "data_description": {"restore_target": "La restauración crea un commit nuevo sin reescribir el historial."}
+      },
+      "restore_sha": {
+        "title": "Introducir un SHA anterior",
+        "description": "Introduce entre 7 y 40 caracteres hexadecimales de un commit antecesor de la rama actual.",
+        "data": {"restore_target": "SHA del commit"},
+        "data_description": {"restore_target": "Úsalo para commits anteriores a los mostrados en la lista."}
+      },
+      "restore_confirm": {
+        "title": "Confirmar restauración",
+        "description": "Vas a restaurar `{target_hash}` — **{target_message}** de {target_author} ({target_time}).\n\nSe creará un commit nuevo sin restablecer HEAD ni reescribir el historial. La configuración de Home Assistant se validará antes del commit.\n\n**Commits posteriores que se desharán ({commit_count})**\n{commits}\n\n**Cambios en archivos rastreados ({file_count})**\n{files}\n\n**Estadísticas:** +{additions} / -{deletions}; archivos binarios: {binary_files}",
+        "data": {"restore_confirm": "Entiendo y quiero restaurar esta configuración", "restore_push": "Enviar el commit de restauración al remoto"},
+        "data_description": {"restore_confirm": "Confirmación de seguridad obligatoria.", "restore_push": "Si el push falla, el commit válido permanece local para enviarlo más tarde."}
       },
       "general": {
         "title": "Configuración general",
@@ -124,6 +147,22 @@
           "gitignore_content": "Contenido completo del archivo .gitignore. Sintaxis gitignore estándar: un patrón por línea, las líneas que comienzan con # son comentarios."
         }
       }
+    },
+    "error": {
+      "integration_not_loaded": "La integración no está cargada. Recárgala antes de restaurar.",
+      "no_restore_commits": "No hay commits anteriores disponibles.",
+      "dirty_working_tree": "Confirma, sincroniza o descarta todos los cambios locales antes de restaurar.",
+      "invalid_restore_target": "El commit no es válido, es ambiguo, es el actual o no es antecesor de la rama actual.",
+      "restore_preview_failed": "No se pudo generar la vista previa. Revisa los registros.",
+      "stale_restore_preview": "El historial cambió después de la vista previa. Selecciona de nuevo el objetivo.",
+      "confirm_restore": "Debes confirmar explícitamente la restauración.",
+      "restore_validation_failed": "La configuración histórica no superó la validación y se revirtieron todos los cambios.",
+      "restore_failed": "La restauración falló y se revirtió. Revisa los registros."
+    },
+    "abort": {
+      "restore_preview_missing": "La vista previa caducó. Inicia de nuevo el proceso.",
+      "restore_success": "Configuración restaurada desde `{target_hash}` en el nuevo commit `{restore_hash}`.",
+      "restore_success_push_failed": "Configuración restaurada desde `{target_hash}` en el commit local `{restore_hash}`, pero el push falló. Usa el botón Push para reintentarlo."
     }
   },
   "entity": {

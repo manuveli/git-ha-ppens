@@ -75,8 +75,28 @@
         "title": "Opzioni git-ha-ppens",
         "menu_options": {
           "general": "Impostazioni generali",
-          "gitignore": "Modifica .gitignore"
+          "gitignore": "Modifica .gitignore",
+          "restore": "Ripristina configurazione"
         }
+      },
+      "restore": {"title": "Ripristina configurazione", "menu_options": {"restore_recent": "Scegli un commit recente", "restore_sha": "Inserisci lo SHA di un commit precedente"}},
+      "restore_recent": {
+        "title": "Scegli un commit recente",
+        "description": "Seleziona lo snapshot storico da ripristinare. Il commit corrente è escluso.",
+        "data": {"restore_target": "Commit storico"},
+        "data_description": {"restore_target": "Il ripristino crea un nuovo commit senza riscrivere la cronologia."}
+      },
+      "restore_sha": {
+        "title": "Inserisci uno SHA precedente",
+        "description": "Inserisci da 7 a 40 caratteri esadecimali di un commit antenato del branch corrente.",
+        "data": {"restore_target": "SHA del commit"},
+        "data_description": {"restore_target": "Usalo per commit più vecchi di quelli mostrati nell’elenco."}
+      },
+      "restore_confirm": {
+        "title": "Conferma ripristino",
+        "description": "Stai per ripristinare `{target_hash}` — **{target_message}** di {target_author} ({target_time}).\n\nVerrà creato un nuovo commit senza reimpostare HEAD né riscrivere la cronologia. La configurazione Home Assistant verrà convalidata prima del commit.\n\n**Commit più recenti annullati ({commit_count})**\n{commits}\n\n**Modifiche ai file tracciati ({file_count})**\n{files}\n\n**Statistiche:** +{additions} / -{deletions}; file binari: {binary_files}",
+        "data": {"restore_confirm": "Comprendo e voglio ripristinare questa configurazione", "restore_push": "Esegui il push del commit di ripristino"},
+        "data_description": {"restore_confirm": "Conferma di sicurezza obbligatoria.", "restore_push": "Se il push fallisce, il commit valido resta locale e può essere inviato in seguito."}
       },
       "general": {
         "title": "Impostazioni generali",
@@ -124,6 +144,22 @@
           "gitignore_content": "Contenuto completo del file .gitignore. Sintassi gitignore standard: un pattern per riga, le righe che iniziano con # sono commenti."
         }
       }
+    },
+    "error": {
+      "integration_not_loaded": "L’integrazione non è caricata. Ricaricala prima del ripristino.",
+      "no_restore_commits": "Non sono disponibili commit precedenti.",
+      "dirty_working_tree": "Esegui commit, sincronizza o elimina tutte le modifiche locali prima del ripristino.",
+      "invalid_restore_target": "Il commit non è valido, è ambiguo, è quello corrente o non è un antenato del branch corrente.",
+      "restore_preview_failed": "Impossibile generare l’anteprima. Controlla i log.",
+      "stale_restore_preview": "La cronologia è cambiata dopo l’anteprima. Seleziona nuovamente la destinazione.",
+      "confirm_restore": "Devi confermare esplicitamente il ripristino.",
+      "restore_validation_failed": "La configurazione storica non ha superato la convalida e tutte le modifiche sono state annullate.",
+      "restore_failed": "Il ripristino non è riuscito ed è stato annullato. Controlla i log."
+    },
+    "abort": {
+      "restore_preview_missing": "L’anteprima è scaduta. Riavvia il ripristino.",
+      "restore_success": "Configurazione ripristinata da `{target_hash}` nel nuovo commit `{restore_hash}`.",
+      "restore_success_push_failed": "Configurazione ripristinata da `{target_hash}` nel commit locale `{restore_hash}`, ma il push non è riuscito. Usa il pulsante Push per riprovare."
     }
   },
   "entity": {

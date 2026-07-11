@@ -75,7 +75,47 @@
         "title": "git-ha-ppens Options",
         "menu_options": {
           "general": "General Settings",
-          "gitignore": "Edit .gitignore"
+          "gitignore": "Edit .gitignore",
+          "restore": "Restore configuration"
+        }
+      },
+      "restore": {
+        "title": "Restore configuration",
+        "menu_options": {
+          "restore_recent": "Choose a recent commit",
+          "restore_sha": "Enter an older commit SHA"
+        }
+      },
+      "restore_recent": {
+        "title": "Choose a recent commit",
+        "description": "Select the historical configuration snapshot to restore. The current commit is intentionally excluded.",
+        "data": {
+          "restore_target": "Historical commit"
+        },
+        "data_description": {
+          "restore_target": "The restore creates a new commit and does not rewrite git history."
+        }
+      },
+      "restore_sha": {
+        "title": "Enter an older commit SHA",
+        "description": "Enter 7 to 40 hexadecimal characters for a commit that is an ancestor of the current branch.",
+        "data": {
+          "restore_target": "Commit SHA"
+        },
+        "data_description": {
+          "restore_target": "Use this for commits older than those shown in the recent commit list."
+        }
+      },
+      "restore_confirm": {
+        "title": "Confirm configuration restore",
+        "description": "You are about to restore `{target_hash}` — **{target_message}** by {target_author} ({target_time}).\n\nThis creates a new commit; it does not reset HEAD or rewrite history. Home Assistant configuration validation runs before the restore is committed.\n\n**Newer commits being undone ({commit_count})**\n{commits}\n\n**Tracked file changes ({file_count})**\n{files}\n\n**Diff statistics:** +{additions} / -{deletions}; binary files: {binary_files}",
+        "data": {
+          "restore_confirm": "I understand and want to restore this configuration",
+          "restore_push": "Push the restore commit to the remote"
+        },
+        "data_description": {
+          "restore_confirm": "Required safety confirmation.",
+          "restore_push": "If pushing fails, the valid restore commit remains available locally and can be pushed later."
         }
       },
       "general": {
@@ -124,6 +164,22 @@
           "gitignore_content": "Full contents of the .gitignore file. Standard gitignore syntax: one pattern per line, lines starting with # are comments."
         }
       }
+    },
+    "error": {
+      "integration_not_loaded": "The integration is not currently loaded. Reload it before restoring.",
+      "no_restore_commits": "There are no earlier commits available to restore.",
+      "dirty_working_tree": "Commit, sync, or discard all staged, unstaged, and untracked changes before restoring.",
+      "invalid_restore_target": "The commit is invalid, ambiguous, current, or not an ancestor of the current branch.",
+      "restore_preview_failed": "The restore preview could not be generated. Check the Home Assistant logs.",
+      "stale_restore_preview": "Repository history changed after the preview. Select the target again and review the updated changes.",
+      "confirm_restore": "You must explicitly confirm the restore.",
+      "restore_validation_failed": "The historical configuration failed validation. All restore changes were rolled back.",
+      "restore_failed": "The restore failed and was rolled back. Check the Home Assistant logs."
+    },
+    "abort": {
+      "restore_preview_missing": "The restore preview expired. Start the restore flow again.",
+      "restore_success": "Configuration restored from `{target_hash}` in new commit `{restore_hash}`.",
+      "restore_success_push_failed": "Configuration restored from `{target_hash}` in new local commit `{restore_hash}`, but pushing failed. Use the Push button to retry."
     }
   },
   "entity": {

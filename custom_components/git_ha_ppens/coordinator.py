@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -24,15 +25,32 @@ from .const import (
     EVENT_FETCH,
     EVENT_PULL,
     EVENT_PUSH,
+    EVENT_RESTORE,
     STORAGE_KEY_PREFIX,
     STORAGE_LAST_FETCH_TIME,
     STORAGE_LAST_PULL_TIME,
     STORAGE_LAST_PUSH_TIME,
     STORAGE_VERSION,
 )
-from .git_manager import GitError, GitManager, GitStatus, PreDeployCheckError
+from .git_manager import (
+    GitError,
+    GitManager,
+    GitStatus,
+    PreDeployCheckError,
+    RestoreResult,
+    RestoreValidationError,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RestoreOperationResult:
+    """Describe a restore and its optional remote push."""
+
+    restore: RestoreResult
+    pushed: bool
+    push_error: str | None = None
 
 
 class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
@@ -210,6 +228,18 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
         return _validate
 
+    def restore_validator(self) -> Callable[[], Awaitable[list[str]]]:
+        """Return the mandatory validator for a manual snapshot restore."""
+
+        async def _validate() -> list[str]:
+            return await async_run_pre_deploy_check(
+                self.hass,
+                self.git_manager.repo_path,
+                fail_open=False,
+            )
+
+        return _validate
+
     async def async_manual_push(self) -> int:
         """Push local commits and publish the manual operation result."""
         try:
@@ -351,6 +381,88 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         )
         await self.async_request_refresh()
         return discarded_files
+
+    async def async_restore_snapshot(
+        self,
+        target_hash: str,
+        expected_head: str,
+        *,
+        push: bool,
+    ) -> RestoreOperationResult:
+        """Restore a historical snapshot and optionally push the new commit."""
+        push_error: str | None = None
+        pushed = False
+        commits_pushed = 0
+        try:
+            async with self.git_lock:
+                restore_result = await self.git_manager.restore_snapshot(
+                    target_hash,
+                    expected_head,
+                    validate=self.restore_validator(),
+                )
+                if push:
+                    try:
+                        commits_pushed = await self.git_manager.push()
+                        await self.async_record_push_time()
+                        pushed = True
+                    except GitError as err:
+                        push_error = str(err)
+        except RestoreValidationError as err:
+            self.hass.bus.async_fire(
+                EVENT_CHECK_FAILED, {"errors": err.errors, "auto": False}
+            )
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "restore", "error": str(err)}
+            )
+            await self.async_request_refresh()
+            raise
+        except GitError as err:
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "restore", "error": str(err)}
+            )
+            await self.async_request_refresh()
+            raise
+
+        commit_info = restore_result.commit
+        self.hass.bus.async_fire(
+            EVENT_COMMIT,
+            {
+                "hash": commit_info.hash_short,
+                "message": commit_info.message,
+                "author": commit_info.author,
+                "changed_files": restore_result.changed_files,
+                "auto": False,
+            },
+        )
+        if pushed:
+            self.hass.bus.async_fire(
+                EVENT_PUSH,
+                {"commits_pushed": commits_pushed, "auto": False},
+            )
+        elif push_error is not None:
+            self.hass.bus.async_fire(
+                EVENT_ERROR,
+                {"operation": "restore_push", "error": push_error},
+            )
+
+        self.hass.bus.async_fire(
+            EVENT_RESTORE,
+            {
+                "target_hash": restore_result.target.hash,
+                "target_message": restore_result.target.message,
+                "restore_hash": commit_info.hash,
+                "commits_restored": restore_result.commits_restored,
+                "changed_files": restore_result.changed_files,
+                "pushed": pushed,
+                "auto": False,
+            },
+        )
+        await self.async_request_refresh()
+        return RestoreOperationResult(
+            restore=restore_result,
+            pushed=pushed,
+            push_error=push_error,
+        )
 
     async def _async_update_data(self) -> GitStatus:
         """Fetch git status from the repository."""

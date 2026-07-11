@@ -21,7 +21,10 @@ _NOTIFICATION_ID = f"{DOMAIN}_pre_deploy_check_failed"
 
 
 async def async_run_pre_deploy_check(
-    hass: HomeAssistant, repo_path: str
+    hass: HomeAssistant,
+    repo_path: str,
+    *,
+    fail_open: bool = True,
 ) -> list[str]:
     """Run the Home Assistant config check.
 
@@ -32,6 +35,8 @@ async def async_run_pre_deploy_check(
     Returns:
         A list of error messages. An empty list means the configuration is
         valid (or the check was skipped because it is not applicable).
+        When fail_open is False, an inability to run the checker is returned
+        as an error so a destructive restore cannot be committed unchecked.
     """
     # The HA config check validates hass.config.config_dir. It only makes sense
     # when the repository IS the Home Assistant config directory. If it points
@@ -51,12 +56,15 @@ async def async_run_pre_deploy_check(
         from homeassistant.helpers.check_config import async_check_ha_config_file
 
         result = await async_check_ha_config_file(hass)
-    except Exception as err:  # noqa: BLE001 - never let the gate crash a pull
-        _LOGGER.warning(
-            "Pre-deploy check could not run (%s); allowing pull to proceed",
-            err,
-        )
-        return []
+    except Exception as err:  # noqa: BLE001 - normalize checker failures
+        if fail_open:
+            _LOGGER.warning(
+                "Pre-deploy check could not run (%s); allowing pull to proceed",
+                err,
+            )
+            return []
+        _LOGGER.error("Restore configuration check could not run: %s", err)
+        return [f"Home Assistant configuration check could not run: {err}"]
 
     errors = [err.message for err in result.errors]
     if errors:

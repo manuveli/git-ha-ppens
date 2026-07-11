@@ -75,8 +75,28 @@
         "title": "Opções do git-ha-ppens",
         "menu_options": {
           "general": "Configurações gerais",
-          "gitignore": "Editar .gitignore"
+          "gitignore": "Editar .gitignore",
+          "restore": "Restaurar configuração"
         }
+      },
+      "restore": {"title": "Restaurar configuração", "menu_options": {"restore_recent": "Escolher um commit recente", "restore_sha": "Inserir o SHA de um commit anterior"}},
+      "restore_recent": {
+        "title": "Escolher um commit recente",
+        "description": "Seleciona o snapshot histórico a restaurar. O commit atual é excluído.",
+        "data": {"restore_target": "Commit histórico"},
+        "data_description": {"restore_target": "A restauração cria um novo commit sem reescrever o histórico."}
+      },
+      "restore_sha": {
+        "title": "Inserir um SHA anterior",
+        "description": "Insere entre 7 e 40 caracteres hexadecimais de um commit ancestral do branch atual.",
+        "data": {"restore_target": "SHA do commit"},
+        "data_description": {"restore_target": "Usa esta opção para commits anteriores aos apresentados na lista."}
+      },
+      "restore_confirm": {
+        "title": "Confirmar restauração",
+        "description": "Estás prestes a restaurar `{target_hash}` — **{target_message}** por {target_author} ({target_time}).\n\nSerá criado um novo commit sem repor HEAD nem reescrever o histórico. A configuração do Home Assistant será validada antes do commit.\n\n**Commits posteriores anulados ({commit_count})**\n{commits}\n\n**Alterações em ficheiros controlados ({file_count})**\n{files}\n\n**Estatísticas:** +{additions} / -{deletions}; ficheiros binários: {binary_files}",
+        "data": {"restore_confirm": "Compreendo e quero restaurar esta configuração", "restore_push": "Enviar o commit de restauração para o remoto"},
+        "data_description": {"restore_confirm": "Confirmação de segurança obrigatória.", "restore_push": "Se o push falhar, o commit válido permanece local e pode ser enviado mais tarde."}
       },
       "general": {
         "title": "Configurações gerais",
@@ -124,6 +144,22 @@
           "gitignore_content": "Conteúdo completo do ficheiro .gitignore. Sintaxe gitignore padrão: um padrão por linha, linhas começadas por # são comentários."
         }
       }
+    },
+    "error": {
+      "integration_not_loaded": "A integração não está carregada. Recarrega-a antes de restaurar.",
+      "no_restore_commits": "Não existem commits anteriores disponíveis.",
+      "dirty_working_tree": "Faz commit, sincroniza ou descarta todas as alterações locais antes de restaurar.",
+      "invalid_restore_target": "O commit é inválido, ambíguo, atual ou não é ancestral do branch atual.",
+      "restore_preview_failed": "Não foi possível gerar a pré-visualização. Verifica os registos.",
+      "stale_restore_preview": "O histórico mudou após a pré-visualização. Seleciona novamente o destino.",
+      "confirm_restore": "Tens de confirmar explicitamente a restauração.",
+      "restore_validation_failed": "A configuração histórica falhou a validação e todas as alterações foram revertidas.",
+      "restore_failed": "A restauração falhou e foi revertida. Verifica os registos."
+    },
+    "abort": {
+      "restore_preview_missing": "A pré-visualização expirou. Inicia novamente a restauração.",
+      "restore_success": "Configuração restaurada de `{target_hash}` no novo commit `{restore_hash}`.",
+      "restore_success_push_failed": "Configuração restaurada de `{target_hash}` no commit local `{restore_hash}`, mas o push falhou. Usa o botão Push para tentar novamente."
     }
   },
   "entity": {

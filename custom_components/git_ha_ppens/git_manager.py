@@ -57,6 +57,38 @@ class PullResult:
     changed_files: list[str] = field(default_factory=list)
 
 
+@dataclass
+class RestoreFileChange:
+    """Describe one tracked path changed by a restore."""
+
+    status: str
+    path: str
+    old_path: str | None = None
+
+
+@dataclass
+class RestorePreview:
+    """Describe the effect of restoring a historical commit."""
+
+    source_head: str
+    target: CommitInfo
+    commits: list[CommitInfo] = field(default_factory=list)
+    changed_files: list[RestoreFileChange] = field(default_factory=list)
+    additions: int = 0
+    deletions: int = 0
+    binary_files: int = 0
+
+
+@dataclass
+class RestoreResult:
+    """Describe a completed snapshot restore commit."""
+
+    commit: CommitInfo
+    target: CommitInfo
+    commits_restored: int
+    changed_files: list[str] = field(default_factory=list)
+
+
 class GitError(Exception):
     """Raised when a git operation fails."""
 
@@ -73,6 +105,32 @@ class PreDeployCheckError(GitError):
         self.errors = errors
         joined = "; ".join(errors) if errors else "unknown error"
         super().__init__(f"Pre-deploy check failed: {joined}")
+
+
+class RestoreError(GitError):
+    """Base error for snapshot restore operations."""
+
+
+class InvalidRestoreTargetError(RestoreError):
+    """Raised when a restore target is invalid or unsafe."""
+
+
+class DirtyWorkingTreeError(RestoreError):
+    """Raised when a restore is attempted with local changes."""
+
+
+class StaleRestorePreviewError(RestoreError):
+    """Raised when HEAD changed after the restore preview was created."""
+
+
+class RestoreValidationError(RestoreError):
+    """Raised when the restored snapshot fails Home Assistant validation."""
+
+    def __init__(self, errors: list[str]) -> None:
+        """Store validation errors."""
+        self.errors = errors
+        joined = "; ".join(errors) if errors else "unknown error"
+        super().__init__(f"Restored configuration is invalid: {joined}")
 
 
 class GitManager:
@@ -740,37 +798,303 @@ class GitManager:
             changed_files=changed_files,
         )
 
+    async def _get_commit_info(self, commit: str) -> CommitInfo:
+        """Return metadata for one already validated commit SHA."""
+        output = await self._run_git(
+            "show",
+            "-s",
+            "--format=%H%x00%h%x00%s%x00%an%x00%aI",
+            commit,
+        )
+        parts = output.split("\x00")
+        if len(parts) != 5:
+            raise GitError(f"Could not read commit metadata for {commit[:8]}")
+        try:
+            timestamp = datetime.fromisoformat(parts[4])
+        except ValueError as err:
+            raise GitError(
+                f"Could not parse commit timestamp for {commit[:8]}"
+            ) from err
+        return CommitInfo(
+            hash=parts[0],
+            hash_short=parts[1],
+            message=parts[2],
+            author=parts[3],
+            timestamp=timestamp,
+        )
+
+    async def resolve_restore_target(self, commit_ref: str) -> CommitInfo:
+        """Resolve and validate a historical commit on the current branch."""
+        normalized_ref = commit_ref.strip()
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", normalized_ref) is None:
+            raise InvalidRestoreTargetError(
+                "Enter a commit SHA containing 7 to 40 hexadecimal characters"
+            )
+
+        resolved = await self._run_git(
+            "rev-parse",
+            "--verify",
+            f"{normalized_ref}^{{commit}}",
+            check=False,
+        )
+        if re.fullmatch(r"[0-9a-f]{40}", resolved) is None:
+            raise InvalidRestoreTargetError(
+                "The selected commit could not be found or is ambiguous"
+            )
+
+        head = await self.get_head_sha()
+        if not head:
+            raise InvalidRestoreTargetError("The repository has no commits")
+        if resolved == head:
+            raise InvalidRestoreTargetError(
+                "The current commit cannot be restored because it is already active"
+            )
+
+        merge_base = await self._run_git(
+            "merge-base", resolved, head, check=False
+        )
+        if merge_base != resolved:
+            raise InvalidRestoreTargetError(
+                "The selected commit is not an ancestor of the current branch"
+            )
+        return await self._get_commit_info(resolved)
+
+    async def is_worktree_clean(self) -> bool:
+        """Return whether tracked, staged, and untracked files are clean."""
+        return not bool(await self._run_git("status", "--porcelain"))
+
+    async def _get_restore_commits(
+        self, target_hash: str, source_head: str
+    ) -> list[CommitInfo]:
+        """Return commits newer than the restore target."""
+        output = await self._run_git(
+            "log",
+            "--format=%H%x00%h%x00%s%x00%an%x00%aI%x00",
+            f"{target_hash}..{source_head}",
+        )
+        fields = output.rstrip("\x00\n").split("\x00") if output else []
+        commits: list[CommitInfo] = []
+        for index in range(0, len(fields), 5):
+            parts = fields[index : index + 5]
+            if len(parts) != 5:
+                raise GitError("Could not parse restore commit history")
+            try:
+                timestamp = datetime.fromisoformat(parts[4].strip())
+            except ValueError as err:
+                raise GitError("Could not parse restore commit history") from err
+            commits.append(
+                CommitInfo(
+                    hash=parts[0].lstrip("\n"),
+                    hash_short=parts[1],
+                    message=parts[2],
+                    author=parts[3],
+                    timestamp=timestamp,
+                )
+            )
+        return commits
+
+    async def _get_restore_file_changes(
+        self, target_hash: str, source_head: str
+    ) -> list[RestoreFileChange]:
+        """Return path changes between a target snapshot and current HEAD."""
+        output = await self._run_git(
+            "diff", "--name-status", "-z", target_hash, source_head
+        )
+        tokens = output.split("\x00") if output else []
+        changes: list[RestoreFileChange] = []
+        index = 0
+        while index < len(tokens) and tokens[index]:
+            status = tokens[index]
+            index += 1
+            if status.startswith(("R", "C")):
+                if index + 1 >= len(tokens):
+                    raise GitError("Could not parse renamed restore paths")
+                old_path, new_path = tokens[index], tokens[index + 1]
+                index += 2
+                path = new_path
+            else:
+                if index >= len(tokens):
+                    raise GitError("Could not parse restore paths")
+                old_path = None
+                path = tokens[index]
+                index += 1
+            changes.append(
+                RestoreFileChange(
+                    status=status,
+                    path=path,
+                    old_path=old_path,
+                )
+            )
+        return changes
+
+    async def _get_restore_numstat(
+        self, target_hash: str, source_head: str
+    ) -> tuple[int, int, int]:
+        """Return total additions, deletions, and binary file count."""
+        output = await self._run_git(
+            "diff", "--numstat", "-z", target_hash, source_head
+        )
+        additions = deletions = binary_files = 0
+        for record in output.split("\x00") if output else []:
+            if not record:
+                continue
+            parts = record.split("\t", 2)
+            if len(parts) < 2:
+                continue
+            added, deleted = parts[:2]
+            if added == "-" or deleted == "-":
+                binary_files += 1
+                continue
+            try:
+                additions += int(added)
+                deletions += int(deleted)
+            except ValueError:
+                continue
+        return additions, deletions, binary_files
+
+    async def get_restore_preview(self, commit_ref: str) -> RestorePreview:
+        """Build a non-mutating preview of restoring a historical commit."""
+        target = await self.resolve_restore_target(commit_ref)
+        source_head = await self.get_head_sha()
+        commits = await self._get_restore_commits(target.hash, source_head)
+        changed_files = await self._get_restore_file_changes(
+            source_head, target.hash
+        )
+        if not changed_files:
+            raise InvalidRestoreTargetError(
+                "The selected commit has the same tracked file tree as HEAD"
+            )
+        additions, deletions, binary_files = await self._get_restore_numstat(
+            source_head, target.hash
+        )
+        return RestorePreview(
+            source_head=source_head,
+            target=target,
+            commits=commits,
+            changed_files=changed_files,
+            additions=additions,
+            deletions=deletions,
+            binary_files=binary_files,
+        )
+
+    async def restore_snapshot(
+        self,
+        target_ref: str,
+        expected_head: str,
+        validate: Callable[[], Awaitable[list[str]]] | None = None,
+    ) -> RestoreResult:
+        """Restore a historical tree as a new commit without rewriting history."""
+        current_head = await self.get_head_sha()
+        if current_head != expected_head:
+            raise StaleRestorePreviewError(
+                "Repository history changed after the restore preview was created"
+            )
+        if not await self.is_worktree_clean():
+            raise DirtyWorkingTreeError(
+                "Commit, sync, or discard all local changes before restoring"
+            )
+
+        preview = await self.get_restore_preview(target_ref)
+        if preview.source_head != expected_head:
+            raise StaleRestorePreviewError(
+                "Repository history changed after the restore preview was created"
+            )
+
+        original_head = current_head
+        restore_verified = False
+        restore_commit: CommitInfo | None = None
+        try:
+            await self._run_git(
+                "read-tree", "--reset", "-u", preview.target.hash
+            )
+            staged_paths = await self._run_git(
+                "diff", "--cached", "--name-only"
+            )
+            if not staged_paths:
+                raise InvalidRestoreTargetError(
+                    "The selected commit has the same tracked file tree as HEAD"
+                )
+
+            if validate is not None:
+                errors = await validate()
+                if errors:
+                    raise RestoreValidationError(errors)
+
+            subject = (
+                f"revert: restore configuration to {preview.target.hash_short}"
+            )
+            body = (
+                f"Restores tracked configuration snapshot from commit "
+                f"{preview.target.hash}.\n\nOriginal subject: "
+                f"{preview.target.message}"
+            )
+            await self._run_git("commit", "-m", subject, "-m", body)
+
+            restore_commit = await self._get_commit_info("HEAD")
+            restore_tree = await self._run_git("rev-parse", "HEAD^{tree}")
+            target_tree = await self._run_git(
+                "rev-parse", f"{preview.target.hash}^{{tree}}"
+            )
+            if restore_tree != target_tree:
+                raise RestoreError(
+                    "Restore commit tree does not match the selected target tree"
+                )
+            restore_verified = True
+        except BaseException:
+            if not restore_verified:
+                try:
+                    await asyncio.shield(self.reset_hard(original_head))
+                except GitError as rollback_err:
+                    _LOGGER.critical(
+                        "Could not roll back failed restore to %s: %s",
+                        original_head[:8],
+                        rollback_err,
+                    )
+            raise
+
+        if restore_commit is None:
+            raise RestoreError("Restore commit metadata is unavailable")
+
+        return RestoreResult(
+            commit=restore_commit,
+            target=preview.target,
+            commits_restored=len(preview.commits),
+            changed_files=[change.path for change in preview.changed_files],
+        )
+
     async def get_log(self, count: int = 10) -> list[CommitInfo]:
         """Get recent commit history."""
+        if count <= 0:
+            return []
         commits: list[CommitInfo] = []
         try:
             log_output = await self._run_git(
-                "log", f"-{count}", "--format=%H%n%h%n%s%n%an%n%aI%n---"
+                "log",
+                "-n",
+                str(count),
+                "--format=%H%x00%h%x00%s%x00%an%x00%aI%x00",
             )
             if not log_output:
                 return commits
 
-            entries = log_output.split("---\n")
-            for entry in entries:
-                entry = entry.strip()
-                if not entry:
-                    continue
-                parts = entry.splitlines()
-                if len(parts) >= 5:
-                    try:
-                        timestamp = datetime.fromisoformat(parts[4])
-                    except ValueError:
-                        timestamp = datetime.now(tz=timezone.utc)
-
-                    commits.append(
-                        CommitInfo(
-                            hash=parts[0],
-                            hash_short=parts[1],
-                            message=parts[2],
-                            author=parts[3],
-                            timestamp=timestamp,
-                        )
+            fields = log_output.rstrip("\x00\n").split("\x00")
+            for index in range(0, len(fields), 5):
+                parts = fields[index : index + 5]
+                if len(parts) != 5:
+                    raise GitError("Could not parse commit history")
+                try:
+                    timestamp = datetime.fromisoformat(parts[4].strip())
+                except ValueError:
+                    timestamp = datetime.now(tz=timezone.utc)
+                commits.append(
+                    CommitInfo(
+                        hash=parts[0].lstrip("\n"),
+                        hash_short=parts[1],
+                        message=parts[2],
+                        author=parts[3],
+                        timestamp=timestamp,
                     )
+                )
         except GitError:
             pass
 
