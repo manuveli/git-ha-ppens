@@ -254,6 +254,22 @@ AI commit messages can be enabled during the initial setup (Step 2: Auto-Commit 
 
 > 💡 **Tip:** Leave `ai_agent_id` empty to use Home Assistant's default conversation agent. If you have multiple AI agents configured, you can specify exactly which one should generate your commit messages.
 
+### 🔎 Diff Selection & Privacy
+
+Before calling the conversation agent, git-ha-ppens builds a compact,
+AI-specific view of the changes. It distributes the available context across
+changed files, keeps file and hunk metadata, and focuses long single-line JSON
+or YAML changes on the values that actually changed. The prepared diff is
+limited to 8,000 characters and the changed-file status to 2,000 characters.
+The full output returned by `git_ha_ppens.diff` is not affected by these limits.
+
+Common passwords, API keys, access and refresh tokens, authorization headers,
+credential-bearing URLs, and private keys are redacted on a best-effort basis
+before the prompt is sent. Redaction is an additional safeguard, not a
+guarantee. Continue to exclude sensitive files such as `secrets.yaml` and
+`.storage/` with `.gitignore`, especially when using a cloud-hosted conversation
+agent.
+
 ### 🛡️ Fallback Behavior
 
 AI commit messages are designed to **never interfere** with normal operation:

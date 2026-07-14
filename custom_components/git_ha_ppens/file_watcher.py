@@ -265,7 +265,7 @@ class GitFileWatcher:
             message = None
             if self._ai_commit_enabled:
                 try:
-                    diff = await self._git_manager.get_diff()
+                    diff = await self._git_manager.get_ai_diff()
                     porcelain = await self._git_manager._run_git(
                         "status", "--porcelain", check=False
                     )

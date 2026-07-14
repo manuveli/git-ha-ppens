@@ -539,7 +539,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
             if not message and entry.data.get(CONF_AI_COMMIT_MESSAGES, False):
                 try:
-                    diff = await git_manager.get_diff()
+                    diff = await git_manager.get_ai_diff()
                     porcelain = await git_manager._run_git(
                         "status", "--porcelain", check=False
                     )
@@ -622,7 +622,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
             if not message and entry.data.get(CONF_AI_COMMIT_MESSAGES, False):
                 try:
-                    diff = await git_manager.get_diff()
+                    diff = await git_manager.get_ai_diff()
                     porcelain = await git_manager._run_git(
                         "status", "--porcelain", check=False
                     )

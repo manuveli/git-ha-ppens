@@ -1116,6 +1116,31 @@ class GitManager:
         except GitError:
             return ""
 
+    async def get_ai_diff(self) -> str:
+        """Get a context-free word diff optimized for AI summarization."""
+        word_diff_args = (
+            "--no-ext-diff",
+            "--no-color",
+            "--unified=0",
+            "--word-diff=porcelain",
+            "--word-diff-regex=[[:alnum:]_./:@+-]+|[^[:space:]]",
+        )
+        try:
+            diff = await self._run_git("diff", *word_diff_args)
+            staged_diff = await self._run_git(
+                "diff", "--cached", *word_diff_args
+            )
+            combined = ""
+            if diff:
+                combined += diff
+            if staged_diff:
+                if combined:
+                    combined += "\n"
+                combined += staged_diff
+            return combined
+        except GitError:
+            return ""
+
     async def setup_gitignore(self, skip_defaults: bool = False) -> bool:
         """Create or update .gitignore with security defaults."""
         return await asyncio.to_thread(self._setup_gitignore_sync, skip_defaults)

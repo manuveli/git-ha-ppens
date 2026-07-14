@@ -7,7 +7,7 @@ import logging
 
 from homeassistant.core import HomeAssistant
 
-from .const import DEFAULT_AI_DIFF_MAX_CHARS
+from .ai_diff import prepare_ai_context
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,17 +36,14 @@ async def async_generate_ai_commit_message(
     if not diff and not porcelain:
         return None
 
-    # Truncate diff to avoid overwhelming the model
-    truncated_diff = diff[:DEFAULT_AI_DIFF_MAX_CHARS]
-    if len(diff) > DEFAULT_AI_DIFF_MAX_CHARS:
-        truncated_diff += "\n\n[...diff truncated...]"
+    prepared_status, prepared_diff = prepare_ai_context(diff, porcelain)
 
     prompt = (
         AI_COMMIT_PROMPT
         + "\n\nChanged files (git status):\n"
-        + (porcelain or "(no status output)")
+        + (prepared_status or "(no status output)")
         + "\n\nGit diff:\n"
-        + (truncated_diff or "(no diff — only new/deleted files)")
+        + (prepared_diff or "(no diff — only new/deleted files)")
     )
 
     service_data: dict = {"text": prompt}

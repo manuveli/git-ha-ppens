@@ -264,7 +264,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 message = None
                 if self._ai_commit_enabled:
                     try:
-                        diff = await self.git_manager.get_diff()
+                        diff = await self.git_manager.get_ai_diff()
                         porcelain = await self.git_manager._run_git(
                             "status", "--porcelain", check=False
                         )

@@ -97,7 +97,7 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "1.0.1",
+            "sw_version": "1.1.0",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }

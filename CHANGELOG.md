@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-14
+
+### Fixed
+- Improve AI commit-message context by distributing the bounded diff across changed files and compacting long structured-data lines (#77)
+
+### Security
+- Redact common credentials, token formats, authorization headers, credential-bearing URLs, and private keys from AI commit-message prompts on a best-effort basis (#77)
+
 ## [1.0.1] - 2026-07-12
 
 ### Fixed
@@ -199,6 +207,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.1.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/manuveli/git-ha-ppens/compare/v0.9.1...v1.0.0
 [0.9.1]: https://github.com/manuveli/git-ha-ppens/compare/v0.9.0...v0.9.1

@@ -57,12 +57,13 @@ collect_entries "Added"    added_entries
 collect_entries "Changed"  changed_entries
 collect_entries "Fixed"    fixed_entries
 collect_entries "Removed"  removed_entries
+collect_entries "Security" security_entries
 
 # ── build changelog block ─────────────────────────────────────────────────────
 
 NEW_BLOCK="## [$NEW_VERSION] - $TODAY"$'\n'
 
-for section_info in "Added:added_entries" "Changed:changed_entries" "Fixed:fixed_entries" "Removed:removed_entries"; do
+for section_info in "Added:added_entries" "Changed:changed_entries" "Fixed:fixed_entries" "Removed:removed_entries" "Security:security_entries"; do
   label="${section_info%%:*}"
   ref="${section_info##*:}"
   eval "local_count=\${#${ref}[@]}"
