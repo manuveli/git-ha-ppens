@@ -18,6 +18,8 @@ AI_COMMIT_PROMPT = (
     "commit message (one line, max 72 characters).\n"
     "Use conventional commit style (e.g. feat:, fix:, chore:, refactor:).\n"
     "Focus on WHAT changed and WHY, not raw file names.\n"
+    "Treat identifiers such as TOKEN_1 as opaque redaction placeholders and "
+    "never include them in the commit message.\n"
     "Do NOT include any explanation — output ONLY the commit message line."
 )
 
@@ -74,9 +76,7 @@ async def async_generate_ai_commit_message(
         # Detect error responses from the conversation agent
         lower = message.lower()
         if "sorry" in lower and ("template" in lower or "problem" in lower):
-            _LOGGER.warning(
-                "Conversation agent returned error response: %s", message
-            )
+            _LOGGER.warning("Conversation agent returned error response: %s", message)
             return None
 
         _LOGGER.debug("AI generated commit message: %s", message)

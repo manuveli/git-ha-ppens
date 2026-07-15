@@ -7,7 +7,7 @@ import re
 
 from .const import DEFAULT_AI_DIFF_MAX_CHARS, DEFAULT_AI_STATUS_MAX_CHARS
 
-_REDACTED = "[REDACTED]"
+_PRIVATE_KEY_REDACTED = "[PRIVATE_KEY_REDACTED]"
 _OMITTED = "[...content omitted...]"
 _MAX_RENDERED_LINE_CHARS = 640
 _LINE_CONTEXT_CHARS = 160
@@ -37,8 +37,16 @@ _PEM_PRIVATE_KEY_RE = re.compile(
     r"-----END [A-Z0-9 ]*PRIVATE KEY-----",
     re.DOTALL,
 )
-_URL_CREDENTIAL_RE = re.compile(r"(?P<scheme>[a-z][a-z0-9+.-]*://)[^/@\s]+@", re.I)
-_BEARER_TOKEN_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
+_URL_CREDENTIAL_RE = re.compile(
+    r"(?P<scheme>[a-z][a-z0-9+.-]*://)"
+    r"(?P<userinfo>(?:\[-.*?-\]|\{\+.*?\+\}|[^/@\s\r\n,#?{}\[\]\"']+)+)@",
+    re.I,
+)
+_BEARER_TOKEN_RE = re.compile(
+    r"(?P<prefix>\bBearer\s+)"
+    r"(?P<value>(?:\[-.*?-\]|\{\+.*?\+\}|[A-Za-z0-9._~+/=-])+)",
+    re.I,
+)
 _KNOWN_TOKEN_RES = (
     re.compile(r"\bgh[opusr]_[A-Za-z0-9]{20,}\b"),
     re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b"),
@@ -76,45 +84,152 @@ class _DiffSection:
         return "\n".join(self.lines)
 
 
-def prepare_ai_context(diff: str, porcelain: str) -> tuple[str, str]:
-    """Return redacted and bounded status and diff context for an AI prompt."""
-    prepared_status = _limit_status(
-        redact_ai_text(porcelain), DEFAULT_AI_STATUS_MAX_CHARS
-    )
-    prepared_diff = _prepare_diff(diff, DEFAULT_AI_DIFF_MAX_CHARS)
-    return prepared_status, prepared_diff
+class _PromptSecretRedactor:
+    """Assign non-persistent labels to secrets within one AI prompt."""
 
+    def __init__(self) -> None:
+        self._labels: dict[tuple[str, str], str] = {}
+        self._counts: dict[str, int] = {}
 
-def redact_ai_text(text: str) -> str:
-    """Best-effort redaction for sensitive values before sending AI context."""
-    if not text:
-        return text
+    def redact(self, text: str) -> str:
+        """Redact sensitive values while retaining prompt-local identity."""
+        if not text:
+            return text
 
-    redacted = _PEM_PRIVATE_KEY_RE.sub(
-        "-----BEGIN PRIVATE KEY-----\n[REDACTED]\n-----END PRIVATE KEY-----",
-        text,
-    )
-    redacted = _URL_CREDENTIAL_RE.sub(r"\g<scheme>[REDACTED]@", redacted)
-    redacted = _BEARER_TOKEN_RE.sub("Bearer [REDACTED]", redacted)
-    for token_re in _KNOWN_TOKEN_RES:
-        redacted = token_re.sub(_REDACTED, redacted)
+        redacted = _STRUCTURED_SECRET_RE.sub(self._replace_structured_secret, text)
+        redacted = _PEM_PRIVATE_KEY_RE.sub(
+            "-----BEGIN PRIVATE KEY-----\n"
+            f"{_PRIVATE_KEY_REDACTED}\n"
+            "-----END PRIVATE KEY-----",
+            redacted,
+        )
+        redacted = _URL_CREDENTIAL_RE.sub(self._replace_url_credentials, redacted)
+        redacted = _BEARER_TOKEN_RE.sub(self._replace_bearer_token, redacted)
+        for token_re in _KNOWN_TOKEN_RES:
+            redacted = token_re.sub(self._replace_known_token, redacted)
+        return redacted
 
-    def _replace_structured_secret(match: re.Match[str]) -> str:
+    def _replace_structured_secret(self, match: re.Match[str]) -> str:
+        """Replace one JSON, YAML, or INI secret value."""
         raw_value = match.group("value")
         leading = raw_value[: len(raw_value) - len(raw_value.lstrip())]
         value_with_trailing = raw_value[len(leading) :]
         value = value_with_trailing.rstrip()
         trailing = value_with_trailing[len(value) :]
+        quote = ""
         if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            replacement = f"{value[0]}{_REDACTED}{value[-1]}"
-        else:
-            replacement = _REDACTED
-        return f"{match.group('prefix')}{leading}{replacement}{trailing}"
+            quote = value[0]
+            value = value[1:-1]
 
-    return _STRUCTURED_SECRET_RE.sub(_replace_structured_secret, redacted)
+        kind = self._kind_for_key(match.group("key"))
+        replacement = self._redact_value(value, kind)
+        return f"{match.group('prefix')}{leading}{quote}{replacement}{quote}{trailing}"
+
+    def _replace_url_credentials(self, match: re.Match[str]) -> str:
+        """Redact only userinfo inside one URL authority."""
+        userinfo = self._redact_value(match.group("userinfo"), "CREDENTIAL")
+        return f"{match.group('scheme')}{userinfo}@"
+
+    def _replace_bearer_token(self, match: re.Match[str]) -> str:
+        """Redact a standalone bearer token."""
+        value = self._redact_value(match.group("value"), "TOKEN")
+        return f"{match.group('prefix')}{value}"
+
+    def _replace_known_token(self, match: re.Match[str]) -> str:
+        """Redact a known standalone token format."""
+        label = self._label("TOKEN", match.group(0))
+        before = match.string[max(0, match.start() - 2) : match.start()]
+        after = match.string[match.end() : match.end() + 2]
+        if (before, after) in (("[-", "-]"), ("{+", "+}")):
+            return label
+        return f"[{label}]"
+
+    def _redact_value(self, value: str, kind: str) -> str:
+        """Redact one value and preserve any word-diff change markers."""
+        if kind == "PRIVATE_KEY":
+            return _PRIVATE_KEY_REDACTED
+
+        matches = list(_CHANGE_MARKER_RE.finditer(value))
+        if not matches:
+            return self._redact_plain_segment(value, kind)
+
+        parts: list[str] = []
+        position = 0
+        for marker in matches:
+            if marker.start() > position:
+                parts.append(
+                    self._redact_plain_segment(value[position : marker.start()], kind)
+                )
+            marker_text = marker.group(0)
+            label = self._label(kind, marker_text[2:-2])
+            if marker_text.startswith("[-"):
+                parts.append(f"[-{label}-]")
+            else:
+                parts.append(f"{{+{label}+}}")
+            position = marker.end()
+        if position < len(value):
+            parts.append(self._redact_plain_segment(value[position:], kind))
+        return "".join(parts)
+
+    def _redact_plain_segment(self, value: str, kind: str) -> str:
+        """Redact a non-diff segment while retaining surrounding whitespace."""
+        if not value:
+            return value
+        leading = value[: len(value) - len(value.lstrip())]
+        value_with_trailing = value[len(leading) :]
+        core = value_with_trailing.rstrip()
+        trailing = value_with_trailing[len(core) :]
+        if not core:
+            return value
+        return f"{leading}[{self._label(kind, core)}]{trailing}"
+
+    def _label(self, kind: str, value: str) -> str:
+        """Return the same typed label for the same value in this prompt."""
+        key = (kind, value)
+        if key not in self._labels:
+            next_number = self._counts.get(kind, 0) + 1
+            self._counts[kind] = next_number
+            self._labels[key] = f"{kind}_{next_number}"
+        return self._labels[key]
+
+    @staticmethod
+    def _kind_for_key(key: str) -> str:
+        """Map a structured secret key to a readable placeholder type."""
+        normalized = key.lower().replace("-", "_")
+        if normalized in {"password", "passwd", "pwd"}:
+            return "PASSWORD"
+        if normalized in {"api_key", "apikey"}:
+            return "API_KEY"
+        if normalized in {
+            "token",
+            "access_token",
+            "refresh_token",
+            "authorization",
+        }:
+            return "TOKEN"
+        if normalized == "credential":
+            return "CREDENTIAL"
+        if normalized == "private_key":
+            return "PRIVATE_KEY"
+        return "SECRET"
 
 
-def _prepare_diff(diff: str, max_chars: int) -> str:
+def prepare_ai_context(diff: str, porcelain: str) -> tuple[str, str]:
+    """Return redacted and bounded status and diff context for an AI prompt."""
+    redactor = _PromptSecretRedactor()
+    prepared_status = _limit_status(
+        redactor.redact(porcelain), DEFAULT_AI_STATUS_MAX_CHARS
+    )
+    prepared_diff = _prepare_diff(diff, DEFAULT_AI_DIFF_MAX_CHARS, redactor)
+    return prepared_status, prepared_diff
+
+
+def redact_ai_text(text: str) -> str:
+    """Best-effort redaction for sensitive values before sending AI context."""
+    return _PromptSecretRedactor().redact(text)
+
+
+def _prepare_diff(diff: str, max_chars: int, redactor: _PromptSecretRedactor) -> str:
     """Normalize, redact, and fairly bound an AI word-diff."""
     if not diff:
         return ""
@@ -137,7 +252,7 @@ def _prepare_diff(diff: str, max_chars: int) -> str:
     candidates = [
         "\n".join(
             _limit_changed_line(line)
-            for line in redact_ai_text(section.render()).splitlines()
+            for line in redactor.redact(section.render()).splitlines()
         )
         for section in included
     ]

@@ -265,10 +265,13 @@ The full output returned by `git_ha_ppens.diff` is not affected by these limits.
 
 Common passwords, API keys, access and refresh tokens, authorization headers,
 credential-bearing URLs, and private keys are redacted on a best-effort basis
-before the prompt is sent. Redaction is an additional safeguard, not a
-guarantee. Continue to exclude sensitive files such as `secrets.yaml` and
-`.storage/` with `.gitignore`, especially when using a cloud-hosted conversation
-agent.
+before the prompt is sent. Distinct values receive typed, prompt-local labels
+such as `TOKEN_1`, so the agent can still distinguish an old value from a new
+one. Repeated values reuse their label within the same prompt, while all labels
+are reset for every request and cannot be correlated across prompts. Redaction
+is an additional safeguard, not a guarantee. Continue to exclude sensitive
+files such as `secrets.yaml` and `.storage/` with `.gitignore`, especially when
+using a cloud-hosted conversation agent.
 
 ### 🛡️ Fallback Behavior
 
