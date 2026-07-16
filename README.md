@@ -556,9 +556,9 @@ Contributions are welcome! Whether it's bug reports, feature requests, or pull r
 
 <a href="https://www.star-history.com/?repos=manuveli%2Fgit-ha-ppens&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=manuveli/git-ha-ppens&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=manuveli/git-ha-ppens&type=date&theme=dark&legend=top-left&sealed_token=5yicLn2mynl8vbC7DcOHWt8nlFK3uaRrf6K5zcbjDR9exyOmaf7Xkkr2w17OOAYkDoH-cuDPPFvVFUiTH5zrsSVslV6gm631C46S3OUbeysKKxTjMSUmGYhzeLi_gEi7oeyYFfsBe2qt0eJAfWmcK4YpWfnzcXeUTTCEcCkKteF0OVLOp9YT9HnbCjmo" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=manuveli/git-ha-ppens&type=date&legend=top-left&sealed_token=5yicLn2mynl8vbC7DcOHWt8nlFK3uaRrf6K5zcbjDR9exyOmaf7Xkkr2w17OOAYkDoH-cuDPPFvVFUiTH5zrsSVslV6gm631C46S3OUbeysKKxTjMSUmGYhzeLi_gEi7oeyYFfsBe2qt0eJAfWmcK4YpWfnzcXeUTTCEcCkKteF0OVLOp9YT9HnbCjmo" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=manuveli/git-ha-ppens&type=date&legend=top-left&sealed_token=5yicLn2mynl8vbC7DcOHWt8nlFK3uaRrf6K5zcbjDR9exyOmaf7Xkkr2w17OOAYkDoH-cuDPPFvVFUiTH5zrsSVslV6gm631C46S3OUbeysKKxTjMSUmGYhzeLi_gEi7oeyYFfsBe2qt0eJAfWmcK4YpWfnzcXeUTTCEcCkKteF0OVLOp9YT9HnbCjmo" />
  </picture>
 </a>
 
