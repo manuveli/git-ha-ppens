@@ -1279,10 +1279,15 @@ class GitManager:
             await self._run_git("remote", "add", "origin", url)
         _LOGGER.info("Remote origin set to %s", self._redact_url(url))
 
-    async def configure_token_auth(self, url: str, token: str) -> None:
+    async def configure_token_auth(
+        self,
+        url: str,
+        token: str,
+        username: str,
+    ) -> None:
         """Configure token-based authentication by embedding in the remote URL."""
         if url.startswith("https://"):
-            authed_url = url.replace("https://", f"https://oauth2:{token}@")
+            authed_url = url.replace("https://", f"https://{username}:{token}@")
             await self.set_remote(authed_url)
         else:
             _LOGGER.warning("Token auth only works with HTTPS URLs")

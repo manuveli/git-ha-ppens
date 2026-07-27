@@ -48,12 +48,14 @@
           "remote_url": "Remote URL",
           "auth_method": "प्रमाणीकरण विधि",
           "auth_token": "व्यक्तिगत एक्सेस token",
+          "auth_username": "प्रमाणीकरण उपयोगकर्ता नाम",
           "ssh_key_path": "SSH निजी कुंजी पथ"
         },
         "data_description": {
           "remote_url": "Git remote URL (उदा. https://github.com/user/repo.git या git@github.com:user/repo.git).",
           "auth_method": "Remote के साथ प्रमाणीकरण की विधि।",
           "auth_token": "HTTPS प्रमाणीकरण के लिए व्यक्तिगत एक्सेस token।",
+          "auth_username": "HTTPS ऑथेंटिकेशन के लिए पर्सनल एक्सेस टोकन के साथ इस्तेमाल किया जाने वाला यूज़रनेम (जैसे, GitHub/GitLab के लिए `oauth2` या bitbucket.org के लिए `x-token-auth`)।",
           "ssh_key_path": "SSH निजी कुंजी फ़ाइल का पथ (उदा. /config/.ssh/id_ed25519)."
         }
       }
@@ -114,6 +116,7 @@
           "remote_url": "Remote URL",
           "auth_method": "प्रमाणीकरण विधि",
           "auth_token": "व्यक्तिगत एक्सेस token",
+          "auth_username": "प्रमाणीकरण उपयोगकर्ता नाम",
           "ssh_key_path": "SSH निजी कुंजी पथ",
           "ai_commit_messages": "Commit संदेशों के लिए AI का उपयोग करें",
           "ai_agent_id": "Conversation agent entity ID"
@@ -131,6 +134,7 @@
           "remote_url": "Git remote URL (उदा. https://github.com/user/repo.git या git@github.com:user/repo.git).",
           "auth_method": "Remote के साथ प्रमाणीकरण की विधि।",
           "auth_token": "HTTPS प्रमाणीकरण के लिए व्यक्तिगत एक्सेस token।",
+          "auth_username": "HTTPS ऑथेंटिकेशन के लिए पर्सनल एक्सेस टोकन के साथ इस्तेमाल किया जाने वाला यूज़रनेम (जैसे, GitHub/GitLab के लिए `oauth2` या bitbucket.org के लिए `x-token-auth`)।",
           "ssh_key_path": "SSH निजी कुंजी फ़ाइल का पथ (उदा. /config/.ssh/id_ed25519)."
         }
       },

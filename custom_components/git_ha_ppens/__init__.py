@@ -23,6 +23,7 @@ from .const import (
     CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
+    CONF_AUTH_USERNAME,
     CONF_AUTO_COMMIT,
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
@@ -40,6 +41,7 @@ from .const import (
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_TOKEN_AUTH_USERNAME,
     DOMAIN,
     ENTITY_ID_KEYS,
     EVENT_COMMIT,
@@ -317,7 +319,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if auth_method == AUTH_TOKEN:
                 token = data.get(CONF_AUTH_TOKEN, "")
                 if token:
-                    await git_manager.configure_token_auth(remote_url, token)
+                    auth_username = data.get(
+                        CONF_AUTH_USERNAME,
+                        DEFAULT_TOKEN_AUTH_USERNAME,
+                    )
+                    await git_manager.configure_token_auth(
+                        remote_url,
+                        token,
+                        auth_username,
+                    )
                 else:
                     await git_manager.set_remote(remote_url)
             elif auth_method == AUTH_SSH:

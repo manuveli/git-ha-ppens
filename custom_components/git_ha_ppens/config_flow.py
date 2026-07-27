@@ -16,7 +16,12 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
-from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
+from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -27,6 +32,7 @@ from .const import (
     CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
+    CONF_AUTH_USERNAME,
     CONF_AUTO_COMMIT,
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
@@ -47,6 +53,7 @@ from .const import (
     DEFAULT_COMMIT_INTERVAL,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_REPO_PATH,
+    DEFAULT_TOKEN_AUTH_USERNAME,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     RESTORE_HISTORY_LIMIT,
@@ -145,7 +152,7 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                     ): bool,
                     vol.Optional(
                         CONF_AI_AGENT_ID, default=""
-                    ): str,
+                    ): EntitySelector(EntitySelectorConfig(domain="conversation")),
                 }
             ),
         )
@@ -183,6 +190,7 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._data.setdefault(CONF_REMOTE_URL, "")
                 self._data.setdefault(CONF_AUTH_METHOD, AUTH_NONE)
                 self._data.setdefault(CONF_AUTH_TOKEN, "")
+                self._data.setdefault(CONF_AUTH_USERNAME, DEFAULT_TOKEN_AUTH_USERNAME)
                 self._data.setdefault(CONF_SSH_KEY_PATH, "")
 
                 # Prevent duplicate entries for the same path
@@ -209,6 +217,7 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                         }
                     ),
                     vol.Optional(CONF_AUTH_TOKEN, default=""): str,
+                    vol.Optional(CONF_AUTH_USERNAME, default=DEFAULT_TOKEN_AUTH_USERNAME): str,
                     vol.Optional(CONF_SSH_KEY_PATH, default=""): str,
                 }
             ),
@@ -613,6 +622,12 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                         default=current.get(CONF_AUTH_TOKEN, ""),
                     ): str,
                     vol.Optional(
+                        CONF_AUTH_USERNAME,
+                        default=current.get(
+                            CONF_AUTH_USERNAME, DEFAULT_TOKEN_AUTH_USERNAME
+                        ),
+                    ): str,
+                    vol.Optional(
                         CONF_SSH_KEY_PATH,
                         default=current.get(CONF_SSH_KEY_PATH, ""),
                     ): str,
@@ -623,7 +638,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                     vol.Optional(
                         CONF_AI_AGENT_ID,
                         default=current.get(CONF_AI_AGENT_ID, ""),
-                    ): str,
+                    ): EntitySelector(EntitySelectorConfig(domain="conversation")),
                 }
             ),
         )

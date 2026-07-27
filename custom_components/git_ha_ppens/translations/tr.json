@@ -48,12 +48,14 @@
           "remote_url": "Remote URL",
           "auth_method": "Kimlik doğrulama yöntemi",
           "auth_token": "Kişisel erişim token'ı",
+          "auth_username": "Kimlik doğrulama kullanıcı adı",
           "ssh_key_path": "SSH özel anahtar yolu"
         },
         "data_description": {
           "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
           "auth_method": "Remote ile kimlik doğrulama yöntemi.",
           "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
+          "auth_username": "HTTPS kimlik doğrulaması için kişisel erişim token'ı ile kullanılan kullanıcı adı (örneğin, GitHub/GitLab için oauth2 veya bitbucket.org için x-token-auth).",
           "ssh_key_path": "SSH özel anahtar dosyasının yolu (örn. /config/.ssh/id_ed25519)."
         }
       }
@@ -114,6 +116,7 @@
           "remote_url": "Remote URL",
           "auth_method": "Kimlik doğrulama yöntemi",
           "auth_token": "Kişisel erişim token'ı",
+          "auth_username": "Kimlik doğrulama kullanıcı adı",
           "ssh_key_path": "SSH özel anahtar yolu",
           "ai_commit_messages": "Commit mesajları için yapay zeka kullan",
           "ai_agent_id": "Conversation agent entity ID'si"
@@ -131,6 +134,7 @@
           "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
           "auth_method": "Remote ile kimlik doğrulama yöntemi.",
           "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
+          "auth_username": "HTTPS kimlik doğrulaması için kişisel erişim token'ı ile kullanılan kullanıcı adı (örneğin, GitHub/GitLab için oauth2 veya bitbucket.org için x-token-auth).",
           "ssh_key_path": "SSH özel anahtar dosyasının yolu (örn. /config/.ssh/id_ed25519)."
         }
       },

@@ -48,12 +48,14 @@
           "remote_url": "URL distante",
           "auth_method": "Méthode d'authentification",
           "auth_token": "Token d'accès personnel",
+          "auth_username": "Nom d'utilisateur pour l'authentification",
           "ssh_key_path": "Chemin de la clé privée SSH"
         },
         "data_description": {
           "remote_url": "L'URL du remote git (ex. https://github.com/user/repo.git ou git@github.com:user/repo.git).",
           "auth_method": "Méthode d'authentification pour le remote.",
           "auth_token": "Token d'accès personnel pour l'authentification HTTPS.",
+          "auth_username": "Nom d'utilisateur utilisé avec le token d'accès personnel pour l'authentification HTTPS (par exemple, oauth2 pour GitHub/GitLab ou x-token-auth pour bitbucket.org).",
           "ssh_key_path": "Chemin vers le fichier de clé privée SSH (ex. /config/.ssh/id_ed25519)."
         }
       }
@@ -117,6 +119,7 @@
           "remote_url": "URL distante",
           "auth_method": "Méthode d'authentification",
           "auth_token": "Token d'accès personnel",
+          "auth_username": "Nom d'utilisateur pour l'authentification",
           "ssh_key_path": "Chemin de la clé privée SSH",
           "ai_commit_messages": "Utiliser l'IA pour les messages de commit",
           "ai_agent_id": "Entity ID de l'agent de conversation"
@@ -134,6 +137,7 @@
           "remote_url": "L'URL du remote git (ex. https://github.com/user/repo.git ou git@github.com:user/repo.git).",
           "auth_method": "Méthode d'authentification pour le remote.",
           "auth_token": "Token d'accès personnel pour l'authentification HTTPS.",
+          "auth_username": "Nom d'utilisateur utilisé avec le token d'accès personnel pour l'authentification HTTPS (par exemple, oauth2 pour GitHub/GitLab ou x-token-auth pour bitbucket.org).",
           "ssh_key_path": "Chemin vers le fichier de clé privée SSH (ex. /config/.ssh/id_ed25519)."
         }
       },

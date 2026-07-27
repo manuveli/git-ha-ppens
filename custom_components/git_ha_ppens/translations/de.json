@@ -48,12 +48,14 @@
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
+          "auth_username": "Authentifizierungs-Benutzername",
           "ssh_key_path": "Pfad zum privaten SSH-Schlüssel"
         },
         "data_description": {
           "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
           "auth_method": "Authentifizierungsmethode für das Remote-Repository.",
           "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
+          "auth_username": "Benutzername für HTTPS-Authentifizierung mit persönlichem Zugriffstoken (z.B. oauth2 für GitHub/GitLab oder x-token-auth für bitbucket.org).",
           "ssh_key_path": "Pfad zur privaten SSH-Schlüsseldatei (z.B. /config/.ssh/id_ed25519)."
         }
       }
@@ -136,6 +138,7 @@
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
+          "auth_username": "Authentifizierungs-Benutzername",
           "ssh_key_path": "Pfad zum privaten SSH-Schlüssel"
         },
         "data_description": {
@@ -151,6 +154,7 @@
           "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
           "auth_method": "Authentifizierungsmethode für das Remote-Repository.",
           "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
+          "auth_username": "Benutzername für HTTPS-Authentifizierung mit persönlichem Zugriffstoken (z.B. oauth2 für GitHub/GitLab oder x-token-auth für bitbucket.org).",
           "ssh_key_path": "Pfad zur privaten SSH-Schlüsseldatei (z.B. /config/.ssh/id_ed25519)."
         }
       },
