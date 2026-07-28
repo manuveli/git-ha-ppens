@@ -38,7 +38,9 @@ async def async_generate_ai_commit_message(
     if not diff and not porcelain:
         return None
 
-    prepared_status, prepared_diff = prepare_ai_context(diff, porcelain)
+    prepared_status, prepared_diff = await hass.async_add_executor_job(
+        prepare_ai_context, diff, porcelain
+    )
 
     prompt = (
         AI_COMMIT_PROMPT

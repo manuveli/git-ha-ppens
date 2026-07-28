@@ -37,10 +37,27 @@ _PEM_PRIVATE_KEY_RE = re.compile(
     r"-----END [A-Z0-9 ]*PRIVATE KEY-----",
     re.DOTALL,
 )
+# Keep the repeated userinfo alternatives prefix-disjoint and consume ordinary
+# content one character at a time. Nested repetitions here cause exponential
+# backtracking, while the scheme boundary prevents retries at every character.
 _URL_CREDENTIAL_RE = re.compile(
-    r"(?P<scheme>[a-z][a-z0-9+.-]*://)"
-    r"(?P<userinfo>(?:\[-.*?-\]|\{\+.*?\+\}|[^/@\s\r\n,#?{}\[\]\"']+)+)@",
-    re.I,
+    r"""
+    (?:
+        (?<![a-z0-9+.-])
+        | (?<=\[-)
+        | (?<=\{\+)
+    )
+    (?P<scheme>[a-z][a-z0-9+.-]*://)
+    (?P<userinfo>
+        (?:
+            \[-(?:[^\r\n-]|-(?!\]))*-\]
+            | \{\+(?:[^\r\n+]|\+(?!\}))*\+\}
+            | [^/@\s\r\n,\#?{}\[\]"']
+        )+
+    )
+    @
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 _BEARER_TOKEN_RE = re.compile(
     r"(?P<prefix>\bBearer\s+)"
