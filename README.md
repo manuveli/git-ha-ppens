@@ -195,7 +195,14 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | `remote_url` | Git remote URL (HTTPS or SSH) | *(empty)* |
 | `auth_method` | `none` / `token` / `ssh` | `none` |
 | `auth_token` | Personal access token (for HTTPS) | *(empty)* |
+| `auth_username` | Username paired with the HTTPS token | `oauth2` |
 | `ssh_key_path` | Path to SSH private key file | *(empty)* |
+
+The `oauth2` authentication username preserves existing GitHub and GitLab
+setups. Bitbucket repository, project, or workspace access tokens commonly use
+`x-token-auth`; Bitbucket API tokens can use `x-bitbucket-api-token-auth` or the
+account's Bitbucket username. The setting is ignored for SSH and unauthenticated
+remotes.
 
 > 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, and **Restore configuration**.
 
@@ -250,7 +257,7 @@ AI commit messages can be enabled during the initial setup (Step 2: Auto-Commit 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `ai_commit_messages` | Enable AI-generated commit messages | `false` |
-| `ai_agent_id` | Entity ID of the conversation agent to use (e.g. `conversation.chatgpt`) | *(empty)* |
+| `ai_agent_id` | Conversation agent to use | *(empty)* |
 
 > 💡 **Tip:** Leave `ai_agent_id` empty to use Home Assistant's default conversation agent. If you have multiple AI agents configured, you can specify exactly which one should generate your commit messages.
 

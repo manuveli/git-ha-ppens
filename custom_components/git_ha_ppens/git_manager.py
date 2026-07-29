@@ -10,8 +10,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote, urlsplit, urlunsplit
 
-from .const import DEFAULT_GITIGNORE_ENTRIES, SECRET_PATTERNS
+from .const import (
+    DEFAULT_GITIGNORE_ENTRIES,
+    DEFAULT_TOKEN_AUTH_USERNAME,
+    SECRET_PATTERNS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -172,7 +177,8 @@ class GitManager:
             GitError: If the command fails and check is True.
         """
         cmd = ["git", "-C", self._repo_path, *args]
-        _LOGGER.debug("Running git command: %s", " ".join(cmd))
+        safe_cmd = " ".join(self._redact_text(part) for part in cmd)
+        _LOGGER.debug("Running git command: %s", safe_cmd)
 
         try:
             process = await asyncio.create_subprocess_exec(
@@ -202,8 +208,9 @@ class GitManager:
 
         if check and process.returncode != 0:
             error_msg = stderr or stdout or f"Git command failed with code {process.returncode}"
-            _LOGGER.error("Git command failed: %s -> %s", " ".join(cmd), error_msg)
-            raise GitError(error_msg)
+            safe_error = self._redact_text(error_msg)
+            _LOGGER.error("Git command failed: %s -> %s", safe_cmd, safe_error)
+            raise GitError(safe_error)
 
         return stdout
 
@@ -1279,13 +1286,42 @@ class GitManager:
             await self._run_git("remote", "add", "origin", url)
         _LOGGER.info("Remote origin set to %s", self._redact_url(url))
 
-    async def configure_token_auth(self, url: str, token: str) -> None:
+    async def configure_token_auth(
+        self,
+        url: str,
+        token: str,
+        username: str = DEFAULT_TOKEN_AUTH_USERNAME,
+    ) -> None:
         """Configure token-based authentication by embedding in the remote URL."""
-        if url.startswith("https://"):
-            authed_url = url.replace("https://", f"https://oauth2:{token}@")
-            await self.set_remote(authed_url)
-        else:
-            _LOGGER.warning("Token auth only works with HTTPS URLs")
+        username = username.strip()
+        token = token.strip()
+        if not username:
+            raise GitError("Authentication username cannot be empty")
+        if not token:
+            raise GitError("Authentication token cannot be empty")
+
+        parsed = urlsplit(url)
+        if parsed.scheme.lower() != "https" or not parsed.netloc:
+            raise GitError("Token authentication requires a valid HTTPS remote URL")
+
+        # Token settings are authoritative, so replace any existing URL userinfo.
+        remote_host = parsed.netloc.rsplit("@", 1)[-1]
+        if not remote_host:
+            raise GitError("Token authentication requires a remote host")
+
+        userinfo = (
+            f"{quote(username, safe='')}:{quote(token, safe='')}"
+        )
+        authed_url = urlunsplit(
+            (
+                parsed.scheme,
+                f"{userinfo}@{remote_host}",
+                parsed.path,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
+        await self.set_remote(authed_url)
 
     async def configure_ssh_auth(self, ssh_key_path: str) -> None:
         """Configure SSH-based authentication."""
@@ -1302,5 +1338,30 @@ class GitManager:
     @staticmethod
     def _redact_url(url: str) -> str:
         """Redact sensitive parts of a URL for logging."""
-        redacted = re.sub(r"://[^@]+@", "://***@", url)
-        return redacted
+        try:
+            parsed = urlsplit(url)
+        except ValueError:
+            return re.sub(r"://.*@", "://***@", url)
+
+        if "@" not in parsed.netloc:
+            return url
+
+        remote_host = parsed.netloc.rsplit("@", 1)[-1]
+        return urlunsplit(
+            (
+                parsed.scheme,
+                f"***@{remote_host}",
+                parsed.path,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
+
+    @classmethod
+    def _redact_text(cls, text: str) -> str:
+        """Redact credential-bearing HTTPS URLs embedded in arbitrary text."""
+        return re.sub(
+            r"https?://\S+",
+            lambda match: cls._redact_url(match.group(0)),
+            text,
+        )

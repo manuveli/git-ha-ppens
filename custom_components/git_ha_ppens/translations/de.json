@@ -26,7 +26,7 @@
           "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
           "scan_interval": "Status-Abfrageintervall (Sekunden)",
           "ai_commit_messages": "KI für Commit-Nachrichten verwenden",
-          "ai_agent_id": "Entity-ID des Konversationsagenten",
+          "ai_agent_id": "Konversationsagent",
           "fetch_interval": "Remote-Abfrageintervall (Sekunden)"
         },
         "data_description": {
@@ -37,7 +37,7 @@
           "commit_interval": "Wartezeit in Sekunden nach der letzten Änderung, bevor automatisch committet wird. Minimum 30, Maximum 86400 (24h).",
           "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h).",
           "ai_commit_messages": "Verwendet einen konfigurierten KI-Konversationsagenten, um beschreibende Commit-Nachrichten aus dem Git-Diff zu generieren.",
-          "ai_agent_id": "Die Entity-ID des zu verwendenden Konversationsagenten (z.B. conversation.chatgpt). Leer lassen, um KI-Commit-Nachrichten zu deaktivieren und stattdessen automatisch generierte Nachrichten zu verwenden.",
+          "ai_agent_id": "Zu verwendender Konversationsagent. Leer lassen, um den Standard-Konversationsagenten von Home Assistant zu verwenden.",
           "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600."
         }
       },
@@ -48,12 +48,14 @@
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
+          "auth_username": "Authentifizierungs-Benutzername (nur Token)",
           "ssh_key_path": "Pfad zum privaten SSH-Schlüssel"
         },
         "data_description": {
           "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
           "auth_method": "Authentifizierungsmethode für das Remote-Repository.",
           "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
+          "auth_username": "Benutzername für das HTTPS-Token. Bestehende GitHub- und GitLab-Konfigurationen können oauth2 beibehalten. Bitbucket verwendet üblicherweise x-token-auth für Repository-Zugriffstoken oder x-bitbucket-api-token-auth für API-Token.",
           "ssh_key_path": "Pfad zur privaten SSH-Schlüsseldatei (z.B. /config/.ssh/id_ed25519)."
         }
       }
@@ -62,7 +64,9 @@
       "path_not_found": "Der angegebene Pfad existiert nicht.",
       "git_not_installed": "Git ist nicht installiert oder wurde im PATH nicht gefunden.",
       "invalid_remote_url": "Ungültige Remote-URL. Muss mit https://, git@ oder ssh:// beginnen.",
+      "token_requires_https": "Token-Authentifizierung erfordert eine HTTPS-Remote-URL.",
       "token_required": "Für die Token-Authentifizierung ist ein persönlicher Zugriffstoken erforderlich.",
+      "auth_username_required": "Für die Token-Authentifizierung ist ein Authentifizierungs-Benutzername erforderlich.",
       "ssh_key_not_found": "Die angegebene SSH-Schlüsseldatei existiert nicht."
     },
     "abort": {
@@ -132,10 +136,11 @@
           "scan_interval": "Status-Abfrageintervall (Sekunden)",
           "fetch_interval": "Remote-Abfrageintervall (Sekunden)",
           "ai_commit_messages": "KI für Commit-Nachrichten verwenden",
-          "ai_agent_id": "Entity-ID des Konversationsagenten",
+          "ai_agent_id": "Konversationsagent",
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
+          "auth_username": "Authentifizierungs-Benutzername (nur Token)",
           "ssh_key_path": "Pfad zum privaten SSH-Schlüssel"
         },
         "data_description": {
@@ -151,6 +156,7 @@
           "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
           "auth_method": "Authentifizierungsmethode für das Remote-Repository.",
           "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
+          "auth_username": "Benutzername für das HTTPS-Token. Bestehende GitHub- und GitLab-Konfigurationen können oauth2 beibehalten. Bitbucket verwendet üblicherweise x-token-auth für Repository-Zugriffstoken oder x-bitbucket-api-token-auth für API-Token.",
           "ssh_key_path": "Pfad zur privaten SSH-Schlüsseldatei (z.B. /config/.ssh/id_ed25519)."
         }
       },
@@ -166,6 +172,11 @@
       }
     },
     "error": {
+      "invalid_remote_url": "Ungültige Remote-URL. Muss mit https://, git@ oder ssh:// beginnen.",
+      "token_requires_https": "Token-Authentifizierung erfordert eine HTTPS-Remote-URL.",
+      "token_required": "Für die Token-Authentifizierung ist ein persönlicher Zugriffstoken erforderlich.",
+      "auth_username_required": "Für die Token-Authentifizierung ist ein Authentifizierungs-Benutzername erforderlich.",
+      "ssh_key_not_found": "Die angegebene SSH-Schlüsseldatei existiert nicht.",
       "integration_not_loaded": "Die Integration ist derzeit nicht geladen. Lade sie vor der Wiederherstellung neu.",
       "no_restore_commits": "Es gibt keine früheren Commits, die wiederhergestellt werden können.",
       "dirty_working_tree": "Committe, synchronisiere oder verwirf zuerst alle vorgemerkten, nicht vorgemerkten und ungetrackten Änderungen.",

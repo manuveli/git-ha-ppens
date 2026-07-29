@@ -27,7 +27,7 @@
           "scan_interval": "स्टेटस पोलिंग अंतराल (सेकंड)",
           "fetch_interval": "रिमोट फ़ेच अंतराल (सेकंड)",
           "ai_commit_messages": "Commit संदेशों के लिए AI का उपयोग करें",
-          "ai_agent_id": "Conversation agent entity ID"
+          "ai_agent_id": "Conversation agent"
         },
         "data_description": {
           "auto_commit": "जब कॉन्फ़िगरेशन फ़ाइलें बदलती हैं, तो स्वचालित रूप से commit करता है।",
@@ -38,7 +38,7 @@
           "scan_interval": "Sensor अपडेट के लिए git status कितनी बार जांचा जाए। न्यूनतम 10, अधिकतम 3600 (1 घंटा).",
           "fetch_interval": "नए कमिट्स की जांच के लिए रिमोट से कितनी बार फ़ेच करना है। न्यूनतम 60, अधिकतम 3600।",
           "ai_commit_messages": "Git diff से वर्णनात्मक commit संदेश उत्पन्न करने के लिए एक कॉन्फ़िगर किए गए AI conversation agent का उपयोग करें।",
-          "ai_agent_id": "उपयोग करने के लिए conversation agent का entity ID (उदा. conversation.chatgpt)। AI commit संदेशों को निष्क्रिय करने और स्वचालित रूप से जनरेट किए गए संदेशों का उपयोग करने के लिए खाली छोड़ें।"
+          "ai_agent_id": "उपयोग करने वाला conversation agent। Home Assistant के default conversation agent का उपयोग करने के लिए इसे खाली छोड़ें।"
         }
       },
       "remote": {
@@ -48,12 +48,14 @@
           "remote_url": "Remote URL",
           "auth_method": "प्रमाणीकरण विधि",
           "auth_token": "व्यक्तिगत एक्सेस token",
+          "auth_username": "प्रमाणीकरण उपयोगकर्ता नाम (केवल token)",
           "ssh_key_path": "SSH निजी कुंजी पथ"
         },
         "data_description": {
           "remote_url": "Git remote URL (उदा. https://github.com/user/repo.git या git@github.com:user/repo.git).",
           "auth_method": "Remote के साथ प्रमाणीकरण की विधि।",
           "auth_token": "HTTPS प्रमाणीकरण के लिए व्यक्तिगत एक्सेस token।",
+          "auth_username": "HTTPS token के साथ उपयोग किया जाने वाला उपयोगकर्ता नाम। मौजूदा GitHub और GitLab सेटअप oauth2 रख सकते हैं। Bitbucket आम तौर पर repository access token के लिए x-token-auth या API token के लिए x-bitbucket-api-token-auth उपयोग करता है।",
           "ssh_key_path": "SSH निजी कुंजी फ़ाइल का पथ (उदा. /config/.ssh/id_ed25519)."
         }
       }
@@ -62,7 +64,9 @@
       "path_not_found": "निर्दिष्ट पथ मौजूद नहीं है।",
       "git_not_installed": "Git स्थापित नहीं है या PATH में नहीं मिला।",
       "invalid_remote_url": "अमान्य remote URL। यह https://, git@ या ssh:// से शुरू होना चाहिए।",
+      "token_requires_https": "Token प्रमाणीकरण के लिए HTTPS remote URL आवश्यक है।",
       "token_required": "Token प्रमाणीकरण के लिए एक व्यक्तिगत एक्सेस token आवश्यक है।",
+      "auth_username_required": "Token प्रमाणीकरण के लिए प्रमाणीकरण उपयोगकर्ता नाम आवश्यक है।",
       "ssh_key_not_found": "निर्दिष्ट SSH कुंजी फ़ाइल मौजूद नहीं है।"
     },
     "abort": {
@@ -114,9 +118,10 @@
           "remote_url": "Remote URL",
           "auth_method": "प्रमाणीकरण विधि",
           "auth_token": "व्यक्तिगत एक्सेस token",
+          "auth_username": "प्रमाणीकरण उपयोगकर्ता नाम (केवल token)",
           "ssh_key_path": "SSH निजी कुंजी पथ",
           "ai_commit_messages": "Commit संदेशों के लिए AI का उपयोग करें",
-          "ai_agent_id": "Conversation agent entity ID"
+          "ai_agent_id": "Conversation agent"
         },
         "data_description": {
           "git_user": "वह नाम जो commit लेखक के रूप में दिखाई देगा।",
@@ -131,6 +136,7 @@
           "remote_url": "Git remote URL (उदा. https://github.com/user/repo.git या git@github.com:user/repo.git).",
           "auth_method": "Remote के साथ प्रमाणीकरण की विधि।",
           "auth_token": "HTTPS प्रमाणीकरण के लिए व्यक्तिगत एक्सेस token।",
+          "auth_username": "HTTPS token के साथ उपयोग किया जाने वाला उपयोगकर्ता नाम। मौजूदा GitHub और GitLab सेटअप oauth2 रख सकते हैं। Bitbucket आम तौर पर repository access token के लिए x-token-auth या API token के लिए x-bitbucket-api-token-auth उपयोग करता है।",
           "ssh_key_path": "SSH निजी कुंजी फ़ाइल का पथ (उदा. /config/.ssh/id_ed25519)."
         }
       },
@@ -146,6 +152,11 @@
       }
     },
     "error": {
+      "invalid_remote_url": "अमान्य remote URL। यह https://, git@ या ssh:// से शुरू होना चाहिए।",
+      "token_requires_https": "Token प्रमाणीकरण के लिए HTTPS remote URL आवश्यक है।",
+      "token_required": "Token प्रमाणीकरण के लिए एक व्यक्तिगत एक्सेस token आवश्यक है।",
+      "auth_username_required": "Token प्रमाणीकरण के लिए प्रमाणीकरण उपयोगकर्ता नाम आवश्यक है।",
+      "ssh_key_not_found": "निर्दिष्ट SSH कुंजी फ़ाइल मौजूद नहीं है।",
       "integration_not_loaded": "इंटीग्रेशन लोड नहीं है। पुनर्स्थापित करने से पहले इसे रीलोड करें।",
       "no_restore_commits": "पुनर्स्थापित करने के लिए कोई पुराना कमिट उपलब्ध नहीं है।",
       "dirty_working_tree": "पुनर्स्थापित करने से पहले सभी स्थानीय बदलाव कमिट, सिंक या त्यागें।",

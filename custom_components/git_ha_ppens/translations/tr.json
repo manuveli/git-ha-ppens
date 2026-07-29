@@ -27,7 +27,7 @@
           "scan_interval": "Durum sorgulama aralığı (saniye)",
           "fetch_interval": "Uzak getirme aralığı (saniye)",
           "ai_commit_messages": "Commit mesajları için yapay zeka kullan",
-          "ai_agent_id": "Conversation agent entity ID'si"
+          "ai_agent_id": "Konuşma aracısı"
         },
         "data_description": {
           "auto_commit": "Yapılandırma dosyaları değiştiğinde otomatik olarak commit atar.",
@@ -38,7 +38,7 @@
           "scan_interval": "Sensör güncellemeleri için git durumunun ne sıklıkta sorgulanacağı. Minimum 10, maksimum 3600 (1s).",
           "fetch_interval": "Yeni commit'leri kontrol etmek için uzaktan ne sıklıkta getirileceği. Minimum 60, maksimum 3600.",
           "ai_commit_messages": "Git diff'inden açıklayıcı commit mesajları oluşturmak için yapılandırılmış bir yapay zeka conversation agent'ı kullanır.",
-          "ai_agent_id": "Kullanılacak conversation agent'ın entity ID'si (örn. conversation.chatgpt). Yapay zeka commit mesajlarını devre dışı bırakmak ve otomatik oluşturulan mesajları kullanmak için boş bırak."
+          "ai_agent_id": "Kullanılacak konuşma aracısı. Home Assistant'ın varsayılan konuşma aracısını kullanmak için boş bırak."
         }
       },
       "remote": {
@@ -48,12 +48,14 @@
           "remote_url": "Remote URL",
           "auth_method": "Kimlik doğrulama yöntemi",
           "auth_token": "Kişisel erişim token'ı",
+          "auth_username": "Kimlik doğrulama kullanıcı adı (yalnızca token)",
           "ssh_key_path": "SSH özel anahtar yolu"
         },
         "data_description": {
           "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
           "auth_method": "Remote ile kimlik doğrulama yöntemi.",
           "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
+          "auth_username": "HTTPS token'ı ile eşleştirilen kullanıcı adı. Mevcut GitHub ve GitLab kurulumları oauth2 değerini koruyabilir. Bitbucket genellikle depo erişim token'ları için x-token-auth veya API token'ları için x-bitbucket-api-token-auth kullanır.",
           "ssh_key_path": "SSH özel anahtar dosyasının yolu (örn. /config/.ssh/id_ed25519)."
         }
       }
@@ -62,7 +64,9 @@
       "path_not_found": "Belirtilen yol mevcut değil.",
       "git_not_installed": "Git yüklü değil veya PATH içinde bulunamadı.",
       "invalid_remote_url": "Geçersiz remote URL. https://, git@ veya ssh:// ile başlamalı.",
+      "token_requires_https": "Token kimlik doğrulaması için HTTPS remote URL gereklidir.",
       "token_required": "Token kimlik doğrulaması için kişisel erişim token'ı gereklidir.",
+      "auth_username_required": "Token kimlik doğrulaması için bir kimlik doğrulama kullanıcı adı gereklidir.",
       "ssh_key_not_found": "Belirtilen SSH anahtar dosyası mevcut değil."
     },
     "abort": {
@@ -114,9 +118,10 @@
           "remote_url": "Remote URL",
           "auth_method": "Kimlik doğrulama yöntemi",
           "auth_token": "Kişisel erişim token'ı",
+          "auth_username": "Kimlik doğrulama kullanıcı adı (yalnızca token)",
           "ssh_key_path": "SSH özel anahtar yolu",
           "ai_commit_messages": "Commit mesajları için yapay zeka kullan",
-          "ai_agent_id": "Conversation agent entity ID'si"
+          "ai_agent_id": "Konuşma aracısı"
         },
         "data_description": {
           "git_user": "Commit yazarı olarak görünecek isim.",
@@ -131,6 +136,7 @@
           "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
           "auth_method": "Remote ile kimlik doğrulama yöntemi.",
           "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
+          "auth_username": "HTTPS token'ı ile eşleştirilen kullanıcı adı. Mevcut GitHub ve GitLab kurulumları oauth2 değerini koruyabilir. Bitbucket genellikle depo erişim token'ları için x-token-auth veya API token'ları için x-bitbucket-api-token-auth kullanır.",
           "ssh_key_path": "SSH özel anahtar dosyasının yolu (örn. /config/.ssh/id_ed25519)."
         }
       },
@@ -146,6 +152,11 @@
       }
     },
     "error": {
+      "invalid_remote_url": "Geçersiz remote URL. https://, git@ veya ssh:// ile başlamalı.",
+      "token_requires_https": "Token kimlik doğrulaması için HTTPS remote URL gereklidir.",
+      "token_required": "Token kimlik doğrulaması için kişisel erişim token'ı gereklidir.",
+      "auth_username_required": "Token kimlik doğrulaması için bir kimlik doğrulama kullanıcı adı gereklidir.",
+      "ssh_key_not_found": "Belirtilen SSH anahtar dosyası mevcut değil.",
       "integration_not_loaded": "Entegrasyon yüklü değil. Geri yüklemeden önce yeniden yükleyin.",
       "no_restore_commits": "Geri yüklenecek daha eski commit yok.",
       "dirty_working_tree": "Geri yüklemeden önce tüm yerel değişiklikleri commit edin, eşitleyin veya atın.",

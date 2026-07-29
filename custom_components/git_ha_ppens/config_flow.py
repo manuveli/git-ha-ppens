@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -16,7 +15,11 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
-from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
+from homeassistant.helpers.selector import (
+    ConversationAgentSelector,
+    TextSelector,
+    TextSelectorConfig,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -27,6 +30,7 @@ from .const import (
     CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
     CONF_AUTH_TOKEN,
+    CONF_AUTH_USERNAME,
     CONF_AUTO_COMMIT,
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
@@ -48,6 +52,7 @@ from .const import (
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_REPO_PATH,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_TOKEN_AUTH_USERNAME,
     DOMAIN,
     RESTORE_HISTORY_LIMIT,
     RESTORE_PREVIEW_COMMIT_LIMIT,
@@ -66,6 +71,56 @@ from .git_manager import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _validate_remote_settings(user_input: dict[str, Any]) -> dict[str, str]:
+    """Validate remote authentication settings shared by setup and options."""
+    errors: dict[str, str] = {}
+    remote_url = user_input.get(CONF_REMOTE_URL, "").strip()
+    auth_method = user_input.get(CONF_AUTH_METHOD, AUTH_NONE)
+
+    if not remote_url:
+        return errors
+
+    if not remote_url.startswith(("https://", "git@", "ssh://")):
+        errors["base"] = "invalid_remote_url"
+        return errors
+
+    if auth_method == AUTH_TOKEN:
+        if not remote_url.startswith("https://"):
+            errors["base"] = "token_requires_https"
+        elif not user_input.get(CONF_AUTH_TOKEN, "").strip():
+            errors["base"] = "token_required"
+        elif not user_input.get(
+            CONF_AUTH_USERNAME, DEFAULT_TOKEN_AUTH_USERNAME
+        ).strip():
+            errors["base"] = "auth_username_required"
+    elif auth_method == AUTH_SSH:
+        ssh_key = user_input.get(CONF_SSH_KEY_PATH, "")
+        if ssh_key and not Path(ssh_key).is_file():
+            errors["base"] = "ssh_key_not_found"
+
+    return errors
+
+
+def _normalize_remote_settings(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Normalize auth data and discard a username when token auth is unused."""
+    normalized = dict(user_input)
+    remote_url = normalized.get(CONF_REMOTE_URL, "").strip()
+    auth_method = normalized.get(CONF_AUTH_METHOD, AUTH_NONE)
+    normalized[CONF_REMOTE_URL] = remote_url
+
+    if auth_method == AUTH_TOKEN and remote_url:
+        normalized[CONF_AUTH_TOKEN] = normalized.get(
+            CONF_AUTH_TOKEN, ""
+        ).strip()
+        normalized[CONF_AUTH_USERNAME] = normalized.get(
+            CONF_AUTH_USERNAME, DEFAULT_TOKEN_AUTH_USERNAME
+        ).strip()
+    else:
+        normalized.pop(CONF_AUTH_USERNAME, None)
+
+    return normalized
 
 
 class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -145,7 +200,7 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                     ): bool,
                     vol.Optional(
                         CONF_AI_AGENT_ID, default=""
-                    ): str,
+                    ): ConversationAgentSelector({}),
                 }
             ),
         )
@@ -157,28 +212,10 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            remote_url = user_input.get(CONF_REMOTE_URL, "")
-            auth_method = user_input.get(CONF_AUTH_METHOD, AUTH_NONE)
-
-            # Validate remote URL format if provided
-            if remote_url:
-                if not (
-                    remote_url.startswith("https://")
-                    or remote_url.startswith("git@")
-                    or remote_url.startswith("ssh://")
-                ):
-                    errors["base"] = "invalid_remote_url"
-
-                # Validate auth requirements
-                if auth_method == AUTH_TOKEN and not user_input.get(CONF_AUTH_TOKEN):
-                    errors["base"] = "token_required"
-                elif auth_method == AUTH_SSH:
-                    ssh_key = user_input.get(CONF_SSH_KEY_PATH, "")
-                    if ssh_key and not Path(ssh_key).is_file():
-                        errors["base"] = "ssh_key_not_found"
+            errors = _validate_remote_settings(user_input)
 
             if not errors:
-                self._data.update(user_input)
+                self._data.update(_normalize_remote_settings(user_input))
                 # Set defaults for missing optional fields
                 self._data.setdefault(CONF_REMOTE_URL, "")
                 self._data.setdefault(CONF_AUTH_METHOD, AUTH_NONE)
@@ -209,6 +246,10 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                         }
                     ),
                     vol.Optional(CONF_AUTH_TOKEN, default=""): str,
+                    vol.Optional(
+                        CONF_AUTH_USERNAME,
+                        default=DEFAULT_TOKEN_AUTH_USERNAME,
+                    ): str,
                     vol.Optional(CONF_SSH_KEY_PATH, default=""): str,
                 }
             ),
@@ -538,13 +579,19 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage general options."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            # Merge options with existing data
-            new_data = {**self._config_entry.data, **user_input}
-            self.hass.config_entries.async_update_entry(
-                self._config_entry, data=new_data
-            )
-            return self.async_create_entry(title="", data=user_input)
+            errors = _validate_remote_settings(user_input)
+            if not errors:
+                normalized = _normalize_remote_settings(user_input)
+                # Merge options with existing data
+                new_data = {**self._config_entry.data, **normalized}
+                if CONF_AUTH_USERNAME not in normalized:
+                    new_data.pop(CONF_AUTH_USERNAME, None)
+                self.hass.config_entries.async_update_entry(
+                    self._config_entry, data=new_data
+                )
+                return self.async_create_entry(title="", data=normalized)
 
         current = self._config_entry.data
 
@@ -613,6 +660,13 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                         default=current.get(CONF_AUTH_TOKEN, ""),
                     ): str,
                     vol.Optional(
+                        CONF_AUTH_USERNAME,
+                        default=current.get(
+                            CONF_AUTH_USERNAME,
+                            DEFAULT_TOKEN_AUTH_USERNAME,
+                        ),
+                    ): str,
+                    vol.Optional(
                         CONF_SSH_KEY_PATH,
                         default=current.get(CONF_SSH_KEY_PATH, ""),
                     ): str,
@@ -623,9 +677,10 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                     vol.Optional(
                         CONF_AI_AGENT_ID,
                         default=current.get(CONF_AI_AGENT_ID, ""),
-                    ): str,
+                    ): ConversationAgentSelector({}),
                 }
             ),
+            errors=errors,
         )
 
     async def async_step_gitignore(

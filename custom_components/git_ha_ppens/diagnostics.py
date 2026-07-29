@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import os
-import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_AUTH_TOKEN, CONF_REMOTE_URL, CONF_SSH_KEY_PATH, DOMAIN
+from .const import (
+    CONF_AUTH_TOKEN,
+    CONF_AUTH_USERNAME,
+    CONF_REMOTE_URL,
+    CONF_SSH_KEY_PATH,
+    DOMAIN,
+)
 from .git_manager import GitManager
 
 
@@ -98,17 +103,21 @@ def _redact_config(config: dict[str, Any]) -> dict[str, Any]:
     redacted = dict(config)
 
     # Redact token
-    if CONF_AUTH_TOKEN in redacted and redacted[CONF_AUTH_TOKEN]:
+    if redacted.get(CONF_AUTH_TOKEN):
         redacted[CONF_AUTH_TOKEN] = "**REDACTED**"
 
+    # Authentication usernames can contain personal email addresses.
+    if redacted.get(CONF_AUTH_USERNAME):
+        redacted[CONF_AUTH_USERNAME] = "**REDACTED**"
+
     # Redact token from remote URL
-    if CONF_REMOTE_URL in redacted and redacted[CONF_REMOTE_URL]:
-        redacted[CONF_REMOTE_URL] = re.sub(
-            r"://[^@]+@", "://***@", redacted[CONF_REMOTE_URL]
+    if redacted.get(CONF_REMOTE_URL):
+        redacted[CONF_REMOTE_URL] = GitManager._redact_url(
+            redacted[CONF_REMOTE_URL]
         )
 
     # Redact SSH key path partially
-    if CONF_SSH_KEY_PATH in redacted and redacted[CONF_SSH_KEY_PATH]:
+    if redacted.get(CONF_SSH_KEY_PATH):
         redacted[CONF_SSH_KEY_PATH] = "**REDACTED**"
 
     return redacted

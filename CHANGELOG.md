@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-29
+
+### Added
+- Add configurable HTTPS token authentication usernames for GitHub, GitLab, Bitbucket, and other providers (#78).
+
+### Changed
+- Use Home Assistant's dedicated conversation-agent selector in setup and options flows (#78).
+
+### Security
+- Percent-encode HTTPS token credentials and redact credential-bearing remote URLs from logs, errors, and diagnostics (#78).
+
 ## [1.1.2] - 2026-07-28
 
 ### Fixed
@@ -220,6 +231,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.2.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.1...v1.1.0

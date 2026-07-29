@@ -26,7 +26,7 @@
           "commit_interval": "Auto-commit debounce interval (seconds)",
           "scan_interval": "Status polling interval (seconds)",
           "ai_commit_messages": "Use AI for commit messages",
-          "ai_agent_id": "Conversation agent entity ID",
+          "ai_agent_id": "Conversation agent",
           "fetch_interval": "Remote fetch interval (seconds)"
         },
         "data_description": {
@@ -37,7 +37,7 @@
           "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "ai_commit_messages": "Use a configured AI conversation agent to generate descriptive commit messages from the git diff.",
-          "ai_agent_id": "The entity ID of the conversation agent to use (e.g., conversation.chatgpt). Leave empty to disable AI commit messages and use auto-generated messages instead.",
+          "ai_agent_id": "Conversation agent to use. Leave empty to use Home Assistant's default conversation agent.",
           "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600."
         }
       },
@@ -48,12 +48,14 @@
           "remote_url": "Remote URL",
           "auth_method": "Authentication method",
           "auth_token": "Personal access token",
+          "auth_username": "Authentication username (token only)",
           "ssh_key_path": "SSH private key path"
         },
         "data_description": {
           "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
           "auth_method": "How to authenticate with the remote.",
           "auth_token": "Personal access token for HTTPS authentication.",
+          "auth_username": "Username paired with the HTTPS token. Existing GitHub and GitLab setups can keep oauth2. Bitbucket commonly uses x-token-auth for repository access tokens or x-bitbucket-api-token-auth for API tokens.",
           "ssh_key_path": "Path to the SSH private key file (e.g., /config/.ssh/id_ed25519)."
         }
       }
@@ -62,7 +64,9 @@
       "path_not_found": "The specified path does not exist.",
       "git_not_installed": "Git is not installed or not found in PATH.",
       "invalid_remote_url": "Invalid remote URL. Must start with https://, git@, or ssh://.",
+      "token_requires_https": "Token authentication requires an HTTPS remote URL.",
       "token_required": "A personal access token is required for token authentication.",
+      "auth_username_required": "An authentication username is required for token authentication.",
       "ssh_key_not_found": "The specified SSH key file does not exist."
     },
     "abort": {
@@ -133,9 +137,10 @@
           "remote_url": "Remote URL",
           "auth_method": "Authentication method",
           "auth_token": "Personal access token",
+          "auth_username": "Authentication username (token only)",
           "ssh_key_path": "SSH private key path",
           "ai_commit_messages": "Use AI for commit messages",
-          "ai_agent_id": "Conversation agent entity ID",
+          "ai_agent_id": "Conversation agent",
           "fetch_interval": "Remote fetch interval (seconds)"
         },
         "data_description": {
@@ -151,6 +156,7 @@
           "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
           "auth_method": "How to authenticate with the remote.",
           "auth_token": "Personal access token for HTTPS authentication.",
+          "auth_username": "Username paired with the HTTPS token. Existing GitHub and GitLab setups can keep oauth2. Bitbucket commonly uses x-token-auth for repository access tokens or x-bitbucket-api-token-auth for API tokens.",
           "ssh_key_path": "Path to the SSH private key file (e.g., /config/.ssh/id_ed25519)."
         }
       },
@@ -166,6 +172,11 @@
       }
     },
     "error": {
+      "invalid_remote_url": "Invalid remote URL. Must start with https://, git@, or ssh://.",
+      "token_requires_https": "Token authentication requires an HTTPS remote URL.",
+      "token_required": "A personal access token is required for token authentication.",
+      "auth_username_required": "An authentication username is required for token authentication.",
+      "ssh_key_not_found": "The specified SSH key file does not exist.",
       "integration_not_loaded": "The integration is not currently loaded. Reload it before restoring.",
       "no_restore_commits": "There are no earlier commits available to restore.",
       "dirty_working_tree": "Commit, sync, or discard all staged, unstaged, and untracked changes before restoring.",
