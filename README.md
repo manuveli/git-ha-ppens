@@ -27,11 +27,44 @@
 
 ---
 
+## 📥 Installation
+
+### Prerequisites
+
+> **Requirements:**
+> - 🏠 Home Assistant **2024.1** or later
+> - 🔧 **Git** installed on the host system
+>
+> **HA OS users:** Git may not be available by default. You may need a dedicated add-on or container with git pre-installed.
+
+### HACS (Recommended)
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=manuveli&repository=git-ha-ppens&category=integration)
+
+1. Make sure [HACS](https://hacs.xyz/) is installed
+2. Click the badge above — or go to **HACS → Integrations → ⋮ → Custom repositories** and add:
+   ```
+   https://github.com/manuveli/git-ha-ppens
+   ```
+   with category **Integration**
+3. Search for **git-ha-ppens** and click **Install**
+4. **Restart** Home Assistant
+5. Go to **Settings → Devices & Services → Add Integration** and search for **git-ha-ppens**
+
+### Manual Installation
+
+1. Download the latest release from the [Releases](https://github.com/manuveli/git-ha-ppens/releases) page
+2. Copy the `custom_components/git_ha_ppens` folder into your `config/custom_components/` directory
+3. **Restart** Home Assistant
+4. Go to **Settings → Devices & Services → Add Integration** and search for **git-ha-ppens**
+
+---
+
 ## 📑 Table of Contents
 
+- [📥 Installation](#-installation)
 - [✨ Features](#-features)
 - [🔁 GitOps Workflow](#-gitops-workflow)
-- [📥 Installation](#-installation)
 - [⚙️ Configuration](#️-configuration)
 - [🤖 AI Commit-Messages](#-ai-commit-messages)
 - [🚀 Services](#-services)
@@ -128,39 +161,6 @@ Home Assistant is up to date ✓
 That's it. From this point on, your HA config and your git remote stay in sync automatically.
 
 > 🛡️ **Pre-deploy check:** When enabled, every pull (manual or automatic) runs a Home Assistant configuration check **after** merging. If the check reports errors, git-ha-ppens performs a `git reset --hard` back to the last working commit, fires a `git_ha_ppens_check_failed` event, and creates a persistent notification listing the errors — so a bad commit on the remote can't take down your instance. This check validates the live configuration directory, so it only runs when `repo_path` is your HA config directory (e.g. `/config`).
-
----
-
-## 📥 Installation
-
-### Prerequisites
-
-> **Requirements:**
-> - 🏠 Home Assistant **2024.1** or later
-> - 🔧 **Git** installed on the host system
->
-> **HA OS users:** Git may not be available by default. You may need a dedicated add-on or container with git pre-installed.
-
-### HACS (Recommended)
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=manuveli&repository=git-ha-ppens&category=integration)
-
-1. Make sure [HACS](https://hacs.xyz/) is installed
-2. Click the badge above — or go to **HACS → Integrations → ⋮ → Custom repositories** and add:
-   ```
-   https://github.com/manuveli/git-ha-ppens
-   ```
-   with category **Integration**
-3. Search for **git-ha-ppens** and click **Install**
-4. **Restart** Home Assistant
-5. Go to **Settings → Devices & Services → Add Integration** and search for **git-ha-ppens**
-
-### Manual Installation
-
-1. Download the latest release from the [Releases](https://github.com/manuveli/git-ha-ppens/releases) page
-2. Copy the `custom_components/git_ha_ppens` folder into your `config/custom_components/` directory
-3. **Restart** Home Assistant
-4. Go to **Settings → Devices & Services → Add Integration** and search for **git-ha-ppens**
 
 ---
 
