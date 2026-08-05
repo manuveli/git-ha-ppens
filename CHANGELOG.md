@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-08-05
+
+### Fixed
+- Safely recover stale regular Git index locks, retry missed periodic auto-commits, and surface an actionable Home Assistant repair when recovery fails ([#81](https://github.com/manuveli/git-ha-ppens/issues/81)).
+
 ## [1.2.1] - 2026-08-01
 
 ### Fixed
@@ -236,6 +241,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.2.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.1.1...v1.1.2

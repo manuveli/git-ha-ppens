@@ -713,7 +713,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
             if git_manager:
                 try:
                     await git_manager.apply_gitignore()
-                except Exception:
+                except Exception:  # noqa: BLE001
                     _LOGGER.warning("Failed to apply .gitignore changes to git index")
 
             return self.async_create_entry(title="", data={})

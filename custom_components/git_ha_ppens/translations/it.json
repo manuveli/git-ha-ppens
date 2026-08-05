@@ -226,6 +226,12 @@
       }
     }
   },
+  "issues": {
+    "stale_index_lock": {
+      "title": "I commit automatici sono bloccati da un lock dell’indice Git",
+      "description": "git-ha-ppens non è riuscito a rimuovere in sicurezza il lock obsoleto dell’indice Git in `{lock_path}`. I commit automatici rimangono bloccati, quindi le modifiche locali alla configurazione potrebbero non essere incluse in un commit o inviate.\n\n1. Verifica che non sia in corso alcuna operazione Git per questo repository.\n2. Rimuovi `{lock_path}` tramite un terminale o un editor di file.\n3. Attendi il prossimo intervallo di auto-commit o apporta un’altra modifica alla configurazione.\n\nQuesta riparazione scomparirà automaticamente quando git-ha-ppens confermerà che il lock non è più presente."
+    }
+  },
   "services": {
     "discard_changes": {
       "name": "Scarta modifiche locali",

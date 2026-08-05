@@ -36,9 +36,14 @@ from .git_manager import (
     GitError,
     GitManager,
     GitStatus,
+    IndexLockError,
     PreDeployCheckError,
     RestoreResult,
     RestoreValidationError,
+)
+from .index_lock import (
+    create_stale_index_lock_issue,
+    delete_stale_index_lock_issue,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -115,6 +120,11 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     def remote_configured(self) -> bool:
         """Return whether a remote repository is configured."""
         return self._remote_configured
+
+    @property
+    def entry_id(self) -> str:
+        """Return the config entry ID owning this coordinator."""
+        return self._entry_id
 
     async def async_load_stored_timestamps(self) -> None:
         """Load persisted operation timestamps for this config entry."""
@@ -280,6 +290,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
                 commit_info = await self.git_manager.commit(message)
                 if commit_info:
+                    delete_stale_index_lock_issue(self.hass, self._entry_id)
                     self.hass.bus.async_fire(
                         EVENT_COMMIT,
                         {
@@ -299,6 +310,12 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 commits_pushed = await self.git_manager.push()
                 await self.async_record_push_time()
         except GitError as err:
+            if isinstance(err, IndexLockError) and err.requires_repair:
+                create_stale_index_lock_issue(
+                    self.hass,
+                    self._entry_id,
+                    err.lock_path,
+                )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "push", "error": str(err)}
             )

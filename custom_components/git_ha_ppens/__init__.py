@@ -58,7 +58,16 @@ from .const import (
 )
 from .coordinator import GitHaPpensCoordinator
 from .file_watcher import GitFileWatcher
-from .git_manager import GitError, GitManager, PreDeployCheckError
+from .git_manager import (
+    GitError,
+    GitManager,
+    IndexLockError,
+    PreDeployCheckError,
+)
+from .index_lock import (
+    create_stale_index_lock_issue,
+    delete_stale_index_lock_issue,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -381,6 +390,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             else:
                 _LOGGER.warning("Initial commit returned None — no changes to commit")
         except GitError as err:
+            if isinstance(err, IndexLockError) and err.requires_repair:
+                create_stale_index_lock_issue(
+                    hass,
+                    entry.entry_id,
+                    err.lock_path,
+                )
             _LOGGER.error(
                 "Failed to create initial commit: %s. "
                 "Check file permissions in %s and .gitignore configuration.",
@@ -410,6 +425,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_record_push_time()
     await coordinator.async_config_entry_first_refresh()
 
+    try:
+        if not await git_manager.is_index_lock_present():
+            delete_stale_index_lock_issue(hass, entry.entry_id)
+    except GitError:
+        # Preserve an existing repair when the lock path cannot be checked.
+        pass
+
     # Setup file watcher for auto-commit
     file_watcher: GitFileWatcher | None = None
     periodic_unsub = None
@@ -429,6 +451,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             git_lock=coordinator.git_lock,
             ai_commit_enabled=ai_commit_enabled,
             ai_agent_id=ai_agent_id,
+            entry_id=entry.entry_id,
         )
         await file_watcher.async_start()
         _LOGGER.info(
@@ -527,6 +550,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove persistent repairs when a config entry is deleted."""
+    delete_stale_index_lock_issue(hass, entry.entry_id)
+
+
 def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Register git-ha-ppens services."""
 
@@ -534,7 +562,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         call: ServiceCall,
     ) -> tuple[GitManager, GitHaPpensCoordinator]:
         """Get the git manager and coordinator for the first config entry."""
-        for eid, data in hass.data[DOMAIN].items():
+        for data in hass.data[DOMAIN].values():
             if isinstance(data, dict) and "git_manager" in data:
                 return data["git_manager"], data["coordinator"]
         raise GitError("No git-ha-ppens instance configured")
@@ -561,9 +589,11 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 except GitError:
                     pass
 
-            commit_info = await git_manager.commit(message)
+            async with coordinator.git_lock:
+                commit_info = await git_manager.commit(message)
 
             if commit_info:
+                delete_stale_index_lock_issue(hass, coordinator.entry_id)
                 hass.bus.async_fire(
                     EVENT_COMMIT,
                     {
@@ -585,6 +615,12 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             await coordinator.async_request_refresh()
 
         except GitError as err:
+            if isinstance(err, IndexLockError) and err.requires_repair:
+                create_stale_index_lock_issue(
+                    hass,
+                    coordinator.entry_id,
+                    err.lock_path,
+                )
             _LOGGER.error("Commit failed: %s", err)
             hass.bus.async_fire(EVENT_ERROR, {"operation": "commit", "error": str(err)})
 
@@ -644,37 +680,45 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 except GitError:
                     pass
 
-            # Commit first
-            commit_info = await git_manager.commit(message)
-            if commit_info:
-                hass.bus.async_fire(
-                    EVENT_COMMIT,
-                    {
-                        "hash": commit_info.hash_short,
-                        "message": commit_info.message,
-                        "author": commit_info.author,
-                        "changed_files": commit_info.changed_files,
-                        "auto": False,
-                    },
-                )
-                _LOGGER.info("Sync - committed: %s", commit_info.hash_short)
+            async with coordinator.git_lock:
+                # Commit first
+                commit_info = await git_manager.commit(message)
+                if commit_info:
+                    delete_stale_index_lock_issue(hass, coordinator.entry_id)
+                    hass.bus.async_fire(
+                        EVENT_COMMIT,
+                        {
+                            "hash": commit_info.hash_short,
+                            "message": commit_info.message,
+                            "author": commit_info.author,
+                            "changed_files": commit_info.changed_files,
+                            "auto": False,
+                        },
+                    )
+                    _LOGGER.info("Sync - committed: %s", commit_info.hash_short)
 
-            # Then push
-            commits_pushed = await git_manager.push()
-            await coordinator.async_record_push_time()
+                # Then push
+                commits_pushed = await git_manager.push()
+                await coordinator.async_record_push_time()
             hass.bus.async_fire(EVENT_PUSH, {"commits_pushed": commits_pushed})
             _LOGGER.info("Sync - pushed %d commit(s)", commits_pushed)
 
             await coordinator.async_request_refresh()
 
         except GitError as err:
+            if isinstance(err, IndexLockError) and err.requires_repair:
+                create_stale_index_lock_issue(
+                    hass,
+                    coordinator.entry_id,
+                    err.lock_path,
+                )
             _LOGGER.error("Sync failed: %s", err)
             hass.bus.async_fire(EVENT_ERROR, {"operation": "sync", "error": str(err)})
 
     async def async_handle_diff(call: ServiceCall) -> dict:
         """Handle the diff service call."""
         try:
-            git_manager, coordinator = _get_manager_and_coordinator(call)
+            git_manager, _coordinator = _get_manager_and_coordinator(call)
             diff = await git_manager.get_diff()
             porcelain = await git_manager._run_git("status", "--porcelain", check=False)
             return {

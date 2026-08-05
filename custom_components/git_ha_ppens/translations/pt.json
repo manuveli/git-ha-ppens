@@ -226,6 +226,12 @@
       }
     }
   },
+  "issues": {
+    "stale_index_lock": {
+      "title": "Os commits automáticos estão bloqueados por um bloqueio do índice Git",
+      "description": "O git-ha-ppens não conseguiu remover em segurança o bloqueio obsoleto do índice Git em `{lock_path}`. Os commits automáticos continuam bloqueados, pelo que as alterações locais de configuração podem não ser incluídas num commit nem enviadas.\n\n1. Certifica-te de que não existe nenhuma operação Git em execução para este repositório.\n2. Remove `{lock_path}` através de um terminal ou editor de ficheiros.\n3. Aguarda o próximo intervalo de auto-commit ou efetua outra alteração de configuração.\n\nEsta reparação desaparecerá automaticamente quando o git-ha-ppens confirmar que o bloqueio já não existe."
+    }
+  },
   "services": {
     "discard_changes": {
       "name": "Descartar alterações locais",

@@ -84,6 +84,7 @@
 - 👁️ **File watcher** detects config changes in real time (powered by [watchdog](https://github.com/gorakhargosh/watchdog))
 - ⏱️ **Configurable debounce interval** (default 5 min) to batch changes and avoid excessive commits
 - 📝 **Auto-generated commit messages** listing the changed files
+- 🩹 **Stale lock recovery** safely retries auto-commit after removing a regular Git `index.lock` that has been stale for at least 15 minutes
 
 ### 🔁 Auto-Sync (GitOps)
 - 🔄 **Periodic git fetch** checks the remote on a configurable interval (default 5 min, range 60–3600s)
@@ -531,6 +532,8 @@ Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set
 - Verify `auto_commit` is enabled in the integration options
 - Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `.ssh`, `__pycache__`, `*.db`, `*.log`, etc.)
 - Review HA logs for file watcher errors
+- If a Git operation was interrupted, git-ha-ppens automatically removes a regular `.git/index.lock` after it has been stale for at least 15 minutes and retries once
+- If Home Assistant shows an **Automatic commits are blocked** repair, first make sure no Git process is running, then remove the exact lock path shown in the repair. The repair clears automatically after the next successful check
 </details>
 
 <details>

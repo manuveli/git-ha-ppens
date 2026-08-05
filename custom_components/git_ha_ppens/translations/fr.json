@@ -229,6 +229,12 @@
       }
     }
   },
+  "issues": {
+    "stale_index_lock": {
+      "title": "Les commits automatiques sont bloqués par un verrou d’index Git",
+      "description": "git-ha-ppens n’a pas pu supprimer en toute sécurité le verrou d’index Git obsolète situé à `{lock_path}`. Les commits automatiques restent bloqués ; les modifications locales de configuration risquent donc de ne pas être validées ni envoyées.\n\n1. Vérifiez qu’aucune opération Git n’est en cours pour ce dépôt.\n2. Supprimez `{lock_path}` à l’aide d’un terminal ou d’un éditeur de fichiers.\n3. Attendez le prochain intervalle d’auto-commit ou effectuez une nouvelle modification de configuration.\n\nCette réparation disparaîtra automatiquement lorsque git-ha-ppens aura confirmé la disparition du verrou."
+    }
+  },
   "services": {
     "discard_changes": {
       "name": "Annuler les modifications locales",

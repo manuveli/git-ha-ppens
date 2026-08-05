@@ -69,6 +69,15 @@ EVENT_SECRET_DETECTED: Final = f"{DOMAIN}_secret_detected"
 EVENT_CHECK_FAILED: Final = f"{DOMAIN}_check_failed"
 EVENT_RESTORE: Final = f"{DOMAIN}_restore"
 
+# Repairs
+REPAIR_STALE_INDEX_LOCK: Final = "stale_index_lock"
+
+
+def stale_index_lock_issue_id(entry_id: str) -> str:
+    """Return the entry-specific issue ID for an unrecoverable index lock."""
+    return f"{REPAIR_STALE_INDEX_LOCK}_{entry_id}"
+
+
 # Sensor keys
 SENSOR_LAST_COMMIT: Final = "last_commit"
 SENSOR_LAST_COMMIT_TIME: Final = "last_commit_time"

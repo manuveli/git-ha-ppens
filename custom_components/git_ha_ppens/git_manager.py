@@ -6,6 +6,8 @@ import asyncio
 import logging
 import os
 import re
+import stat
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -19,6 +21,8 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+_STALE_INDEX_LOCK_SECONDS = 15 * 60
 
 
 @dataclass
@@ -94,8 +98,39 @@ class RestoreResult:
     changed_files: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class _IndexLockState:
+    """Describe the index lock without following symbolic links."""
+
+    path: Path
+    exists: bool
+    age_seconds: float | None = None
+    is_regular: bool = False
+    is_symlink: bool = False
+    stat_result: os.stat_result | None = field(default=None, repr=False)
+    error: str | None = None
+
+
 class GitError(Exception):
     """Raised when a git operation fails."""
+
+
+class IndexLockError(GitError):
+    """Raised when an index lock blocks staging changes."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        lock_path: str,
+        age_seconds: float | None,
+        requires_repair: bool,
+    ) -> None:
+        """Store lock metadata used by the Home Assistant repair issue."""
+        self.lock_path = lock_path
+        self.age_seconds = age_seconds
+        self.requires_repair = requires_repair
+        super().__init__(message)
 
 
 class PreDeployCheckError(GitError):
@@ -472,6 +507,233 @@ class GitManager:
 
         return status
 
+    @staticmethod
+    def _is_index_lock_conflict(err: GitError) -> bool:
+        """Return whether Git reported the stable index-lock conflict text."""
+        message = str(err).casefold()
+        return all(
+            marker in message
+            for marker in ("unable to create", "index.lock", "file exists")
+        )
+
+    async def _get_index_lock_path(self) -> Path:
+        """Return Git's canonical index-lock path for this repository."""
+        raw_path = await self._run_git(
+            "rev-parse", "--git-path", "index.lock"
+        )
+        lock_path = Path(raw_path)
+        if not lock_path.is_absolute():
+            lock_path = Path(self._repo_path) / lock_path
+        return Path(os.path.abspath(lock_path))
+
+    @staticmethod
+    def _inspect_index_lock_sync(lock_path: Path) -> _IndexLockState:
+        """Inspect an index lock without following links."""
+        try:
+            lock_stat = lock_path.lstat()
+        except FileNotFoundError:
+            return _IndexLockState(path=lock_path, exists=False)
+        except OSError as err:
+            return _IndexLockState(
+                path=lock_path,
+                exists=True,
+                error=f"{type(err).__name__}: {err}",
+            )
+
+        return _IndexLockState(
+            path=lock_path,
+            exists=True,
+            age_seconds=time.time() - lock_stat.st_mtime,
+            is_regular=stat.S_ISREG(lock_stat.st_mode),
+            is_symlink=stat.S_ISLNK(lock_stat.st_mode),
+            stat_result=lock_stat,
+        )
+
+    @staticmethod
+    def _unlink_index_lock_sync(
+        lock_path: Path, expected: os.stat_result
+    ) -> None:
+        """Remove the same lock file that was inspected moments earlier."""
+        current = lock_path.lstat()
+        expected_identity = (
+            expected.st_dev,
+            expected.st_ino,
+            expected.st_mode,
+            expected.st_size,
+            expected.st_mtime_ns,
+        )
+        current_identity = (
+            current.st_dev,
+            current.st_ino,
+            current.st_mode,
+            current.st_size,
+            current.st_mtime_ns,
+        )
+        if current_identity != expected_identity:
+            raise FileExistsError("Git index lock changed during recovery")
+        lock_path.unlink()
+
+    async def is_index_lock_present(self) -> bool:
+        """Return whether Git's index-lock path currently exists."""
+        lock_path = await self._get_index_lock_path()
+        state = await asyncio.to_thread(
+            self._inspect_index_lock_sync, lock_path
+        )
+        # Fail safe: an inspection error must never dismiss an active repair.
+        return state.exists or state.error is not None
+
+    async def _retry_stage_after_index_lock(
+        self,
+        original_error: GitError,
+        lock_path: Path,
+        *,
+        stale_lock_removed: bool,
+    ) -> None:
+        """Retry the idempotent stage operation exactly once."""
+        try:
+            await self._run_git("add", "-A")
+        except GitError as retry_err:
+            if not self._is_index_lock_conflict(retry_err):
+                raise
+
+            state = await asyncio.to_thread(
+                self._inspect_index_lock_sync, lock_path
+            )
+            old_lock_remains = bool(
+                state.exists
+                and state.age_seconds is not None
+                and state.age_seconds >= _STALE_INDEX_LOCK_SECONDS
+            )
+            reason = (
+                "The stale Git index lock was removed, but staging is still "
+                "blocked by an index lock."
+                if stale_lock_removed
+                else "The Git index lock reappeared before staging could retry."
+            )
+            raise IndexLockError(
+                f"{retry_err}\n{reason}",
+                lock_path=str(lock_path),
+                age_seconds=state.age_seconds,
+                requires_repair=(
+                    stale_lock_removed
+                    or old_lock_remains
+                    or state.error is not None
+                ),
+            ) from original_error
+
+    async def _recover_index_lock_and_retry(self, err: GitError) -> None:
+        """Recover one stale regular index lock and retry staging once."""
+        try:
+            lock_path = await self._get_index_lock_path()
+        except GitError as path_err:
+            fallback_path = Path(self._repo_path) / ".git" / "index.lock"
+            raise IndexLockError(
+                f"{err}\nCould not resolve the Git index-lock path: {path_err}",
+                lock_path=str(fallback_path),
+                age_seconds=None,
+                requires_repair=True,
+            ) from err
+
+        state = await asyncio.to_thread(
+            self._inspect_index_lock_sync, lock_path
+        )
+        if state.error is not None:
+            raise IndexLockError(
+                f"{err}\nCould not inspect the Git index lock: {state.error}",
+                lock_path=str(lock_path),
+                age_seconds=None,
+                requires_repair=True,
+            ) from err
+
+        if not state.exists:
+            _LOGGER.warning(
+                "Git index lock disappeared before recovery; retrying staging once"
+            )
+            await self._retry_stage_after_index_lock(
+                err, lock_path, stale_lock_removed=False
+            )
+            return
+
+        age_seconds = state.age_seconds
+        if age_seconds is None or age_seconds < _STALE_INDEX_LOCK_SECONDS:
+            raise IndexLockError(
+                str(err),
+                lock_path=str(lock_path),
+                age_seconds=age_seconds,
+                requires_repair=False,
+            ) from err
+
+        if state.is_symlink or not state.is_regular:
+            kind = "a symbolic link" if state.is_symlink else "not a regular file"
+            raise IndexLockError(
+                f"{err}\nThe stale Git index lock is {kind} and was not removed.",
+                lock_path=str(lock_path),
+                age_seconds=age_seconds,
+                requires_repair=True,
+            ) from err
+
+        expected = state.stat_result
+        if expected is None:
+            raise IndexLockError(
+                f"{err}\nThe stale Git index lock could not be verified.",
+                lock_path=str(lock_path),
+                age_seconds=age_seconds,
+                requires_repair=True,
+            ) from err
+
+        stale_lock_removed = False
+        try:
+            await asyncio.to_thread(
+                self._unlink_index_lock_sync, lock_path, expected
+            )
+            stale_lock_removed = True
+        except FileNotFoundError:
+            # Another process removed the same stale lock; one retry is safe.
+            pass
+        except FileExistsError as unlink_err:
+            raise IndexLockError(
+                f"{err}\n{unlink_err}; the replacement lock was not removed.",
+                lock_path=str(lock_path),
+                age_seconds=age_seconds,
+                requires_repair=False,
+            ) from err
+        except OSError as unlink_err:
+            raise IndexLockError(
+                f"{err}\nCould not remove the stale Git index lock: "
+                f"{type(unlink_err).__name__}: {unlink_err}",
+                lock_path=str(lock_path),
+                age_seconds=age_seconds,
+                requires_repair=True,
+            ) from err
+
+        if stale_lock_removed:
+            _LOGGER.warning(
+                "Removed stale Git index lock at %s (age: %.0f seconds); "
+                "retrying staging once",
+                lock_path,
+                age_seconds,
+            )
+        else:
+            _LOGGER.warning(
+                "Stale Git index lock disappeared during recovery; "
+                "retrying staging once"
+            )
+
+        await self._retry_stage_after_index_lock(
+            err,
+            lock_path,
+            stale_lock_removed=stale_lock_removed,
+        )
+
+    async def _stage_all_with_index_lock_recovery(self) -> None:
+        """Stage all changes and recover only the known stale-lock failure."""
+        try:
+            await self._run_git("add", "-A")
+        except GitError as err:
+            if not self._is_index_lock_conflict(err):
+                raise
+            await self._recover_index_lock_and_retry(err)
+
     async def commit(self, message: str | None = None) -> CommitInfo | None:
         """Stage all changes and create a commit.
 
@@ -492,7 +754,7 @@ class GitManager:
             message = self._generate_commit_message(porcelain)
 
         # Stage all changes (respecting .gitignore)
-        await self._run_git("add", "-A")
+        await self._stage_all_with_index_lock_recovery()
         changed_files_output = await self._run_git(
             "diff", "--cached", "--name-only"
         )

@@ -246,6 +246,12 @@
       }
     }
   },
+  "issues": {
+    "stale_index_lock": {
+      "title": "Automatische Commits sind durch eine Git-Index-Sperre blockiert",
+      "description": "git-ha-ppens konnte die veraltete Git-Index-Sperre unter `{lock_path}` nicht sicher entfernen. Automatische Commits bleiben blockiert, sodass lokale Konfigurationsänderungen möglicherweise nicht versioniert oder gepusht werden.\n\n1. Stelle sicher, dass für dieses Repository kein Git-Vorgang mehr läuft.\n2. Entferne `{lock_path}` über ein Terminal oder einen Datei-Editor.\n3. Warte auf das nächste Auto-Commit-Intervall oder ändere erneut eine Konfigurationsdatei.\n\nDieser Repair-Hinweis verschwindet automatisch, sobald git-ha-ppens bestätigt, dass die Sperre entfernt wurde."
+    }
+  },
   "services": {
     "discard_changes": {
       "name": "Lokale Änderungen verwerfen",

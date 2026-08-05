@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from .const import DEFAULT_AI_DIFF_MAX_CHARS, DEFAULT_AI_STATUS_MAX_CHARS
 
@@ -62,7 +62,7 @@ _URL_CREDENTIAL_RE = re.compile(
 _BEARER_TOKEN_RE = re.compile(
     r"(?P<prefix>\bBearer\s+)"
     r"(?P<value>(?:\[-.*?-\]|\{\+.*?\+\}|[A-Za-z0-9._~+/=-])+)",
-    re.I,
+    re.IGNORECASE,
 )
 _KNOWN_TOKEN_RES = (
     re.compile(r"\bgh[opusr]_[A-Za-z0-9]{20,}\b"),

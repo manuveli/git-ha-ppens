@@ -226,6 +226,12 @@
       }
     }
   },
+  "issues": {
+    "stale_index_lock": {
+      "title": "Otomatik commitler bir Git indeks kilidi tarafından engelleniyor",
+      "description": "git-ha-ppens, `{lock_path}` konumundaki eski Git indeks kilidini güvenli bir şekilde kaldıramadı. Otomatik commitler engellenmeye devam eder; bu nedenle yerel yapılandırma değişiklikleri commit edilemeyebilir veya gönderilemeyebilir.\n\n1. Bu depo için herhangi bir Git işleminin çalışmadığından emin olun.\n2. Bir terminal veya dosya düzenleyici kullanarak `{lock_path}` dosyasını kaldırın.\n3. Sonraki auto-commit aralığını bekleyin veya başka bir yapılandırma değişikliği yapın.\n\nGit-ha-ppens kilidin kaldırıldığını doğruladığında bu onarım otomatik olarak kaybolacaktır."
+    }
+  },
   "services": {
     "discard_changes": {
       "name": "Yerel değişiklikleri at",

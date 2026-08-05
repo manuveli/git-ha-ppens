@@ -7,15 +7,18 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
+from homeassistant.core import HomeAssistant
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
-
-from homeassistant.core import HomeAssistant
 
 from .ai_commit import async_generate_ai_commit_message
 from .const import EVENT_COMMIT, EVENT_ERROR, EVENT_PUSH
 from .coordinator import GitHaPpensCoordinator
-from .git_manager import GitError, GitManager
+from .git_manager import GitError, GitManager, IndexLockError
+from .index_lock import (
+    create_stale_index_lock_issue,
+    delete_stale_index_lock_issue,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -154,6 +157,7 @@ class GitFileWatcher:
         git_lock: asyncio.Lock | None = None,
         ai_commit_enabled: bool = False,
         ai_agent_id: str = "",
+        entry_id: str = "",
     ) -> None:
         """Initialize the file watcher."""
         self._hass = hass
@@ -166,6 +170,7 @@ class GitFileWatcher:
         self._git_lock = git_lock
         self._ai_commit_enabled = ai_commit_enabled
         self._ai_agent_id = ai_agent_id
+        self._entry_id = entry_id
         self._observer: Observer | None = None
         self._change_collector: _ChangeCollector | None = None
         self._debounce_handle: asyncio.TimerHandle | None = None
@@ -278,6 +283,7 @@ class GitFileWatcher:
 
             commit_info = await self._git_manager.commit(message)
             if commit_info:
+                delete_stale_index_lock_issue(self._hass, self._entry_id)
                 self._hass.bus.async_fire(
                     EVENT_COMMIT,
                     {
@@ -316,6 +322,12 @@ class GitFileWatcher:
 
                 await self._coordinator.async_request_refresh()
         except GitError as err:
+            if isinstance(err, IndexLockError) and err.requires_repair:
+                create_stale_index_lock_issue(
+                    self._hass,
+                    self._entry_id,
+                    err.lock_path,
+                )
             _LOGGER.error("Auto-commit failed: %s", err)
             self._hass.bus.async_fire(
                 EVENT_ERROR,
@@ -329,6 +341,13 @@ class GitFileWatcher:
         (e.g. on Docker overlay filesystems). Also handles accumulated changes
         from the file watcher.
         """
+        try:
+            if not await self._git_manager.is_index_lock_present():
+                delete_stale_index_lock_issue(self._hass, self._entry_id)
+        except GitError:
+            # Keep an existing persistent repair when the lock cannot be checked.
+            pass
+
         # First check collector for watchdog-detected changes
         if self._change_collector and self._change_collector.changed_files:
             await self._async_auto_commit()
@@ -343,6 +362,6 @@ class GitFileWatcher:
                 _LOGGER.debug(
                     "Periodic check found uncommitted changes (watchdog fallback)"
                 )
-                await self._async_auto_commit()
+                await self._async_auto_commit_inner()
         except GitError:
             pass

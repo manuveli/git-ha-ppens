@@ -238,6 +238,12 @@
       }
     }
   },
+  "issues": {
+    "stale_index_lock": {
+      "title": "Automatic commits are blocked by a Git index lock",
+      "description": "git-ha-ppens could not safely remove the stale Git index lock at `{lock_path}`. Automatic commits remain blocked, so local configuration changes may not be committed or pushed.\n\n1. Make sure no Git operation is currently running for this repository.\n2. Remove `{lock_path}` using a terminal or file editor.\n3. Wait for the next auto-commit interval or make another configuration change.\n\nThis repair will disappear automatically after git-ha-ppens confirms that the lock is gone."
+    }
+  },
   "services": {
     "discard_changes": {
       "name": "Discard Local Changes",
