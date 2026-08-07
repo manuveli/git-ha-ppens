@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <strong>GitOps for Home Assistant.</strong> Edit your config in VS Code or directly on GitHub, push the changes, and your HA instance pulls them automatically. Roll back any breaking change by reverting a commit. Review config changes in a pull request before they ever reach your live system.<br><br>
+  <strong>GitOps for Home Assistant.</strong> Edit your config in VS Code or directly on GitHub, push the changes, and your HA instance pulls them automatically. Roll back any breaking change directly from the Home Assistant UI. Review config changes in a pull request before they ever reach your live system.<br><br>
   git-ha-ppens brings native git directly into Home Assistant — auto-commit on file change, auto-push to your remote, and now <strong>auto-pull</strong> when new commits arrive. All configured through the UI, no command line needed.
 </p>
 
@@ -66,6 +66,7 @@
 - [✨ Features](#-features)
 - [🔁 GitOps Workflow](#-gitops-workflow)
 - [⚙️ Configuration](#️-configuration)
+  - [⏪ Roll back to a historical configuration](#-roll-back-to-a-historical-configuration)
 - [🤖 AI Commit-Messages](#-ai-commit-messages)
 - [🚀 Services](#-services)
 - [📊 Sensors & Entities](#-sensors--entities)
@@ -102,7 +103,7 @@
   - `git_ha_ppens.diff` — get the current diff of uncommitted changes
   - `git_ha_ppens.discard_changes` — discard tracked local changes
 - **4 buttons** on the integration device page for Push, Pull, Fetch, and optionally discarding local changes
-- **Safe historical restore** from the native configuration UI, with commit selection, change preview, validation, and explicit confirmation
+- **Native rollback** from the configuration UI — select a historical commit, preview the changes, validate the configuration and restore it
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
@@ -147,7 +148,7 @@ Home Assistant is up to date ✓
 
 - **Edit from anywhere** — use your local editor, the GitHub web UI, or any other git client. Changes reach HA automatically.
 - **Review before it goes live** — open a pull request for config changes and merge only when you're ready.
-- **Instant rollback** — revert a commit on GitHub and your HA instance pulls the rollback automatically.
+- **Instant rollback** — select a previous configuration directly in the Home Assistant UI. The integration restores it as a new commit without rewriting history or requiring Git commands.
 - **Safe deploys** — enable the optional pre-deploy check to run a Home Assistant configuration check on incoming changes. If it fails, the pull is rolled back automatically and your instance keeps running on the last working config.
 - **Full history** — every config change is a commit. Know exactly what changed, when, and why.
 
@@ -207,41 +208,41 @@ remotes.
 
 > 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, and **Restore configuration**.
 
-### Restore a historical configuration
+### ⏪ Roll back to a historical configuration
 
-Open **Settings → Devices & Services → git-ha-ppens → Configure → Restore
-configuration**. You can select one of the 20 most recent earlier commits or
-enter the 7–40 character SHA of any older commit that belongs to the current
-branch history.
+You can safely restore an earlier configuration without leaving Home Assistant
+or using Git commands:
 
-The dialog shows the current `HEAD` above the selector as active and
-non-selectable. To undo the latest commit, select the first earlier commit
-directly below it. This makes the selected entry the exact configuration state
-that will be restored.
+1. Open **Settings → Devices & Services → git-ha-ppens → Configure → Restore
+   configuration**.
+2. Choose one of the 20 most recent earlier commits. For an older state, select
+   **Enter an older commit SHA** and enter its ID.
+3. Review the selected commit, the newer commits that will be undone, the
+   affected tracked files, and the diff statistics.
+4. Confirm the restore and, when a remote is configured, choose whether to push
+   the new restore commit immediately.
 
-Before making changes, git-ha-ppens shows the selected commit, every newer
-commit that will be undone, the affected tracked files, and the aggregate diff
-statistics. The working tree must be completely clean, including staged,
-unstaged, and untracked files. This prevents an unrelated local edit from being
-lost or included in the restore.
+The current `HEAD` is shown above the recent-commit selector as active and
+cannot be selected. To undo only the latest commit, select the first earlier
+commit directly below it. The selected commit represents the exact tracked
+configuration snapshot that will be restored.
+
+The working tree must be completely clean, including staged, unstaged, and
+untracked files. This prevents an unrelated local edit from being lost or
+included in the restore. Ignored files and other files not tracked by Git are
+not part of the snapshot and remain untouched.
 
 After explicit confirmation, the integration restores the tracked tree from
 the selected commit and runs a Home Assistant configuration check when the
 repository is the live HA configuration directory. A failed check or Git
 operation restores the original `HEAD`, index, and working tree. On success, a
-new commit such as `revert: restore configuration to abc1234` is created. Its
-tree is verified to exactly match the selected historical commit.
+new commit such as `revert: restore configuration to abc1234` is created and
+verified to exactly match the selected historical snapshot.
 
-This operation does **not** run `git reset`, force-push, or rewrite branch
-history. It also differs from `git revert <commit>`, which only reverses the
-changes introduced by one commit rather than restoring the full configuration
-snapshot at that point. Ignored files and other files not tracked by Git are
-not part of the snapshot and remain untouched.
-
-When a remote is configured, the confirmation dialog lets you choose whether
-to push the new restore commit. The default follows the Auto-Push setting. If
-the push fails, the valid restore commit remains local and can be sent later
-with the Push button.
+This is an additive, history-preserving rollback. It does **not** reset or
+rewrite branch history, and it never force-pushes. The default for pushing the
+new restore commit follows the Auto-Push setting. If the push fails, the valid
+restore commit remains local and can be sent later with the Push button.
 
 ---
 
@@ -305,8 +306,8 @@ same operations as the corresponding services below.
 The destructive **Discard Local Changes** button is disabled by default and
 must be enabled from its entity settings. It restores staged and unstaged
 changes to tracked files back to `HEAD`. Untracked files are preserved. This is
-not `git revert`, does not reset to the remote branch, and cannot undo a change
-after auto-commit has already created a commit.
+not a historical rollback, does not reset to the remote branch, and cannot undo
+a change after auto-commit has already created a commit.
 
 | Service | Description | Parameters |
 |---------|-------------|------------|
