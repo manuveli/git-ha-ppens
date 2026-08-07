@@ -66,7 +66,7 @@
 - [✨ Features](#-features)
 - [🔁 GitOps Workflow](#-gitops-workflow)
 - [⚙️ Configuration](#️-configuration)
-  - [⏪ Roll back to a historical configuration](#-roll-back-to-a-historical-configuration)
+- [⏪ Roll back to a historical configuration](#-roll-back-to-a-historical-configuration)
 - [🤖 AI Commit-Messages](#-ai-commit-messages)
 - [🚀 Services](#-services)
 - [📊 Sensors & Entities](#-sensors--entities)
@@ -208,7 +208,9 @@ remotes.
 
 > 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, and **Restore configuration**.
 
-### ⏪ Roll back to a historical configuration
+---
+
+## ⏪ Roll back to a historical configuration
 
 You can safely restore an earlier configuration without leaving Home Assistant
 or using Git commands:
