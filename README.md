@@ -33,9 +33,12 @@
 
 > **Requirements:**
 > - 🏠 Home Assistant **2024.1** or later
-> - 🔧 **Git** installed on the host system
+> - 🔧 **Git** available to the Home Assistant Core runtime
 >
-> **HA OS users:** Git may not be available by default. You may need a dedicated add-on or container with git pre-installed.
+> The Home Assistant Core image used by Home Assistant OS and the official Home
+> Assistant Container image already include Git, so no separate installation is
+> normally required. git-ha-ppens checks for Git during setup. Custom container
+> images must include Git in the Home Assistant Core image itself.
 
 ### HACS (Recommended)
 
@@ -85,13 +88,12 @@
 - 👁️ **File watcher** detects config changes in real time (powered by [watchdog](https://github.com/gorakhargosh/watchdog))
 - ⏱️ **Configurable debounce interval** (default 5 min) to batch changes and avoid excessive commits
 - 📝 **Auto-generated commit messages** listing the changed files
-- 🩹 **Stale lock recovery** safely retries auto-commit after removing a regular Git `index.lock` that has been stale for at least 15 minutes
 
 ### 🔁 Auto-Sync (GitOps)
 - 🔄 **Periodic git fetch** checks the remote on a configurable interval (default 5 min, range 60–3600s)
 - ⬇️ **Auto-pull** when the integration detects your instance is behind the remote
 - ⬆️ **Auto-push** after every auto-commit to keep the remote up to date
-- ✅ **Pre-deploy check** *(optional)* — validates the Home Assistant configuration after pulling and **automatically rolls back** if the check fails, so broken remote changes never reach your live system
+- ✅ **Pre-deploy check** *(optional)* — validates the Home Assistant configuration after pulling and **automatically rolls back** the pull if the check fails
 
 ### 🔧 Manual Control
 - **7 services** callable from automations, scripts, or Developer Tools:
@@ -102,13 +104,14 @@
   - `git_ha_ppens.sync` — commit + push in one step
   - `git_ha_ppens.diff` — get the current diff of uncommitted changes
   - `git_ha_ppens.discard_changes` — discard tracked local changes
-- **4 buttons** on the integration device page for Push, Pull, Fetch, and optionally discarding local changes
+- **Push, Pull, and Fetch buttons** when a remote is configured, plus an optional disabled-by-default **Discard Local Changes** button
 - **Native rollback** from the configuration UI — select a historical commit, preview the changes, validate the configuration and restore it
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
-- 🔍 **Secret detection** scans tracked files for API keys, tokens, and passwords
+- 🔍 **Best-effort secret warning** checks staged or modified configuration files when the integration loads
 - 🔔 Fires a `git_ha_ppens_secret_detected` event when potential secrets are found
+- ⚠️ Secret warnings do not block commits or pushes and are not a substitute for a carefully maintained `.gitignore`
 
 ### ☁️ Remote Support
 - Push and pull from **GitHub**, **GitLab**, **Bitbucket**, or any git remote
@@ -116,7 +119,6 @@
 
 ### 📊 Visibility & Monitoring
 - **10 sensors** + **1 binary sensor** for real-time git status
-- **4 buttons** for Push, Pull, Fetch, and optionally discarding local changes
 - **Events** for commit, push, pull, fetch, errors, and secret detection
 - Build dashboards, notifications, and automations around your config history
 
@@ -190,7 +192,13 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | `scan_interval` | Status polling interval in seconds (10–3600) | `30` |
 | `fetch_interval` | How often to fetch from remote in seconds (60–3600) | `300` |
 
-### Step 3: ☁️ Remote Repository *(optional)*
+### Step 3: ☁️ Remote Repository *(recommended; required for GitOps sync)*
+
+A remote repository is optional only if you want to use git-ha-ppens for local
+version history, status monitoring, and configuration restores. Configure a
+remote to use Push, Pull, Fetch, off-device backups, or the automatic GitOps
+workflow. The `auto_push`, `auto_pull`, and `fetch_interval` settings only take
+effect when a remote is configured.
 
 | Option | Description | Default |
 |--------|-------------|---------|
@@ -267,22 +275,16 @@ AI commit messages can be enabled during the initial setup (Step 2: Auto-Commit 
 
 ### 🔎 Diff Selection & Privacy
 
-Before calling the conversation agent, git-ha-ppens builds a compact,
-AI-specific view of the changes. It distributes the available context across
-changed files, keeps file and hunk metadata, and focuses long single-line JSON
-or YAML changes on the values that actually changed. The prepared diff is
-limited to 8,000 characters and the changed-file status to 2,000 characters.
-The full output returned by `git_ha_ppens.diff` is not affected by these limits.
+Before calling the conversation agent, git-ha-ppens builds a compact, bounded
+view of the changes and distributes the available context across changed files.
+The full output returned by `git_ha_ppens.diff` is not affected.
 
 Common passwords, API keys, access and refresh tokens, authorization headers,
 credential-bearing URLs, and private keys are redacted on a best-effort basis
-before the prompt is sent. Distinct values receive typed, prompt-local labels
-such as `TOKEN_1`, so the agent can still distinguish an old value from a new
-one. Repeated values reuse their label within the same prompt, while all labels
-are reset for every request and cannot be correlated across prompts. Redaction
-is an additional safeguard, not a guarantee. Continue to exclude sensitive
-files such as `secrets.yaml` and `.storage/` with `.gitignore`, especially when
-using a cloud-hosted conversation agent.
+before the prompt is sent. Redaction is an additional safeguard, not a
+guarantee. Continue to exclude sensitive files such as `secrets.yaml` and
+`.storage/` with `.gitignore`, especially when using a cloud-hosted conversation
+agent.
 
 ### 🛡️ Fallback Behavior
 
@@ -380,7 +382,7 @@ Use these events as automation triggers to build notifications, dashboards, or r
 | `git_ha_ppens_check_failed` | A pull or historical restore was blocked and rolled back by the configuration check | `errors`, `auto` |
 | `git_ha_ppens_restore` | A historical snapshot was restored as a new commit | `target_hash`, `target_message`, `restore_hash`, `commits_restored`, `changed_files`, `pushed`, `auto` |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
-| `git_ha_ppens_secret_detected` | Potential secrets found in tracked files | `findings`, `count` |
+| `git_ha_ppens_secret_detected` | Potential secrets are found in staged or modified files during the load-time scan | `findings`, `count` |
 
 ---
 
@@ -463,7 +465,7 @@ automation:
       - service: notify.mobile_app
         data:
           title: "⚠️ git-ha-ppens Security Alert"
-          message: "Found {{ trigger.event.data.count }} potential secret(s) in tracked files!"
+          message: "Found {{ trigger.event.data.count }} potential secret(s) in staged or modified files!"
 ```
 
 ### 🛡️ Alert when a pull is blocked by the pre-deploy check
@@ -491,6 +493,11 @@ The integration automatically creates a `.gitignore` with sensible defaults for 
 
 You can customize the `.gitignore` entries at any time via **Settings → Devices & Services → git-ha-ppens → Configure → Edit .gitignore**. The built-in editor lets you add, remove, or modify entries directly from the UI.
 
+Only tracked files that are not ignored become part of commits, remote backups,
+or historical restores. Home Assistant's UI-managed `.storage` directory is
+excluded by default because it can contain credentials and internal state in
+addition to dashboard configuration.
+
 | Category | Entries |
 |----------|---------|
 | **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.ssh/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
@@ -507,36 +514,92 @@ You can customize the `.gitignore` entries at any time via **Settings → Device
 
 ## 🔧 Troubleshooting
 
+Start with **Settings → Devices & Services → git-ha-ppens → Diagnostics**
+and the Home Assistant logs. Diagnostics redact configured credentials and make
+it easier to identify repository, permission, and remote-status problems.
+
 <details>
 <summary><strong>❌ "Git is not installed"</strong></summary>
 
-Home Assistant OS does not include git by default. Options:
-- Use a container/add-on that includes git
-- Install git via the SSH & Web Terminal add-on: `apk add git`
+The Home Assistant Core image used by Home Assistant OS and the official Home
+Assistant Container image already include Git. If setup still reports this
+error, restart Home Assistant and install any pending Core update. For a custom
+container image, install Git in that image during its build.
+
+If your prompt starts with `[core-ssh ~]`, you are inside the separate
+**Terminal & SSH** add-on. Git is bundled with the official add-on, but on an
+Alpine-based terminal image it can also be installed with:
+
+```bash
+apk add git
+```
+
+This makes Git available for manual commands inside that terminal container,
+for example against the shared `/config` directory. It does **not** install Git
+for git-ha-ppens: the integration runs inside Home Assistant Core and therefore
+needs Git in the Core container.
+
+If the error occurs with an up-to-date official Home Assistant image, include
+your Home Assistant version and diagnostics when reporting the problem.
 </details>
 
 <details>
-<summary><strong>❌ Push fails with "permission denied" or "403"</strong></summary>
+<summary><strong>❌ Nothing is pushed / remote status is "no remote" or "not pushed"</strong></summary>
 
-- Verify your personal access token has the `repo` scope
+- Confirm that a remote URL is configured under **Configure → General Settings**
+- Enable **Auto-Push** if new automatic commits should be sent immediately
+- Press the **Push** button to commit pending changes and push them manually
+- Check the Home Assistant logs if the remote was configured but could not be verified
+- A completely empty remote is the simplest first-time setup. If the remote already has history, use the manual Git controls and check the logs if the local and remote histories cannot be merged automatically
+</details>
+
+<details>
+<summary><strong>❌ Push fails with "permission denied", "401", or "403"</strong></summary>
+
 - Check that the remote URL is correct and the repository exists
-- For SSH: ensure the key path is valid and the key is added to your git provider
+- Ensure the token or access key can read and write repository contents
+- For GitHub classic tokens, this normally means the `repo` scope; fine-grained tokens must have access to the target repository and Contents read/write permission
+- Verify the token authentication username for your provider: `oauth2` for existing GitHub/GitLab setups, commonly `x-token-auth` for Bitbucket repository access tokens, or the value required by your provider
+- For SSH, ensure the private-key path is accessible from Home Assistant Core and the public key is registered with the provider
 </details>
 
 <details>
-<summary><strong>❌ "Remote origin is not configured"</strong></summary>
+<summary><strong>❌ Auto-pull is not happening</strong></summary>
 
-Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set a remote URL in the options flow.
+- **Auto-Pull** is disabled by default and requires a configured remote
+- Press **Fetch** and check the `commits_behind` and `last_fetch_time` sensors
+- Confirm that the incoming commits are on the tracked branch
+- If the pre-deploy check blocked the pull, review the persistent notification, fix the remote configuration, and push a new commit. The same failing remote commit is not retried continuously
 </details>
 
 <details>
-<summary><strong>❌ Auto-commit not triggering</strong></summary>
+<summary><strong>❌ Auto-commit is not triggering</strong></summary>
 
 - Verify `auto_commit` is enabled in the integration options
-- Check that the changed files are not in `.gitignore` or the watcher's ignore patterns (`.git`, `.storage`, `.ssh`, `__pycache__`, `*.db`, `*.log`, etc.)
+- The commit interval is a debounce: it starts after the most recent file change
+- Check the current `.gitignore`; the watcher reloads it automatically, while `.git` itself is always ignored
 - Review HA logs for file watcher errors
 - If a Git operation was interrupted, git-ha-ppens automatically removes a regular `.git/index.lock` after it has been stale for at least 15 minutes and retries once
 - If Home Assistant shows an **Automatic commits are blocked** repair, first make sure no Git process is running, then remove the exact lock path shown in the repair. The repair clears automatically after the next successful check
+</details>
+
+<details>
+<summary><strong>❌ UI-managed dashboards or settings are not included</strong></summary>
+
+Home Assistant stores many UI-managed dashboards and settings in `.storage`,
+which is ignored by default because it can also contain credentials and internal
+state. Removing `.storage` from `.gitignore` may expose sensitive data. Prefer
+YAML-managed dashboards where practical, or review every file carefully before
+tracking selected `.storage` content.
+</details>
+
+<details>
+<summary><strong>❌ Configuration restore is unavailable or fails</strong></summary>
+
+The working tree must be completely clean, including staged, unstaged, and
+untracked files. Commit or sync wanted changes, discard unwanted tracked
+changes, and handle remaining untracked files before starting the restore again.
+Ignored files are not part of the restore and remain untouched.
 </details>
 
 <details>
@@ -544,7 +607,8 @@ Go to **Settings → Devices & Services → git-ha-ppens → Configure** and set
 
 - Review the flagged files and move sensitive values to `secrets.yaml`
 - Ensure `secrets.yaml` is listed in `.gitignore` (it is by default)
-- The detection uses regex patterns for common key formats (API keys, tokens, passwords)
+- The warning is best-effort, runs when the integration loads, and does not block commits or pushes
+- If a credential has already been pushed, revoke or rotate it immediately. Adding the file to `.gitignore` does not remove the credential from existing Git history
 </details>
 
 ---
