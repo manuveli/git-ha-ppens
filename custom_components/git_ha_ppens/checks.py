@@ -59,7 +59,8 @@ async def async_run_pre_deploy_check(
     except Exception as err:  # noqa: BLE001 - normalize checker failures
         if fail_open:
             _LOGGER.warning(
-                "Pre-deploy check could not run (%s); allowing pull to proceed",
+                "Pre-deploy check could not run (%s); allowing remote merge "
+                "to proceed",
                 err,
             )
             return []
@@ -75,16 +76,16 @@ async def async_run_pre_deploy_check(
 
 
 def notify_check_failed(hass: HomeAssistant, errors: list[str]) -> None:
-    """Surface a blocked pull in the UI via a persistent notification."""
+    """Surface blocked remote changes in the UI via a notification."""
     bullet_list = "\n".join(f"- {err}" for err in errors) or "- (no details)"
     persistent_notification.async_create(
         hass,
         (
-            "A pull from the remote repository was **blocked** because the "
-            "Home Assistant configuration check failed. The repository was "
-            "rolled back to the last working state.\n\n"
+            "Remote repository changes were **blocked** because the Home "
+            "Assistant configuration check failed. The repository was rolled "
+            "back to the last working state.\n\n"
             f"Errors:\n{bullet_list}"
         ),
-        title="git-ha-ppens: Pull blocked",
+        title="git-ha-ppens: Remote changes blocked",
         notification_id=_NOTIFICATION_ID,
     )

@@ -93,7 +93,7 @@
 - 🔄 **Periodic git fetch** checks the remote on a configurable interval (default 5 min, range 60–3600s)
 - ⬇️ **Auto-pull** when the integration detects your instance is behind the remote
 - ⬆️ **Auto-push** after every auto-commit to keep the remote up to date
-- ✅ **Pre-deploy check** *(optional)* — validates the Home Assistant configuration after pulling and **automatically rolls back** the pull if the check fails
+- ✅ **Pre-deploy check** *(optional)* — validates incoming remote changes after pulls or push-fallback merges and **automatically rolls them back** if the check fails
 
 ### 🔧 Manual Control
 - **7 services** callable from automations, scripts, or Developer Tools:
@@ -151,7 +151,7 @@ Home Assistant is up to date ✓
 - **Edit from anywhere** — use your local editor, the GitHub web UI, or any other git client. Changes reach HA automatically.
 - **Review before it goes live** — open a pull request for config changes and merge only when you're ready.
 - **Instant rollback** — select a previous configuration directly in the Home Assistant UI. The integration restores it as a new commit without rewriting history or requiring Git commands.
-- **Safe deploys** — enable the optional pre-deploy check to run a Home Assistant configuration check on incoming changes. If it fails, the pull is rolled back automatically and your instance keeps running on the last working config.
+- **Safe deploys** — enable the optional pre-deploy check to run a Home Assistant configuration check on incoming changes. If it fails, the remote merge is rolled back automatically and your instance keeps running on the last working config.
 - **Full history** — every config change is a commit. Know exactly what changed, when, and why.
 
 ### Enabling the GitOps loop
@@ -164,7 +164,7 @@ Home Assistant is up to date ✓
 
 That's it. From this point on, your HA config and your git remote stay in sync automatically.
 
-> 🛡️ **Pre-deploy check:** When enabled, every pull (manual or automatic) runs a Home Assistant configuration check **after** merging. If the check reports errors, git-ha-ppens performs a `git reset --hard` back to the last working commit, fires a `git_ha_ppens_check_failed` event, and creates a persistent notification listing the errors — so a bad commit on the remote can't take down your instance. This check validates the live configuration directory, so it only runs when `repo_path` is your HA config directory (e.g. `/config`).
+> 🛡️ **Pre-deploy check:** When enabled, every incoming remote merge — whether triggered by a pull or by a rejected push that needs to integrate remote commits — runs a Home Assistant configuration check **after** merging and before the result is pushed. If the check reports errors, git-ha-ppens performs a `git reset --hard` back to the last working commit, fires a `git_ha_ppens_check_failed` event, and creates a persistent notification listing the errors — so a bad commit on the remote can't take down your instance. This check validates the live configuration directory, so it only runs when `repo_path` is your HA config directory (e.g. `/config`).
 
 ---
 
@@ -187,7 +187,7 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | `auto_commit` | Automatically commit when files change | `true` |
 | `auto_push` | Push to remote after each auto-commit | `true` |
 | `auto_pull` | Pull automatically when the instance is behind the remote | `false` |
-| `pre_deploy_check` | Run a HA config check after pulling and roll back if it fails | `false` |
+| `pre_deploy_check` | Validate incoming remote merges and roll back if the check fails | `false` |
 | `commit_interval` | Debounce interval in seconds (30–86400) | `300` |
 | `scan_interval` | Status polling interval in seconds (10–3600) | `30` |
 | `fetch_interval` | How often to fetch from remote in seconds (60–3600) | `300` |
@@ -468,18 +468,18 @@ automation:
           message: "Found {{ trigger.event.data.count }} potential secret(s) in staged or modified files!"
 ```
 
-### 🛡️ Alert when a pull is blocked by the pre-deploy check
+### 🛡️ Alert when remote changes are blocked by the pre-deploy check
 
 ```yaml
 automation:
-  - alias: "Git: Pre-deploy check blocked a pull"
+  - alias: "Git: Pre-deploy check blocked remote changes"
     trigger:
       - platform: event
         event_type: git_ha_ppens_check_failed
     action:
       - service: notify.mobile_app
         data:
-          title: "🛡️ git-ha-ppens: Pull blocked"
+          title: "🛡️ git-ha-ppens: Remote changes blocked"
           message: >-
             Config check failed, rolled back to the last working state:
             {{ trigger.event.data.errors | join(', ') }}
@@ -550,7 +550,7 @@ your Home Assistant version and diagnostics when reporting the problem.
 - Enable **Auto-Push** if new automatic commits should be sent immediately
 - Press the **Push** button to commit pending changes and push them manually
 - Check the Home Assistant logs if the remote was configured but could not be verified
-- A completely empty remote is the simplest first-time setup. If the remote already has history, use the manual Git controls and check the logs if the local and remote histories cannot be merged automatically
+- A completely empty remote is the simplest first-time setup. If the remote already has history, compatible histories are merged automatically; conflicts fail safely and are never resolved by force-pushing over remote commits
 </details>
 
 <details>

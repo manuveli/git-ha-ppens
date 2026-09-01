@@ -97,7 +97,7 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
             "name": "git-ha-ppens",
             "manufacturer": "git-ha-ppens",
             "model": "Git Version Control",
-            "sw_version": "1.2.2",
+            "sw_version": "1.3.0",
             "entry_type": "service",
             "configuration_url": "https://github.com/manuveli/git-ha-ppens",
         }
@@ -115,7 +115,8 @@ class GitHaPpensButton(CoordinatorEntity[GitHaPpensCoordinator], ButtonEntity):
                 await self.coordinator.async_discard_changes()
         except PreDeployCheckError as err:
             raise HomeAssistantError(
-                f"Pull blocked by pre-deploy check: {'; '.join(err.errors)}"
+                "Remote changes blocked by pre-deploy check: "
+                f"{'; '.join(err.errors)}"
             ) from err
         except GitError as err:
             raise HomeAssistantError(

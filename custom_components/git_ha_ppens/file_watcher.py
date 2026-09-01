@@ -14,7 +14,7 @@ from watchdog.observers import Observer
 from .ai_commit import async_generate_ai_commit_message
 from .const import EVENT_COMMIT, EVENT_ERROR, EVENT_PUSH
 from .coordinator import GitHaPpensCoordinator
-from .git_manager import GitError, GitManager, IndexLockError
+from .git_manager import GitError, GitManager, IndexLockError, PreDeployCheckError
 from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
@@ -303,7 +303,9 @@ class GitFileWatcher:
                 # Auto-push if enabled and remote is configured
                 if self._auto_push and self._remote_configured:
                     try:
-                        commits_pushed = await self._git_manager.push()
+                        commits_pushed = await self._git_manager.push(
+                            validate=self._coordinator.pre_deploy_validator()
+                        )
                         await self._coordinator.async_record_push_time()
                         self._hass.bus.async_fire(
                             EVENT_PUSH,
@@ -312,6 +314,15 @@ class GitFileWatcher:
                         _LOGGER.info(
                             "Auto-push: %d commit(s) pushed to remote",
                             commits_pushed,
+                        )
+                    except PreDeployCheckError as push_err:
+                        _LOGGER.warning(
+                            "Auto-push blocked by pre-deploy check: %s",
+                            push_err,
+                        )
+                        await self._coordinator.async_handle_pre_deploy_failure(
+                            push_err.errors,
+                            auto=True,
                         )
                     except GitError as push_err:
                         _LOGGER.error("Auto-push failed: %s", push_err)

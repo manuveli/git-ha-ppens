@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-01
+
+### Fixed
+- Validate remote commits merged during push conflict recovery, roll back failed pre-deploy checks, and remove the automatic force-push fallback (#82)
+
 ## [1.2.2] - 2026-08-05
 
 ### Fixed
@@ -241,6 +246,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.3.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.1.2...v1.2.0

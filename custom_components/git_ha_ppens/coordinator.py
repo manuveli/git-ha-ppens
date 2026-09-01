@@ -97,8 +97,8 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         self._last_fetch_time: datetime | None = None
         self._last_pull_time: datetime | None = None
         self._last_push_time: datetime | None = None
-        # Remote SHA whose auto-pull was blocked by a failed pre-deploy check;
-        # skip re-attempting (and re-running the heavy check) until it changes.
+        # Remote SHA whose merge was blocked by a failed pre-deploy check; skip
+        # re-attempting (and re-running the heavy check) until it changes.
         self._blocked_remote_sha: str | None = None
 
     @property
@@ -227,7 +227,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     def pre_deploy_validator(
         self,
     ) -> Callable[[], Awaitable[list[str]]] | None:
-        """Return a validation callback for pull(), or None if disabled."""
+        """Return a validation callback for remote merges, or None if disabled."""
         if not self._pre_deploy_check:
             return None
 
@@ -237,6 +237,27 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             )
 
         return _validate
+
+    async def async_handle_pre_deploy_failure(
+        self,
+        errors: list[str],
+        *,
+        auto: bool,
+        remote_sha: str | None = None,
+    ) -> None:
+        """Publish and remember a rejected remote configuration revision."""
+        if remote_sha is None:
+            try:
+                remote_sha = await self.git_manager.get_upstream_sha()
+            except GitError:
+                remote_sha = ""
+
+        self._blocked_remote_sha = remote_sha or None
+        self.hass.bus.async_fire(
+            EVENT_CHECK_FAILED,
+            {"errors": errors, "auto": auto},
+        )
+        notify_check_failed(self.hass, errors)
 
     def restore_validator(self) -> Callable[[], Awaitable[list[str]]]:
         """Return the mandatory validator for a manual snapshot restore."""
@@ -254,8 +275,14 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Push local commits and publish the manual operation result."""
         try:
             async with self.git_lock:
-                commits_pushed = await self.git_manager.push()
+                commits_pushed = await self.git_manager.push(
+                    validate=self.pre_deploy_validator()
+                )
                 await self.async_record_push_time()
+        except PreDeployCheckError as err:
+            await self.async_handle_pre_deploy_failure(err.errors, auto=False)
+            await self.async_request_refresh()
+            raise
         except GitError as err:
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "push", "error": str(err)}
@@ -307,8 +334,14 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         commit_info.message,
                     )
 
-                commits_pushed = await self.git_manager.push()
+                commits_pushed = await self.git_manager.push(
+                    validate=self.pre_deploy_validator()
+                )
                 await self.async_record_push_time()
+        except PreDeployCheckError as err:
+            await self.async_handle_pre_deploy_failure(err.errors, auto=False)
+            await self.async_request_refresh()
+            raise
         except GitError as err:
             if isinstance(err, IndexLockError) and err.requires_repair:
                 create_stale_index_lock_issue(
@@ -337,10 +370,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 )
                 await self.async_record_pull_time()
         except PreDeployCheckError as err:
-            self.hass.bus.async_fire(
-                EVENT_CHECK_FAILED, {"errors": err.errors, "auto": False}
-            )
-            notify_check_failed(self.hass, err.errors)
+            await self.async_handle_pre_deploy_failure(err.errors, auto=False)
             await self.async_request_refresh()
             raise
         except GitError as err:
@@ -408,6 +438,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     ) -> RestoreOperationResult:
         """Restore a historical snapshot and optionally push the new commit."""
         push_error: str | None = None
+        push_validation_failed = False
         pushed = False
         commits_pushed = 0
         try:
@@ -419,9 +450,18 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 )
                 if push:
                     try:
-                        commits_pushed = await self.git_manager.push()
+                        commits_pushed = await self.git_manager.push(
+                            validate=self.pre_deploy_validator()
+                        )
                         await self.async_record_push_time()
                         pushed = True
+                    except PreDeployCheckError as err:
+                        await self.async_handle_pre_deploy_failure(
+                            err.errors,
+                            auto=False,
+                        )
+                        push_error = str(err)
+                        push_validation_failed = True
                     except GitError as err:
                         push_error = str(err)
         except RestoreValidationError as err:
@@ -456,7 +496,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 EVENT_PUSH,
                 {"commits_pushed": commits_pushed, "auto": False},
             )
-        elif push_error is not None:
+        elif push_error is not None and not push_validation_failed:
             self.hass.bus.async_fire(
                 EVENT_ERROR,
                 {"operation": "restore_push", "error": push_error},
@@ -541,12 +581,11 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
                 except PreDeployCheckError as err:
                     _LOGGER.warning("Auto-pull blocked by pre-deploy check: %s", err)
-                    self._blocked_remote_sha = upstream_sha or None
-                    self.hass.bus.async_fire(
-                        EVENT_CHECK_FAILED,
-                        {"errors": err.errors, "auto": True},
+                    await self.async_handle_pre_deploy_failure(
+                        err.errors,
+                        auto=True,
+                        remote_sha=upstream_sha,
                     )
-                    notify_check_failed(self.hass, err.errors)
                     # Re-fetch status so sensors reflect the rolled-back state
                     try:
                         status = await self.git_manager.get_status()

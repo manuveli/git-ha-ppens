@@ -134,7 +134,7 @@ class IndexLockError(GitError):
 
 
 class PreDeployCheckError(GitError):
-    """Raised when a pre-deploy check fails and the pull was rolled back.
+    """Raised when a pre-deploy check fails and remote changes are rolled back.
 
     Subclasses GitError so existing ``except GitError`` paths still handle it,
     while callers that want to react specifically can catch this first.
@@ -809,7 +809,11 @@ class GitManager:
 
         return f"Auto: {len(files)} files changed"
 
-    async def push(self) -> int:
+    async def push(
+        self,
+        *,
+        validate: Callable[[], Awaitable[list[str]]] | None,
+    ) -> int:
         """Push commits to the configured remote.
 
         Handles multiple scenarios robustly:
@@ -817,11 +821,21 @@ class GitManager:
         2. Divergent histories (remote initialized with README)
         3. First push (no upstream tracking branch)
 
+        Any fallback merge that imports remote commits is validated before the
+        merged history is pushed. A failed validation restores the exact local
+        state from before the merge and leaves the remote untouched.
+
+        Args:
+            validate: Optional async callback run after a fallback merge. It
+                returns a list of error messages; if non-empty, the merge is
+                rolled back and PreDeployCheckError is raised.
+
         Returns:
             Number of commits that were pushed.
 
         Raises:
-            GitError: If push fails after all retry attempts.
+            PreDeployCheckError: If a fallback merge fails validation.
+            GitError: If the push or fallback merge fails.
         """
         # Pre-check: verify remote is configured before attempting any push
         if not await self.is_remote_configured():
@@ -896,6 +910,10 @@ class GitManager:
             # First try to fetch remote state
             await self._run_git("fetch", "origin", branch)
 
+            # Capture HEAD after fetching but before any merge changes the
+            # working tree. Fetch itself only updates remote-tracking refs.
+            pre_merge_head = await self.get_head_sha()
+
             # Check if remote branch exists and has commits
             remote_ref = f"origin/{branch}"
             remote_exists = await self._run_git(
@@ -918,6 +936,24 @@ class GitManager:
                 )
             # else: remote branch is empty, straight push should work
 
+            # Only validate when this fallback actually imported remote
+            # commits. A normal fast-forward push never reaches this path.
+            post_merge_head = await self.get_head_sha()
+            if (
+                validate is not None
+                and pre_merge_head
+                and post_merge_head != pre_merge_head
+            ):
+                errors = await validate()
+                if errors:
+                    _LOGGER.warning(
+                        "Pre-deploy check failed after push fallback merge; "
+                        "rolling back to %s",
+                        pre_merge_head[:8],
+                    )
+                    await self.reset_hard(pre_merge_head)
+                    raise PreDeployCheckError(errors)
+
             # Retry push
             await self._run_git("push", "-u", "origin", branch)
             _LOGGER.info(
@@ -926,35 +962,17 @@ class GitManager:
             )
             return ahead
 
+        except PreDeployCheckError:
+            raise
         except GitError as merge_err:
             merge_error_lower = str(merge_err).lower()
             _LOGGER.warning("Push attempt 2 (merge) failed: %s", merge_err)
 
-            # If merge conflict, try force push as last resort
+            # Restore the pre-merge worktree after a conflict. Never overwrite
+            # remote history to make a rejected push succeed.
             if "conflict" in merge_error_lower or "merge" in merge_error_lower:
                 _LOGGER.warning("Merge conflict detected, aborting merge...")
                 await self._run_git("merge", "--abort", check=False)
-
-        # === ATTEMPT 3: Force push with lease (safe force push) ===
-        try:
-            _LOGGER.warning(
-                "Attempting force push with lease as last resort "
-                "(this overwrites remote but is safe for single-user repos)"
-            )
-            await self._run_git("push", "--force-with-lease", "-u", "origin", branch)
-            _LOGGER.info(
-                "Force push successful: %d commit(s) to origin/%s",
-                ahead, branch,
-            )
-            return ahead
-        except GitError as force_err:
-            _LOGGER.error(
-                "All push attempts failed. Last error: %s. "
-                "Please check: 1) PAT has 'repo' scope, "
-                "2) Remote URL is correct, "
-                "3) Repository exists on GitHub.",
-                force_err,
-            )
             raise
 
     async def fetch(self) -> None:

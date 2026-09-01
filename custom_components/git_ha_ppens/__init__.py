@@ -367,6 +367,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             remote_url = ""  # Prevent push attempts
 
+    # Create the coordinator before a possible initial push so that every push
+    # path uses the same validation and blocked-remote handling.
+    scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    auto_pull = data.get(CONF_AUTO_PULL, False)
+    fetch_interval = data.get(CONF_FETCH_INTERVAL, DEFAULT_FETCH_INTERVAL)
+    pre_deploy_check = data.get(CONF_PRE_DEPLOY_CHECK, DEFAULT_PRE_DEPLOY_CHECK)
+    coordinator = GitHaPpensCoordinator(
+        hass,
+        entry.entry_id,
+        git_manager,
+        scan_interval,
+        auto_pull=auto_pull,
+        remote_configured=bool(remote_url),
+        fetch_interval=fetch_interval,
+        pre_deploy_check=pre_deploy_check,
+        ai_commit_enabled=data.get(CONF_AI_COMMIT_MESSAGES, False),
+        ai_agent_id=data.get(CONF_AI_AGENT_ID, ""),
+    )
+
     # Create initial commit if repository has no commits yet
     if not await git_manager.has_commits():
         try:
@@ -376,11 +395,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # Auto-push initial commit if remote is configured
                 if remote_url and data.get(CONF_AUTO_PUSH, True):
                     try:
-                        commits_pushed = await git_manager.push()
+                        commits_pushed = await git_manager.push(
+                            validate=coordinator.pre_deploy_validator()
+                        )
                         initial_push_succeeded = True
                         _LOGGER.info(
                             "Initial push: %d commit(s) pushed to remote",
                             commits_pushed,
+                        )
+                    except PreDeployCheckError as push_err:
+                        await coordinator.async_handle_pre_deploy_failure(
+                            push_err.errors,
+                            auto=True,
+                        )
+                        _LOGGER.warning(
+                            "Initial push blocked by pre-deploy check: %s",
+                            push_err,
                         )
                     except GitError as push_err:
                         _LOGGER.warning(
@@ -403,23 +433,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 repo_path,
             )
 
-    # Create coordinator
-    scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    auto_pull = data.get(CONF_AUTO_PULL, False)
-    fetch_interval = data.get(CONF_FETCH_INTERVAL, DEFAULT_FETCH_INTERVAL)
-    pre_deploy_check = data.get(CONF_PRE_DEPLOY_CHECK, DEFAULT_PRE_DEPLOY_CHECK)
-    coordinator = GitHaPpensCoordinator(
-        hass,
-        entry.entry_id,
-        git_manager,
-        scan_interval,
-        auto_pull=auto_pull,
-        remote_configured=bool(remote_url),
-        fetch_interval=fetch_interval,
-        pre_deploy_check=pre_deploy_check,
-        ai_commit_enabled=data.get(CONF_AI_COMMIT_MESSAGES, False),
-        ai_agent_id=data.get(CONF_AI_AGENT_ID, ""),
-    )
     await coordinator.async_load_stored_timestamps()
     if initial_push_succeeded:
         await coordinator.async_record_push_time()
@@ -698,13 +711,22 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                     _LOGGER.info("Sync - committed: %s", commit_info.hash_short)
 
                 # Then push
-                commits_pushed = await git_manager.push()
+                commits_pushed = await git_manager.push(
+                    validate=coordinator.pre_deploy_validator()
+                )
                 await coordinator.async_record_push_time()
             hass.bus.async_fire(EVENT_PUSH, {"commits_pushed": commits_pushed})
             _LOGGER.info("Sync - pushed %d commit(s)", commits_pushed)
 
             await coordinator.async_request_refresh()
 
+        except PreDeployCheckError as err:
+            await coordinator.async_handle_pre_deploy_failure(
+                err.errors,
+                auto=False,
+            )
+            _LOGGER.warning("Sync blocked by pre-deploy check: %s", err)
+            await coordinator.async_request_refresh()
         except GitError as err:
             if isinstance(err, IndexLockError) and err.requires_repair:
                 create_stale_index_lock_issue(
