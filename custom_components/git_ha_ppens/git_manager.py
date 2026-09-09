@@ -1043,7 +1043,24 @@ class GitManager:
         pre_pull_head = await self.get_head_sha()
 
         branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
-        await self._run_git("pull", "origin", branch)
+        try:
+            # Select merge semantics explicitly. Modern Git refuses divergent
+            # pulls when neither a repository nor global preference is set.
+            # Keep the integration deterministic without persisting a setting
+            # that would also affect the user's own Git commands.
+            await self._run_git(
+                "pull",
+                "--no-rebase",
+                "--no-edit",
+                "origin",
+                branch,
+            )
+        except GitError:
+            # A failed merge can leave MERGE_HEAD, conflict markers, and an
+            # unmerged index behind. Abort best-effort before surfacing the
+            # original pull error; for failures before a merge this is a no-op.
+            await self._run_git("merge", "--abort", check=False)
+            raise
 
         # Count new commits
         try:

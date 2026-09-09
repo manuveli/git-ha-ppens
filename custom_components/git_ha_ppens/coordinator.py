@@ -73,6 +73,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         pre_deploy_check: bool = False,
         ai_commit_enabled: bool = False,
         ai_agent_id: str = "",
+        auto_push: bool = False,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -87,6 +88,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             hass, STORAGE_VERSION, f"{STORAGE_KEY_PREFIX}.{entry_id}"
         )
         self._auto_pull = auto_pull
+        self._auto_push = auto_push
         self._remote_configured = remote_configured
         self._fetch_interval = fetch_interval
         self._pre_deploy_check = pre_deploy_check
@@ -555,6 +557,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
             async with self.git_lock:
                 try:
+                    should_push_merged_history = self._auto_push and status.ahead > 0
                     pull_result = await self.git_manager.pull(
                         backup=True, validate=self.pre_deploy_validator()
                     )
@@ -572,6 +575,53 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         "Auto-pull: %d commit(s) pulled from remote",
                         pull_result.commits_pulled,
                     )
+
+                    # A divergent pull creates a local merge commit. When the
+                    # user also enabled auto-push, publish that already-
+                    # validated history so recovery completes without a manual
+                    # Push-button action. A normal behind-only pull stays
+                    # read-only with respect to the remote.
+                    if (
+                        should_push_merged_history
+                        and pull_result.commits_pulled > 0
+                    ):
+                        try:
+                            commits_pushed = await self.git_manager.push(
+                                validate=self.pre_deploy_validator()
+                            )
+                            await self.async_record_push_time()
+                        except PreDeployCheckError as err:
+                            _LOGGER.warning(
+                                "Auto-push after divergent pull blocked by "
+                                "pre-deploy check: %s",
+                                err,
+                            )
+                            await self.async_handle_pre_deploy_failure(
+                                err.errors,
+                                auto=True,
+                            )
+                        except GitError as err:
+                            _LOGGER.warning(
+                                "Auto-push after divergent pull failed: %s",
+                                err,
+                            )
+                            self.hass.bus.async_fire(
+                                EVENT_ERROR,
+                                {"operation": "auto_push", "error": str(err)},
+                            )
+                        else:
+                            self.hass.bus.async_fire(
+                                EVENT_PUSH,
+                                {
+                                    "commits_pushed": commits_pushed,
+                                    "auto": True,
+                                },
+                            )
+                            _LOGGER.info(
+                                "Auto-push after divergent pull: %d commit(s) "
+                                "pushed to remote",
+                                commits_pushed,
+                            )
 
                     # Re-fetch status so sensors reflect the post-pull state
                     try:

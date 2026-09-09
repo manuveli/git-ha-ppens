@@ -165,6 +165,8 @@ Home Assistant is up to date ✓
 That's it. From this point on, your HA config and your git remote stay in sync automatically.
 
 > 🛡️ **Pre-deploy check:** When enabled, every incoming remote merge — whether triggered by a pull or by a rejected push that needs to integrate remote commits — runs a Home Assistant configuration check **after** merging and before the result is pushed. If the check reports errors, git-ha-ppens performs a `git reset --hard` back to the last working commit, fires a `git_ha_ppens_check_failed` event, and creates a persistent notification listing the errors — so a bad commit on the remote can't take down your instance. This check validates the live configuration directory, so it only runs when `repo_path` is your HA config directory (e.g. `/config`).
+>
+> The rejected remote revision is not retried until the remote advances. Once you push a corrective commit, Auto-Pull explicitly merges and validates the corrected history. If Auto-Push is also enabled, git-ha-ppens publishes that validated merge automatically so the repository returns to a fully synchronized state. A real content conflict is aborted cleanly and still requires manual resolution; remote history is never force-pushed.
 
 ---
 
@@ -569,7 +571,8 @@ your Home Assistant version and diagnostics when reporting the problem.
 - **Auto-Pull** is disabled by default and requires a configured remote
 - Press **Fetch** and check the `commits_behind` and `last_fetch_time` sensors
 - Confirm that the incoming commits are on the tracked branch
-- If the pre-deploy check blocked the pull, review the persistent notification, fix the remote configuration, and push a new commit. The same failing remote commit is not retried continuously
+- If the pre-deploy check blocked the pull, review the persistent notification, fix the remote configuration, and push a new commit. The same failing revision is skipped; the new revision is merged and validated automatically. With Auto-Push enabled, the recovered merge is also pushed back to the remote
+- If Git reports a real merge conflict, git-ha-ppens aborts the merge without changing either branch. Resolve the conflicting changes manually, then use **Pull** or **Push** again
 </details>
 
 <details>
