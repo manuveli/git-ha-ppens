@@ -115,6 +115,21 @@ class GitError(Exception):
     """Raised when a git operation fails."""
 
 
+class UnsafeRepositoryLayoutError(GitError):
+    """Raised when an undeclared embedded Git repository is detected."""
+
+    def __init__(self, paths: list[str]) -> None:
+        """Store repository-relative paths for repair and diagnostics."""
+        self.paths = sorted(set(paths))
+        preview = ", ".join(self.paths[:5])
+        if len(self.paths) > 5:
+            preview = f"{preview}, and {len(self.paths) - 5} more"
+        super().__init__(
+            "Undeclared embedded Git repositories or Gitlinks detected: "
+            f"{preview}"
+        )
+
+
 class IndexLockError(GitError):
     """Raised when an index lock blocks staging changes."""
 
@@ -345,6 +360,126 @@ class GitManager:
         await self._run_git("reset", "--hard", ref)
         _LOGGER.info("Rolled back working tree to %s", ref[:8])
 
+    @staticmethod
+    def _find_nested_git_markers_sync(repo_path: Path) -> list[str]:
+        """Find nested .git markers without following symbolic links."""
+        found: list[str] = []
+
+        def _walk(directory: Path, *, is_root: bool = False) -> None:
+            try:
+                entries = list(os.scandir(directory))
+            except OSError as err:
+                raise GitError(
+                    "Could not inspect repository directory "
+                    f"{directory}: {type(err).__name__}: {err}"
+                ) from err
+
+            if not is_root and any(entry.name == ".git" for entry in entries):
+                found.append(directory.relative_to(repo_path).as_posix())
+                return
+
+            for entry in entries:
+                if entry.name == ".git" or entry.is_symlink():
+                    continue
+                try:
+                    is_directory = entry.is_dir(follow_symlinks=False)
+                except OSError as err:
+                    raise GitError(
+                        "Could not inspect repository path "
+                        f"{entry.path}: {type(err).__name__}: {err}"
+                    ) from err
+                if is_directory:
+                    _walk(Path(entry.path))
+
+        _walk(repo_path, is_root=True)
+        return found
+
+    async def _get_declared_submodule_paths(self) -> set[str]:
+        """Return normalized paths declared by a regular .gitmodules file."""
+        gitmodules_path = Path(self._repo_path) / ".gitmodules"
+        try:
+            gitmodules_stat = gitmodules_path.lstat()
+        except FileNotFoundError:
+            return set()
+        except OSError as err:
+            raise GitError(f"Could not inspect .gitmodules: {err}") from err
+
+        if stat.S_ISLNK(gitmodules_stat.st_mode) or not stat.S_ISREG(
+            gitmodules_stat.st_mode
+        ):
+            return set()
+
+        output = await self._run_git(
+            "config",
+            "--file",
+            ".gitmodules",
+            "--get-regexp",
+            r"^submodule\..*\.path$",
+            check=False,
+        )
+        paths: set[str] = set()
+        for line in output.splitlines():
+            parts = line.split(maxsplit=1)
+            if len(parts) != 2:
+                continue
+            raw_candidate = parts[1].strip().replace("\\", "/")
+            candidate = raw_candidate.strip("/")
+            path_parts = candidate.split("/")
+            if (
+                not candidate
+                or raw_candidate.startswith("/")
+                or any(part in ("", ".", "..") for part in path_parts)
+            ):
+                continue
+            paths.add(candidate)
+        return paths
+
+    async def _get_tracked_gitlink_paths(self) -> set[str]:
+        """Return paths currently stored in the index with mode 160000."""
+        output = await self._run_git(
+            "ls-files", "--stage", "-z", check=False
+        )
+        paths: set[str] = set()
+        for record in output.split("\x00"):
+            if not record or "\t" not in record:
+                continue
+            metadata, path = record.split("\t", 1)
+            mode = metadata.split(maxsplit=1)[0]
+            if mode == "160000" and path:
+                paths.add(path)
+        return paths
+
+    async def _is_path_ignored(self, path: str) -> bool:
+        """Return whether Git ignores a repository-relative path."""
+        output = await self._run_git(
+            "check-ignore", "--no-index", "--", path, check=False
+        )
+        return bool(output)
+
+    async def get_unsafe_repository_paths(self) -> list[str]:
+        """Return undeclared, unignored embedded repositories and Gitlinks."""
+        repo_path = Path(self._repo_path)
+        markers = await asyncio.to_thread(
+            self._find_nested_git_markers_sync, repo_path
+        )
+        declared_submodules = await self._get_declared_submodule_paths()
+        gitlinks = await self._get_tracked_gitlink_paths()
+        allowed_submodules = declared_submodules & gitlinks
+
+        unsafe = gitlinks - allowed_submodules
+        for path in markers:
+            if path in allowed_submodules or path in unsafe:
+                continue
+            if not await self._is_path_ignored(path):
+                unsafe.add(path)
+        return sorted(unsafe)
+
+    async def assert_repository_layout_safe(self) -> None:
+        """Block mutations when repository contents cannot be backed up safely."""
+        unsafe_paths = await self.get_unsafe_repository_paths()
+        if unsafe_paths:
+            raise UnsafeRepositoryLayoutError(unsafe_paths)
+
     async def discard_changes(self) -> int:
         """Discard staged and unstaged changes to tracked files.
 
@@ -353,6 +488,7 @@ class GitManager:
         Returns:
             Number of tracked files restored to HEAD.
         """
+        await self.assert_repository_layout_safe()
         if not await self.has_commits():
             return 0
 
@@ -743,6 +879,8 @@ class GitManager:
         Returns:
             CommitInfo for the new commit, or None if nothing to commit.
         """
+        await self.assert_repository_layout_safe()
+
         # Check for changes
         porcelain = await self._run_git("status", "--porcelain")
         if not porcelain:
@@ -837,6 +975,8 @@ class GitManager:
             PreDeployCheckError: If a fallback merge fails validation.
             GitError: If the push or fallback merge fails.
         """
+        await self.assert_repository_layout_safe()
+
         # Pre-check: verify remote is configured before attempting any push
         if not await self.is_remote_configured():
             raise GitError(
@@ -1011,6 +1151,8 @@ class GitManager:
             PreDeployCheckError: If validation fails (after rolling back).
             GitError: If the pull itself fails.
         """
+        await self.assert_repository_layout_safe()
+
         # Pre-check: verify remote is configured
         if not await self.is_remote_configured():
             raise GitError(
@@ -1288,6 +1430,7 @@ class GitManager:
         validate: Callable[[], Awaitable[list[str]]] | None = None,
     ) -> RestoreResult:
         """Restore a historical tree as a new commit without rewriting history."""
+        await self.assert_repository_layout_safe()
         current_head = await self.get_head_sha()
         if current_head != expected_head:
             raise StaleRestorePreviewError(
@@ -1499,6 +1642,7 @@ class GitManager:
         Runs 'git rm -r --cached .' followed by 'git add -A'
         to re-apply .gitignore rules to the index.
         """
+        await self.assert_repository_layout_safe()
         await self._run_git("rm", "-r", "--cached", ".", check=False)
         await self._run_git("add", "-A")
         _LOGGER.info("Re-applied .gitignore rules to tracked files")

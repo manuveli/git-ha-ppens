@@ -230,6 +230,10 @@
     "stale_index_lock": {
       "title": "Otomatik commitler bir Git indeks kilidi tarafından engelleniyor",
       "description": "git-ha-ppens, `{lock_path}` konumundaki eski Git indeks kilidini güvenli bir şekilde kaldıramadı. Otomatik commitler engellenmeye devam eder; bu nedenle yerel yapılandırma değişiklikleri commit edilemeyebilir veya gönderilemeyebilir.\n\n1. Bu depo için herhangi bir Git işleminin çalışmadığından emin olun.\n2. Bir terminal veya dosya düzenleyici kullanarak `{lock_path}` dosyasını kaldırın.\n3. Sonraki auto-commit aralığını bekleyin veya başka bir yapılandırma değişikliği yapın.\n\nGit-ha-ppens kilidin kaldırıldığını doğruladığında bu onarım otomatik olarak kaybolacaktır."
+    },
+    "unsafe_repository_layout": {
+      "title": "Git işlemleri gömülü bir depo tarafından engellendi",
+      "description": "git-ha-ppens, bildirilmemiş gömülü bir Git deposu veya Gitlink buldu. Dosyaları dış yedekte eksik olabileceğinden commit, gönderme, çekme, geri yükleme ve değişiklikleri atma işlemleri engellendi.\n\nEtkilenen yollar:\n{paths}\n\n1. Gömülü deponun sahibi olan uygulamayı durdurun (ESPHome için ESPHome eklentisini veya Device Builder’ı durdurun).\n2. Değişiklik yapmadan önce içteki `.git` dizinini veya dosyasını yedekleyin.\n3. Yol yanlışlıkla Gitlink olarak kaydedildiyse yalnızca bu Gitlink’i dış deponun indeksinden kaldırın.\n4. İç Git meta verilerini kaldırın veya taşıyın, ardından dosyaları dış depoya normal dosyalar olarak ekleyip commit edin.\n5. ESPHome’u veya sahibi olan uygulamayı yeniden başlatın ve git-ha-ppens’i yeniden yükleyin.\n\nBildirilmiş alt modüller desteklenir ancak özyinelemeli olarak yönetilmez. Bu onarım başarılı bir yapı denetiminden sonra kaybolur."
     }
   },
   "services": {

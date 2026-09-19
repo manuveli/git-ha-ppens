@@ -15,7 +15,7 @@ from .const import (
     CONF_SSH_KEY_PATH,
     DOMAIN,
 )
-from .git_manager import GitManager
+from .git_manager import GitError, GitManager
 
 
 async def async_get_config_entry_diagnostics(
@@ -43,12 +43,23 @@ async def async_get_config_entry_diagnostics(
             process_uid = os.getuid()
             uid_mismatch = None
 
+        try:
+            unsafe_repository_paths = (
+                await git_manager.get_unsafe_repository_paths()
+            )
+            repository_layout_safe: bool | None = not unsafe_repository_paths
+        except GitError:
+            unsafe_repository_paths = []
+            repository_layout_safe = None
+
         diagnostics["git"] = {
             "version": await git_manager.get_git_version(),
             "repo_initialized": await git_manager.is_repo_initialized(),
             "repo_owner_uid": repo_owner_uid,
             "process_uid": process_uid,
             "uid_mismatch": uid_mismatch,
+            "repository_layout_safe": repository_layout_safe,
+            "repository_layout_unsafe_paths": unsafe_repository_paths,
         }
 
         # Current status

@@ -92,7 +92,7 @@
 ### 🔁 Auto-Sync (GitOps)
 - 🔄 **Periodic git fetch** checks the remote on a configurable interval (default 5 min, range 60–3600s)
 - ⬇️ **Auto-pull** when the integration detects your instance is behind the remote
-- ⬆️ **Auto-push** after every auto-commit to keep the remote up to date
+- ⬆️ **Auto-push** sends any clean local commits upstream, including commits created by ESPHome, VS Code, or manual Git commands
 - ✅ **Pre-deploy check** *(optional)* — validates incoming remote changes after pulls or push-fallback merges and **automatically rolls them back** if the check fails
 
 ### 🔧 Manual Control
@@ -159,7 +159,7 @@ Home Assistant is up to date ✓
 1. Configure a remote repository (GitHub, GitLab, etc.) in the integration setup
 2. Enable **Auto-Pull** in the commit settings
 3. Set a **Fetch Interval** (default 5 min) so the integration checks for remote changes periodically
-4. Optionally enable **Auto-Push** to send local changes upstream automatically
+4. Optionally enable **Auto-Push** to send clean local commits upstream automatically, including commits created by external tools
 5. Optionally enable the **Pre-deploy check** to validate incoming changes and roll back automatically if the config is broken
 
 That's it. From this point on, your HA config and your git remote stay in sync automatically.
@@ -187,7 +187,7 @@ The integration is configured entirely through the UI. The setup flow has **3 st
 | Option | Description | Default |
 |--------|-------------|---------|
 | `auto_commit` | Automatically commit when files change | `true` |
-| `auto_push` | Push to remote after each auto-commit | `true` |
+| `auto_push` | Push any clean local committed history to the remote, including commits created by external tools | `true` |
 | `auto_pull` | Pull automatically when the instance is behind the remote | `false` |
 | `pre_deploy_check` | Validate incoming remote merges and roll back if the check fails | `false` |
 | `commit_interval` | Debounce interval in seconds (30–86400) | `300` |
@@ -549,7 +549,7 @@ your Home Assistant version and diagnostics when reporting the problem.
 <summary><strong>❌ Nothing is pushed / remote status is "no remote" or "not pushed"</strong></summary>
 
 - Confirm that a remote URL is configured under **Configure → General Settings**
-- Enable **Auto-Push** if new automatic commits should be sent immediately
+- Enable **Auto-Push** if clean local commits should be sent automatically. This also includes commits created by ESPHome, VS Code, or manual Git commands; no additional git-ha-ppens commit is required
 - Press the **Push** button to commit pending changes and push them manually
 - Check the Home Assistant logs if the remote was configured but could not be verified
 - A completely empty remote is the simplest first-time setup. If the remote already has history, compatible histories are merged automatically; conflicts fail safely and are never resolved by force-pushing over remote commits
@@ -573,6 +573,36 @@ your Home Assistant version and diagnostics when reporting the problem.
 - Confirm that the incoming commits are on the tracked branch
 - If the pre-deploy check blocked the pull, review the persistent notification, fix the remote configuration, and push a new commit. The same failing revision is skipped; the new revision is merged and validated automatically. With Auto-Push enabled, the recovered merge is also pushed back to the remote
 - If Git reports a real merge conflict, git-ha-ppens aborts the merge without changing either branch. Resolve the conflicting changes manually, then use **Pull** or **Push** again
+</details>
+
+<details>
+<summary><strong>❌ ESPHome or another app created an embedded Git repository</strong></summary>
+
+[ESPHome Device Builder](https://github.com/esphome/device-builder#version-history)
+runs separately, but it can write to the shared `/config` directory. Its
+version history adopts an existing parent Git repository. If ESPHome starts
+before `/config/.git` exists, however, it can create `/config/esphome/.git`.
+Git may then record `esphome` as a Gitlink instead of backing up the YAML files
+themselves.
+
+git-ha-ppens detects nested `.git` directories, `.git` files, and indexed
+Gitlinks before changing repository contents or history. It blocks setup and
+runtime mutations with a Home Assistant repair rather than modifying another
+app's Git metadata automatically. Follow the repair in this order:
+
+1. Stop ESPHome or the app that owns the embedded repository.
+2. Back up its inner `.git` directory or `.git` file.
+3. If the outer repository indexed the path as a Gitlink, remove only that
+   Gitlink from the outer index.
+4. Remove or relocate the inner Git metadata, then add and commit the actual
+   files as regular files in the outer repository.
+5. Restart the owning app and reload git-ha-ppens. For ESPHome, its log should
+   report the parent work tree, normally `/config`.
+
+Repositories excluded by the outer `.gitignore` do not block git-ha-ppens.
+Correctly declared Git submodules are also allowed for compatibility, but
+git-ha-ppens does not commit, pull, push, or otherwise manage their contents
+recursively.
 </details>
 
 <details>

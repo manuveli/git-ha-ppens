@@ -71,11 +71,17 @@ EVENT_RESTORE: Final = f"{DOMAIN}_restore"
 
 # Repairs
 REPAIR_STALE_INDEX_LOCK: Final = "stale_index_lock"
+REPAIR_UNSAFE_REPOSITORY_LAYOUT: Final = "unsafe_repository_layout"
 
 
 def stale_index_lock_issue_id(entry_id: str) -> str:
     """Return the entry-specific issue ID for an unrecoverable index lock."""
     return f"{REPAIR_STALE_INDEX_LOCK}_{entry_id}"
+
+
+def unsafe_repository_layout_issue_id(entry_id: str) -> str:
+    """Return the entry-specific issue ID for an unsafe repository layout."""
+    return f"{REPAIR_UNSAFE_REPOSITORY_LAYOUT}_{entry_id}"
 
 
 # Sensor keys

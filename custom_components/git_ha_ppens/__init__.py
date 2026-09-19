@@ -10,6 +10,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 
@@ -63,10 +64,16 @@ from .git_manager import (
     GitManager,
     IndexLockError,
     PreDeployCheckError,
+    UnsafeRepositoryLayoutError,
 )
 from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
+)
+from .repository_layout import (
+    async_ensure_repository_layout_safe,
+    create_repository_layout_issue_from_error,
+    delete_unsafe_repository_layout_issue,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -301,6 +308,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Setup .gitignore (only on first setup, not every restart)
     gitignore_initialized = data.get(CONF_GITIGNORE_INITIALIZED, False)
+    gitignore_updated = False
     if not gitignore_initialized:
         try:
             skip_defaults = data.get(CONF_GITIGNORE_CUSTOM, False)
@@ -309,10 +317,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             if gitignore_updated:
                 _LOGGER.info("Updated .gitignore with security defaults")
-                if await git_manager.has_commits():
-                    await git_manager.apply_gitignore()
         except GitError as err:
             _LOGGER.warning("Failed to update .gitignore: %s", err)
+
+    # Refuse to stage, configure, commit, or push while an undeclared embedded
+    # repository could turn a directory into an incomplete Gitlink backup.
+    try:
+        await async_ensure_repository_layout_safe(
+            hass, entry.entry_id, git_manager
+        )
+    except UnsafeRepositoryLayoutError as err:
+        raise ConfigEntryError(str(err)) from err
+    except GitError as err:
+        raise ConfigEntryError(
+            f"Could not verify the repository layout: {err}"
+        ) from err
+
+    if not gitignore_initialized:
+        if gitignore_updated and await git_manager.has_commits():
+            try:
+                await git_manager.apply_gitignore()
+            except UnsafeRepositoryLayoutError as err:
+                create_repository_layout_issue_from_error(
+                    hass, entry.entry_id, err
+                )
+                raise ConfigEntryError(str(err)) from err
+            except GitError as err:
+                _LOGGER.warning("Failed to apply .gitignore: %s", err)
 
         hass.config_entries.async_update_entry(
             entry, data={**data, CONF_GITIGNORE_INITIALIZED: True}
@@ -415,6 +446,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             push_err,
                         )
                     except GitError as push_err:
+                        coordinator.record_auto_push_failure()
+                        create_repository_layout_issue_from_error(
+                            hass, entry.entry_id, push_err
+                        )
                         _LOGGER.warning(
                             "Initial push failed (will retry on next auto-push): %s",
                             push_err,
@@ -422,6 +457,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             else:
                 _LOGGER.warning("Initial commit returned None — no changes to commit")
         except GitError as err:
+            create_repository_layout_issue_from_error(
+                hass, entry.entry_id, err
+            )
             if isinstance(err, IndexLockError) and err.requires_repair:
                 create_stale_index_lock_issue(
                     hass,
@@ -567,6 +605,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove persistent repairs when a config entry is deleted."""
     delete_stale_index_lock_issue(hass, entry.entry_id)
+    delete_unsafe_repository_layout_issue(hass, entry.entry_id)
 
 
 def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -583,6 +622,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     async def async_handle_commit(call: ServiceCall) -> None:
         """Handle the commit service call."""
+        coordinator: GitHaPpensCoordinator | None = None
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             message = call.data.get(ATTR_MESSAGE)
@@ -604,6 +644,9 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                     pass
 
             async with coordinator.git_lock:
+                await async_ensure_repository_layout_safe(
+                    hass, coordinator.entry_id, git_manager
+                )
                 commit_info = await git_manager.commit(message)
 
             if commit_info:
@@ -629,12 +672,16 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             await coordinator.async_request_refresh()
 
         except GitError as err:
-            if isinstance(err, IndexLockError) and err.requires_repair:
-                create_stale_index_lock_issue(
-                    hass,
-                    coordinator.entry_id,
-                    err.lock_path,
+            if coordinator is not None:
+                create_repository_layout_issue_from_error(
+                    hass, coordinator.entry_id, err
                 )
+                if isinstance(err, IndexLockError) and err.requires_repair:
+                    create_stale_index_lock_issue(
+                        hass,
+                        coordinator.entry_id,
+                        err.lock_path,
+                    )
             _LOGGER.error("Commit failed: %s", err)
             hass.bus.async_fire(EVENT_ERROR, {"operation": "commit", "error": str(err)})
 
@@ -674,6 +721,7 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     async def async_handle_sync(call: ServiceCall) -> None:
         """Handle the sync service call (commit + push)."""
+        coordinator: GitHaPpensCoordinator | None = None
         try:
             git_manager, coordinator = _get_manager_and_coordinator(call)
             message = call.data.get(ATTR_MESSAGE)
@@ -695,6 +743,9 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                     pass
 
             async with coordinator.git_lock:
+                await async_ensure_repository_layout_safe(
+                    hass, coordinator.entry_id, git_manager
+                )
                 # Commit first
                 commit_info = await git_manager.commit(message)
                 if commit_info:
@@ -722,19 +773,26 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             await coordinator.async_request_refresh()
 
         except PreDeployCheckError as err:
-            await coordinator.async_handle_pre_deploy_failure(
-                err.errors,
-                auto=False,
-            )
-            _LOGGER.warning("Sync blocked by pre-deploy check: %s", err)
-            await coordinator.async_request_refresh()
-        except GitError as err:
-            if isinstance(err, IndexLockError) and err.requires_repair:
-                create_stale_index_lock_issue(
-                    hass,
-                    coordinator.entry_id,
-                    err.lock_path,
+            if coordinator is not None:
+                await coordinator.async_handle_pre_deploy_failure(
+                    err.errors,
+                    auto=False,
                 )
+            _LOGGER.warning("Sync blocked by pre-deploy check: %s", err)
+            if coordinator is not None:
+                await coordinator.async_request_refresh()
+        except GitError as err:
+            if coordinator is not None:
+                coordinator.record_auto_push_failure()
+                create_repository_layout_issue_from_error(
+                    hass, coordinator.entry_id, err
+                )
+                if isinstance(err, IndexLockError) and err.requires_repair:
+                    create_stale_index_lock_issue(
+                        hass,
+                        coordinator.entry_id,
+                        err.lock_path,
+                    )
             _LOGGER.error("Sync failed: %s", err)
             hass.bus.async_fire(EVENT_ERROR, {"operation": "sync", "error": str(err)})
 

@@ -45,6 +45,10 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
+from .repository_layout import (
+    async_ensure_repository_layout_safe,
+    create_repository_layout_issue_from_error,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,6 +103,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         self._last_fetch_time: datetime | None = None
         self._last_pull_time: datetime | None = None
         self._last_push_time: datetime | None = None
+        self._last_auto_push_failure_time: datetime | None = None
         # Remote SHA whose merge was blocked by a failed pre-deploy check; skip
         # re-attempting (and re-running the heavy check) until it changes.
         self._blocked_remote_sha: str | None = None
@@ -168,7 +173,12 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     async def async_record_push_time(self) -> None:
         """Record that a push just happened."""
         self._last_push_time = datetime.now(tz=timezone.utc)
+        self._last_auto_push_failure_time = None
         await self._async_save_timestamps()
+
+    def record_auto_push_failure(self) -> None:
+        """Start the coordinator backoff after an automatic push failure."""
+        self._last_auto_push_failure_time = datetime.now(tz=timezone.utc)
 
     async def async_record_pull_time(self) -> None:
         """Record that a pull just happened."""
@@ -255,6 +265,8 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 remote_sha = ""
 
         self._blocked_remote_sha = remote_sha or None
+        if auto:
+            self.record_auto_push_failure()
         self.hass.bus.async_fire(
             EVENT_CHECK_FAILED,
             {"errors": errors, "auto": auto},
@@ -277,6 +289,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Push local commits and publish the manual operation result."""
         try:
             async with self.git_lock:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
                 commits_pushed = await self.git_manager.push(
                     validate=self.pre_deploy_validator()
                 )
@@ -286,6 +301,10 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             await self.async_request_refresh()
             raise
         except GitError as err:
+            self.record_auto_push_failure()
+            create_repository_layout_issue_from_error(
+                self.hass, self._entry_id, err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "push", "error": str(err)}
             )
@@ -300,6 +319,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Commit all pending changes and immediately push them."""
         try:
             async with self.git_lock:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
                 message = None
                 if self._ai_commit_enabled:
                     try:
@@ -345,6 +367,10 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             await self.async_request_refresh()
             raise
         except GitError as err:
+            self.record_auto_push_failure()
+            create_repository_layout_issue_from_error(
+                self.hass, self._entry_id, err
+            )
             if isinstance(err, IndexLockError) and err.requires_repair:
                 create_stale_index_lock_issue(
                     self.hass,
@@ -367,6 +393,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Pull remote commits and publish the manual operation result."""
         try:
             async with self.git_lock:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
                 pull_result = await self.git_manager.pull(
                     backup=True, validate=self.pre_deploy_validator()
                 )
@@ -376,6 +405,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             await self.async_request_refresh()
             raise
         except GitError as err:
+            create_repository_layout_issue_from_error(
+                self.hass, self._entry_id, err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "pull", "error": str(err)}
             )
@@ -416,8 +448,14 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Discard staged and unstaged changes to tracked files."""
         try:
             async with self.git_lock:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
                 discarded_files = await self.git_manager.discard_changes()
         except GitError as err:
+            create_repository_layout_issue_from_error(
+                self.hass, self._entry_id, err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR,
                 {"operation": "discard_changes", "error": str(err)},
@@ -445,6 +483,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         commits_pushed = 0
         try:
             async with self.git_lock:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
                 restore_result = await self.git_manager.restore_snapshot(
                     target_hash,
                     expected_head,
@@ -465,6 +506,10 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         push_error = str(err)
                         push_validation_failed = True
                     except GitError as err:
+                        self.record_auto_push_failure()
+                        create_repository_layout_issue_from_error(
+                            self.hass, self._entry_id, err
+                        )
                         push_error = str(err)
         except RestoreValidationError as err:
             self.hass.bus.async_fire(
@@ -476,6 +521,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             await self.async_request_refresh()
             raise
         except GitError as err:
+            create_repository_layout_issue_from_error(
+                self.hass, self._entry_id, err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "restore", "error": str(err)}
             )
@@ -534,6 +582,8 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         except GitError as err:
             raise UpdateFailed(f"Error fetching git status: {err}") from err
 
+        auto_push_attempted = False
+
         # Auto-pull if enabled and remote has new commits
         if self._auto_pull and self._remote_configured and status.behind > 0:
             if self.git_lock.locked():
@@ -557,6 +607,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
 
             async with self.git_lock:
                 try:
+                    await async_ensure_repository_layout_safe(
+                        self.hass, self._entry_id, self.git_manager
+                    )
                     should_push_merged_history = self._auto_push and status.ahead > 0
                     pull_result = await self.git_manager.pull(
                         backup=True, validate=self.pre_deploy_validator()
@@ -585,6 +638,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         should_push_merged_history
                         and pull_result.commits_pulled > 0
                     ):
+                        auto_push_attempted = True
                         try:
                             commits_pushed = await self.git_manager.push(
                                 validate=self.pre_deploy_validator()
@@ -601,6 +655,10 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                                 auto=True,
                             )
                         except GitError as err:
+                            self.record_auto_push_failure()
+                            create_repository_layout_issue_from_error(
+                                self.hass, self._entry_id, err
+                            )
                             _LOGGER.warning(
                                 "Auto-push after divergent pull failed: %s",
                                 err,
@@ -643,13 +701,116 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         pass
 
                 except GitError as err:
+                    create_repository_layout_issue_from_error(
+                        self.hass, self._entry_id, err
+                    )
                     _LOGGER.warning("Auto-pull failed: %s", err)
                     self.hass.bus.async_fire(
                         EVENT_ERROR,
                         {"operation": "auto_pull", "error": str(err)},
                     )
 
-        return status
+        return await self._maybe_auto_push_committed_history(
+            status,
+            skip=auto_push_attempted,
+        )
+
+    async def _maybe_auto_push_committed_history(
+        self,
+        status: GitStatus,
+        *,
+        skip: bool,
+    ) -> GitStatus:
+        """Push a clean local ahead state, including external commits."""
+        if (
+            skip
+            or not self._auto_push
+            or not self._remote_configured
+            or status.dirty
+            or (status.ahead != -1 and status.ahead <= 0)
+            or (self._auto_pull and status.behind > 0)
+        ):
+            return status
+
+        now = datetime.now(tz=timezone.utc)
+        if self._last_auto_push_failure_time is not None:
+            elapsed = (now - self._last_auto_push_failure_time).total_seconds()
+            if elapsed < self._fetch_interval:
+                _LOGGER.debug("Skipping auto-push during failure backoff")
+                return status
+
+        if self.git_lock.locked():
+            _LOGGER.debug("Skipping auto-push: another git operation in progress")
+            return status
+
+        async with self.git_lock:
+            try:
+                refreshed = await self.git_manager.get_status()
+            except GitError:
+                return status
+
+            if (
+                refreshed.dirty
+                or (refreshed.ahead != -1 and refreshed.ahead <= 0)
+                or (self._auto_pull and refreshed.behind > 0)
+            ):
+                return refreshed
+
+            if self._blocked_remote_sha is not None and refreshed.behind > 0:
+                try:
+                    upstream_sha = await self.git_manager.get_upstream_sha()
+                except GitError:
+                    upstream_sha = ""
+                if upstream_sha == self._blocked_remote_sha:
+                    _LOGGER.debug(
+                        "Skipping auto-push: remote %s previously blocked by "
+                        "pre-deploy check",
+                        upstream_sha[:8],
+                    )
+                    return refreshed
+
+            try:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
+                commits_pushed = await self.git_manager.push(
+                    validate=self.pre_deploy_validator()
+                )
+                await self.async_record_push_time()
+            except PreDeployCheckError as err:
+                _LOGGER.warning(
+                    "Auto-push of committed history blocked by pre-deploy "
+                    "check: %s",
+                    err,
+                )
+                await self.async_handle_pre_deploy_failure(
+                    err.errors,
+                    auto=True,
+                )
+            except GitError as err:
+                self.record_auto_push_failure()
+                create_repository_layout_issue_from_error(
+                    self.hass, self._entry_id, err
+                )
+                _LOGGER.warning("Auto-push of committed history failed: %s", err)
+                self.hass.bus.async_fire(
+                    EVENT_ERROR,
+                    {"operation": "auto_push", "error": str(err)},
+                )
+            else:
+                self.hass.bus.async_fire(
+                    EVENT_PUSH,
+                    {"commits_pushed": commits_pushed, "auto": True},
+                )
+                _LOGGER.info(
+                    "Auto-push: %d existing commit(s) pushed to remote",
+                    commits_pushed,
+                )
+
+            try:
+                return await self.git_manager.get_status()
+            except GitError:
+                return refreshed
 
     async def _maybe_fetch(self) -> None:
         """Fetch from remote if the fetch interval has elapsed."""

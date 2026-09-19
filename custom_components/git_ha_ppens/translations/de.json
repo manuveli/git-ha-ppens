@@ -250,6 +250,10 @@
     "stale_index_lock": {
       "title": "Automatische Commits sind durch eine Git-Index-Sperre blockiert",
       "description": "git-ha-ppens konnte die veraltete Git-Index-Sperre unter `{lock_path}` nicht sicher entfernen. Automatische Commits bleiben blockiert, sodass lokale Konfigurationsänderungen möglicherweise nicht versioniert oder gepusht werden.\n\n1. Stelle sicher, dass für dieses Repository kein Git-Vorgang mehr läuft.\n2. Entferne `{lock_path}` über ein Terminal oder einen Datei-Editor.\n3. Warte auf das nächste Auto-Commit-Intervall oder ändere erneut eine Konfigurationsdatei.\n\nDieser Repair-Hinweis verschwindet automatisch, sobald git-ha-ppens bestätigt, dass die Sperre entfernt wurde."
+    },
+    "unsafe_repository_layout": {
+      "title": "Git-Vorgänge sind durch ein eingebettetes Repository blockiert",
+      "description": "git-ha-ppens hat ein nicht deklariertes eingebettetes Git-Repository oder einen Gitlink gefunden. Dessen Dateien können im äußeren Backup fehlen. Deshalb sind Commits, Pushes, Pulls, Restores und das Verwerfen von Änderungen blockiert.\n\nBetroffene Pfade:\n{paths}\n\n1. Stoppe die App, der das eingebettete Repository gehört (bei ESPHome das ESPHome-Add-on bzw. den Device Builder).\n2. Sichere das innere `.git`-Verzeichnis oder die `.git`-Datei, bevor du Änderungen vornimmst.\n3. Falls der Pfad versehentlich als Gitlink gespeichert wurde, entferne nur diesen Gitlink aus dem Index des äußeren Repositorys.\n4. Entferne oder verschiebe die inneren Git-Metadaten und füge die Dateien anschließend als normale Dateien zum äußeren Repository hinzu und committe sie.\n5. Starte ESPHome bzw. die besitzende App neu und lade danach git-ha-ppens neu.\n\nDeklarierte Submodule werden unterstützt, aber nicht rekursiv verwaltet. Dieser Repair-Hinweis verschwindet nach einer erfolgreichen erneuten Strukturprüfung."
     }
   },
   "services": {

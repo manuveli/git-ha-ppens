@@ -19,6 +19,10 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
+from .repository_layout import (
+    async_ensure_repository_layout_safe,
+    create_repository_layout_issue_from_error,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -267,6 +271,9 @@ class GitFileWatcher:
     async def _do_commit_and_push(self) -> None:
         """Execute the actual commit and push sequence."""
         try:
+            await async_ensure_repository_layout_safe(
+                self._hass, self._entry_id, self._git_manager
+            )
             message = None
             if self._ai_commit_enabled:
                 try:
@@ -325,6 +332,10 @@ class GitFileWatcher:
                             auto=True,
                         )
                     except GitError as push_err:
+                        self._coordinator.record_auto_push_failure()
+                        create_repository_layout_issue_from_error(
+                            self._hass, self._entry_id, push_err
+                        )
                         _LOGGER.error("Auto-push failed: %s", push_err)
                         self._hass.bus.async_fire(
                             EVENT_ERROR,
@@ -333,6 +344,9 @@ class GitFileWatcher:
 
                 await self._coordinator.async_request_refresh()
         except GitError as err:
+            create_repository_layout_issue_from_error(
+                self._hass, self._entry_id, err
+            )
             if isinstance(err, IndexLockError) and err.requires_repair:
                 create_stale_index_lock_issue(
                     self._hass,

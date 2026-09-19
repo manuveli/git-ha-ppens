@@ -233,6 +233,10 @@
     "stale_index_lock": {
       "title": "Les commits automatiques sont bloqués par un verrou d’index Git",
       "description": "git-ha-ppens n’a pas pu supprimer en toute sécurité le verrou d’index Git obsolète situé à `{lock_path}`. Les commits automatiques restent bloqués ; les modifications locales de configuration risquent donc de ne pas être validées ni envoyées.\n\n1. Vérifiez qu’aucune opération Git n’est en cours pour ce dépôt.\n2. Supprimez `{lock_path}` à l’aide d’un terminal ou d’un éditeur de fichiers.\n3. Attendez le prochain intervalle d’auto-commit ou effectuez une nouvelle modification de configuration.\n\nCette réparation disparaîtra automatiquement lorsque git-ha-ppens aura confirmé la disparition du verrou."
+    },
+    "unsafe_repository_layout": {
+      "title": "Les opérations Git sont bloquées par un dépôt imbriqué",
+      "description": "git-ha-ppens a détecté un dépôt Git imbriqué ou un Gitlink non déclaré. Ses fichiers peuvent manquer dans la sauvegarde externe ; les commits, push, pull, restaurations et annulations sont donc bloqués.\n\nChemins concernés :\n{paths}\n\n1. Arrêtez l’application propriétaire du dépôt imbriqué (pour ESPHome, arrêtez le module complémentaire ESPHome ou Device Builder).\n2. Sauvegardez le répertoire ou fichier `.git` interne avant toute modification.\n3. Si le chemin a été enregistré par erreur comme Gitlink, supprimez uniquement ce Gitlink de l’index du dépôt externe.\n4. Supprimez ou déplacez les métadonnées Git internes, puis ajoutez et validez les fichiers comme fichiers ordinaires dans le dépôt externe.\n5. Redémarrez ESPHome ou l’application propriétaire, puis rechargez git-ha-ppens.\n\nLes sous-modules déclarés sont pris en charge, mais ne sont pas gérés récursivement. Cette réparation disparaît après une vérification réussie de la structure."
     }
   },
   "services": {

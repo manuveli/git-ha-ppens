@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-19
+
+### Fixed
+- Detect and block undeclared embedded Git repositories, provide an actionable Home Assistant repair, and auto-push clean commits created by external tools such as ESPHome. ([#83](https://github.com/manuveli/git-ha-ppens/issues/83))
+
 ## [1.3.1] - 2026-09-09
 
 ### Fixed
@@ -251,6 +256,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.3.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.2.1...v1.2.2

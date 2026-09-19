@@ -230,6 +230,10 @@
     "stale_index_lock": {
       "title": "Os commits automáticos estão bloqueados por um bloqueio do índice Git",
       "description": "O git-ha-ppens não conseguiu remover em segurança o bloqueio obsoleto do índice Git em `{lock_path}`. Os commits automáticos continuam bloqueados, pelo que as alterações locais de configuração podem não ser incluídas num commit nem enviadas.\n\n1. Certifica-te de que não existe nenhuma operação Git em execução para este repositório.\n2. Remove `{lock_path}` através de um terminal ou editor de ficheiros.\n3. Aguarda o próximo intervalo de auto-commit ou efetua outra alteração de configuração.\n\nEsta reparação desaparecerá automaticamente quando o git-ha-ppens confirmar que o bloqueio já não existe."
+    },
+    "unsafe_repository_layout": {
+      "title": "As operações Git estão bloqueadas por um repositório incorporado",
+      "description": "O git-ha-ppens encontrou um repositório Git incorporado ou Gitlink não declarado. Os seus ficheiros podem não estar na cópia de segurança externa; por isso, commits, pushes, pulls, restauros e descartes estão bloqueados.\n\nCaminhos afetados:\n{paths}\n\n1. Para a aplicação proprietária do repositório incorporado (no ESPHome, para o complemento ESPHome ou o Device Builder).\n2. Faz uma cópia de segurança do diretório ou ficheiro `.git` interno antes de o alterar.\n3. Se o caminho foi guardado por engano como Gitlink, remove apenas esse Gitlink do índice do repositório externo.\n4. Remove ou move os metadados Git internos e adiciona e confirma os ficheiros como ficheiros normais no repositório externo.\n5. Reinicia o ESPHome ou a aplicação proprietária e recarrega o git-ha-ppens.\n\nOs submódulos declarados são suportados, mas não são geridos recursivamente. Esta reparação desaparece após uma verificação de estrutura bem-sucedida."
     }
   },
   "services": {

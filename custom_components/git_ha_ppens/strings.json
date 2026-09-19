@@ -250,6 +250,10 @@
     "stale_index_lock": {
       "title": "Automatic commits are blocked by a Git index lock",
       "description": "git-ha-ppens could not safely remove the stale Git index lock at `{lock_path}`. Automatic commits remain blocked, so local configuration changes may not be committed or pushed.\n\n1. Make sure no Git operation is currently running for this repository.\n2. Remove `{lock_path}` using a terminal or file editor.\n3. Wait for the next auto-commit interval or make another configuration change.\n\nThis repair will disappear automatically after git-ha-ppens confirms that the lock is gone."
+    },
+    "unsafe_repository_layout": {
+      "title": "Git operations are blocked by an embedded repository",
+      "description": "git-ha-ppens found an undeclared embedded Git repository or Gitlink. Its files may be missing from the outer backup, so commits, pushes, pulls, restores, and discards are blocked.\n\nAffected paths:\n{paths}\n\n1. Stop the app that owns the embedded repository (for ESPHome, stop the ESPHome add-on or Device Builder).\n2. Back up the inner `.git` directory or file before changing it.\n3. If the path was accidentally stored as a Gitlink, remove only that Gitlink from the outer repository index.\n4. Remove or relocate the inner Git metadata, then add and commit the files as regular files in the outer repository.\n5. Restart ESPHome or the owning app, then reload git-ha-ppens.\n\nDeclared submodules are supported but are not managed recursively. This repair disappears after a successful repository-layout check."
     }
   },
   "services": {
