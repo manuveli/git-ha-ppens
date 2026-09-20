@@ -8,7 +8,7 @@ import os
 import re
 import stat
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -212,6 +212,7 @@ class GitManager:
         *args: str,
         check: bool = True,
         capture_stderr: bool = True,
+        extra_env: Mapping[str, str] | None = None,
     ) -> str:
         """Run a git command and return stdout.
 
@@ -219,6 +220,7 @@ class GitManager:
             *args: Git command arguments (without 'git' prefix).
             check: If True, raise GitError on non-zero exit code.
             capture_stderr: If True, capture stderr for error messages.
+            extra_env: Environment overrides for this command.
 
         Returns:
             The stdout output of the command.
@@ -242,6 +244,7 @@ class GitManager:
                     "GIT_CONFIG_COUNT": "1",
                     "GIT_CONFIG_KEY_0": "safe.directory",
                     "GIT_CONFIG_VALUE_0": os.path.realpath(self._repo_path),
+                    **(extra_env or {}),
                 },
             )
             stdout_bytes, stderr_bytes = await process.communicate()

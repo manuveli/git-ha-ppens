@@ -236,7 +236,45 @@
     },
     "unsafe_repository_layout": {
       "title": "Les opérations Git sont bloquées par un dépôt imbriqué",
-      "description": "git-ha-ppens a détecté un dépôt Git imbriqué ou un Gitlink non déclaré. Ses fichiers peuvent manquer dans la sauvegarde externe ; les commits, push, pull, restaurations et annulations sont donc bloqués.\n\nChemins concernés :\n{paths}\n\n1. Arrêtez l’application propriétaire du dépôt imbriqué (pour ESPHome, arrêtez le module complémentaire ESPHome ou Device Builder).\n2. Sauvegardez le répertoire ou fichier `.git` interne avant toute modification.\n3. Si le chemin a été enregistré par erreur comme Gitlink, supprimez uniquement ce Gitlink de l’index du dépôt externe.\n4. Supprimez ou déplacez les métadonnées Git internes, puis ajoutez et validez les fichiers comme fichiers ordinaires dans le dépôt externe.\n5. Redémarrez ESPHome ou l’application propriétaire, puis rechargez git-ha-ppens.\n\nLes sous-modules déclarés sont pris en charge, mais ne sont pas gérés récursivement. Cette réparation disparaît après une vérification réussie de la structure."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Résoudre le dépôt Git imbriqué",
+            "description": "git-ha-ppens a volontairement arrêté les modifications, car des fichiers sous `{paths}` pourraient manquer dans la sauvegarde externe. Évaluation : `{reason}`. La migration automatique n’est proposée que pour un unique dépôt ESPHome Device Builder clairement identifié.",
+            "menu_options": {
+              "migrate_esphome": "Migrer le dépôt ESPHome",
+              "manual": "Réparer manuellement et revérifier"
+            }
+          },
+          "migrate_esphome": {
+            "title": "Migrer ESPHome dans le dépôt principal",
+            "description": "`/config/esphome/.git` sera déplacé dans un répertoire privé de récupération et les vrais fichiers ESPHome seront indexés dans le dépôt externe. L’historique interne est conservé sans être fusionné. Avant de continuer, désactivez **Settings → Expert mode → Save version history** ou arrêtez ESPHome. Évaluation : `{reason}`.",
+            "data": {
+              "confirm_esphome_stopped": "Je confirme qu’ESPHome est arrêté ou que Save version history est désactivé"
+            },
+            "data_description": {
+              "confirm_esphome_stopped": "Cela empêche ESPHome de recréer son dépôt pendant la migration atomique."
+            }
+          },
+          "manual": {
+            "title": "Réparer manuellement le dépôt imbriqué",
+            "description": "Chemins concernés : `{paths}`.\n\n1. Arrêtez l’application propriétaire et désactivez Save version history dans ESPHome.\n2. Sauvegardez le `.git` interne hors du dépôt externe.\n3. Si `git -C /config ls-files --stage -- esphome` affiche `160000`, exécutez `git -C /config rm --cached -f -- esphome`.\n4. Ignorez les secrets et données temporaires, déplacez `.git`, puis exécutez `git -C /config add -A -- esphome`.\n5. Vérifiez le mode `100644` et l’absence de `160000`, secrets, `.esphome/`, clés et fichiers d’appairage.\n6. Validez ou synchronisez, soumettez ce formulaire et conservez la sauvegarde jusqu’à la vérification du dépôt distant."
+          }
+        },
+        "error": {
+          "confirm_required": "Confirmez qu’ESPHome ne peut pas écrire l’historique des versions.",
+          "migration_failed": "L’état a changé ou ne satisfait pas toutes les règles de sécurité. Consultez les journaux et utilisez la réparation manuelle.",
+          "recheck_failed": "Le dépôt n’a pas pu être vérifié. Consultez les journaux et réessayez.",
+          "still_unsafe": "Un dépôt imbriqué ou Gitlink est encore présent. Terminez les étapes puis revérifiez."
+        },
+        "abort": {
+          "entry_removed": "L’entrée de configuration associée n’existe plus."
+        },
+        "create_entry": {
+          "migration_successful": "ESPHome est maintenant indexé comme fichiers ordinaires. La sauvegarde récupérable reste dans `{backup_path}`. Auto-Commit validera l’instantané s’il est actif ; sinon utilisez Commit ou Sync. Vérifiez le dépôt distant avant de supprimer la récupération, puis redémarrez ESPHome si nécessaire.",
+          "manual_fix_complete": "La structure du dépôt est sûre et git-ha-ppens va être rechargé. Vérifiez le dépôt distant avant de supprimer votre sauvegarde."
+        }
+      }
     }
   },
   "services": {

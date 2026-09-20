@@ -233,7 +233,45 @@
     },
     "unsafe_repository_layout": {
       "title": "Git işlemleri gömülü bir depo tarafından engellendi",
-      "description": "git-ha-ppens, bildirilmemiş gömülü bir Git deposu veya Gitlink buldu. Dosyaları dış yedekte eksik olabileceğinden commit, gönderme, çekme, geri yükleme ve değişiklikleri atma işlemleri engellendi.\n\nEtkilenen yollar:\n{paths}\n\n1. Gömülü deponun sahibi olan uygulamayı durdurun (ESPHome için ESPHome eklentisini veya Device Builder’ı durdurun).\n2. Değişiklik yapmadan önce içteki `.git` dizinini veya dosyasını yedekleyin.\n3. Yol yanlışlıkla Gitlink olarak kaydedildiyse yalnızca bu Gitlink’i dış deponun indeksinden kaldırın.\n4. İç Git meta verilerini kaldırın veya taşıyın, ardından dosyaları dış depoya normal dosyalar olarak ekleyip commit edin.\n5. ESPHome’u veya sahibi olan uygulamayı yeniden başlatın ve git-ha-ppens’i yeniden yükleyin.\n\nBildirilmiş alt modüller desteklenir ancak özyinelemeli olarak yönetilmez. Bu onarım başarılı bir yapı denetiminden sonra kaybolur."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Gömülü Git deposunu çözümle",
+            "description": "git-ha-ppens, `{paths}` altındaki dosyalar dış yedekte eksik kalabileceği için değişiklikleri bilerek durdurdu. Değerlendirme: `{reason}`. Otomatik geçiş yalnızca açıkça tanınan tek bir ESPHome Device Builder deposu için sunulur.",
+            "menu_options": {
+              "migrate_esphome": "ESPHome deposunu taşı",
+              "manual": "Elle düzelt ve yeniden denetle"
+            }
+          },
+          "migrate_esphome": {
+            "title": "ESPHome’u ana depoya taşı",
+            "description": "`/config/esphome/.git` özel bir kurtarma dizinine taşınır ve gerçek ESPHome dosyaları dış indekse eklenir. İç geçmiş korunur ve birleştirilmez. Devam etmeden önce **Settings → Expert mode → Save version history** seçeneğini kapatın veya ESPHome’u durdurun. Değerlendirme: `{reason}`.",
+            "data": {
+              "confirm_esphome_stopped": "ESPHome’un durduğunu veya Save version history seçeneğinin kapalı olduğunu onaylıyorum"
+            },
+            "data_description": {
+              "confirm_esphome_stopped": "Bu, atomik geçiş sırasında ESPHome’un depoyu yeniden oluşturmasını önler."
+            }
+          },
+          "manual": {
+            "title": "Gömülü depoyu elle düzelt",
+            "description": "Etkilenen yollar: `{paths}`.\n\n1. Sahip uygulamayı durdurun ve ESPHome’da Save version history seçeneğini kapatın.\n2. İç `.git` dizinini dış deponun dışında yedekleyin.\n3. `git -C /config ls-files --stage -- esphome` çıktısı `160000` gösteriyorsa `git -C /config rm --cached -f -- esphome` komutunu çalıştırın.\n4. Gizli ve çalışma zamanı verilerini yok sayın, `.git` dizinini taşıyın ve `git -C /config add -A -- esphome` komutunu çalıştırın.\n5. `100644` modunu ve `160000`, gizli dosya, `.esphome/`, anahtar veya eşleştirme dosyası bulunmadığını doğrulayın.\n6. Commit veya Sync yapın, bu formu gönderin ve uzaktaki dosyaları doğrulayana kadar yedeği saklayın."
+          }
+        },
+        "error": {
+          "confirm_required": "ESPHome’un sürüm geçmişi yazamayacağını onaylayın.",
+          "migration_failed": "Durum değişti veya tüm güvenlik koşulları sağlanmıyor. Günlükleri inceleyip elle düzeltme yolunu kullanın.",
+          "recheck_failed": "Depo denetlenemedi. Günlükleri inceleyip yeniden deneyin.",
+          "still_unsafe": "Gömülü depo veya Gitlink hâlâ mevcut. Adımları tamamlayıp yeniden denetleyin."
+        },
+        "abort": {
+          "entry_removed": "İlgili yapılandırma girdisi artık mevcut değil."
+        },
+        "create_entry": {
+          "migration_successful": "ESPHome artık normal dosyalar olarak indekslendi. Kurtarma kopyası `{backup_path}` konumunda duruyor. Auto-Commit etkinse anlık görüntüyü commit eder; değilse Commit veya Sync kullanın. Kurtarmayı silmeden önce uzak depoyu doğrulayın ve gerekiyorsa ESPHome’u yeniden başlatın.",
+          "manual_fix_complete": "Depo yapısı yeniden güvenli ve git-ha-ppens yeniden yüklenecek. Elle alınan yedeği silmeden önce uzak depoyu doğrulayın."
+        }
+      }
     }
   },
   "services": {

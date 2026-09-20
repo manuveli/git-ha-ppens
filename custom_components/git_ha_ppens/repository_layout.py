@@ -43,11 +43,12 @@ def create_unsafe_repository_layout_issue(
         hass,
         DOMAIN,
         unsafe_repository_layout_issue_id(entry_id),
-        is_fixable=False,
+        is_fixable=True,
         is_persistent=True,
         severity=ir.IssueSeverity.ERROR,
         translation_key=REPAIR_UNSAFE_REPOSITORY_LAYOUT,
         translation_placeholders={"paths": _format_repair_paths(paths)},
+        data={"entry_id": entry_id},
     )
 
 

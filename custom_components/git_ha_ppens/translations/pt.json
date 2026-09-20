@@ -233,7 +233,45 @@
     },
     "unsafe_repository_layout": {
       "title": "As operações Git estão bloqueadas por um repositório incorporado",
-      "description": "O git-ha-ppens encontrou um repositório Git incorporado ou Gitlink não declarado. Os seus ficheiros podem não estar na cópia de segurança externa; por isso, commits, pushes, pulls, restauros e descartes estão bloqueados.\n\nCaminhos afetados:\n{paths}\n\n1. Para a aplicação proprietária do repositório incorporado (no ESPHome, para o complemento ESPHome ou o Device Builder).\n2. Faz uma cópia de segurança do diretório ou ficheiro `.git` interno antes de o alterar.\n3. Se o caminho foi guardado por engano como Gitlink, remove apenas esse Gitlink do índice do repositório externo.\n4. Remove ou move os metadados Git internos e adiciona e confirma os ficheiros como ficheiros normais no repositório externo.\n5. Reinicia o ESPHome ou a aplicação proprietária e recarrega o git-ha-ppens.\n\nOs submódulos declarados são suportados, mas não são geridos recursivamente. Esta reparação desaparece após uma verificação de estrutura bem-sucedida."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Resolver o repositório Git incorporado",
+            "description": "O git-ha-ppens bloqueou intencionalmente as alterações porque ficheiros em `{paths}` podem faltar na cópia externa. Avaliação: `{reason}`. A migração automática só aparece para um único repositório ESPHome Device Builder claramente identificado.",
+            "menu_options": {
+              "migrate_esphome": "Migrar o repositório ESPHome",
+              "manual": "Reparar manualmente e verificar novamente"
+            }
+          },
+          "migrate_esphome": {
+            "title": "Migrar o ESPHome para o repositório principal",
+            "description": "`/config/esphome/.git` será movido para um diretório privado de recuperação e os ficheiros reais do ESPHome serão preparados no índice externo. O histórico interno é preservado sem ser combinado. Antes de continuar, desativa **Settings → Expert mode → Save version history** ou para o ESPHome. Avaliação: `{reason}`.",
+            "data": {
+              "confirm_esphome_stopped": "Confirmo que o ESPHome está parado ou que Save version history está desativado"
+            },
+            "data_description": {
+              "confirm_esphome_stopped": "Evita que o ESPHome recrie o repositório durante a migração atómica."
+            }
+          },
+          "manual": {
+            "title": "Reparar manualmente o repositório incorporado",
+            "description": "Caminhos afetados: `{paths}`.\n\n1. Para a aplicação proprietária e desativa Save version history no ESPHome.\n2. Guarda o `.git` interno fora do repositório externo.\n3. Se `git -C /config ls-files --stage -- esphome` mostrar `160000`, executa `git -C /config rm --cached -f -- esphome`.\n4. Ignora segredos e dados temporários, move `.git` e executa `git -C /config add -A -- esphome`.\n5. Confirma o modo `100644` e a ausência de `160000`, segredos, `.esphome/`, chaves e ficheiros de emparelhamento.\n6. Faz commit ou sincroniza, envia este formulário e mantém a cópia até verificares o remoto."
+          }
+        },
+        "error": {
+          "confirm_required": "Confirma que o ESPHome não pode escrever o histórico de versões.",
+          "migration_failed": "O estado mudou ou não cumpre todos os requisitos de segurança. Verifica os registos e usa a reparação manual.",
+          "recheck_failed": "Não foi possível verificar o repositório. Verifica os registos e tenta novamente.",
+          "still_unsafe": "Ainda existe um repositório incorporado ou Gitlink. Conclui os passos e verifica novamente."
+        },
+        "abort": {
+          "entry_removed": "A entrada de configuração relacionada já não existe."
+        },
+        "create_entry": {
+          "migration_successful": "O ESPHome está preparado como ficheiros normais. A cópia recuperável permanece em `{backup_path}`. O Auto-Commit fará o commit se estiver ativo; caso contrário usa Commit ou Sync. Verifica o remoto antes de apagar a recuperação e reinicia o ESPHome se necessário.",
+          "manual_fix_complete": "A estrutura do repositório está novamente segura e o git-ha-ppens será recarregado. Verifica o remoto antes de apagar a cópia manual."
+        }
+      }
     }
   },
   "services": {

@@ -327,7 +327,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, entry.entry_id, git_manager
         )
     except UnsafeRepositoryLayoutError as err:
-        raise ConfigEntryError(str(err)) from err
+        paths = ", ".join(err.paths[:5])
+        raise ConfigEntryError(
+            "Setup was intentionally blocked to prevent an incomplete Git "
+            "backup. Open Settings > System > Repairs and resolve the "
+            f"embedded repository ({paths})."
+        ) from None
     except GitError as err:
         raise ConfigEntryError(
             f"Could not verify the repository layout: {err}"
@@ -341,7 +346,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 create_repository_layout_issue_from_error(
                     hass, entry.entry_id, err
                 )
-                raise ConfigEntryError(str(err)) from err
+                paths = ", ".join(err.paths[:5])
+                raise ConfigEntryError(
+                    "Setup was intentionally blocked to prevent an incomplete "
+                    "Git backup. Open Settings > System > Repairs and resolve "
+                    f"the embedded repository ({paths})."
+                ) from None
             except GitError as err:
                 _LOGGER.warning("Failed to apply .gitignore: %s", err)
 

@@ -253,7 +253,45 @@
     },
     "unsafe_repository_layout": {
       "title": "Git operations are blocked by an embedded repository",
-      "description": "git-ha-ppens found an undeclared embedded Git repository or Gitlink. Its files may be missing from the outer backup, so commits, pushes, pulls, restores, and discards are blocked.\n\nAffected paths:\n{paths}\n\n1. Stop the app that owns the embedded repository (for ESPHome, stop the ESPHome add-on or Device Builder).\n2. Back up the inner `.git` directory or file before changing it.\n3. If the path was accidentally stored as a Gitlink, remove only that Gitlink from the outer repository index.\n4. Remove or relocate the inner Git metadata, then add and commit the files as regular files in the outer repository.\n5. Restart ESPHome or the owning app, then reload git-ha-ppens.\n\nDeclared submodules are supported but are not managed recursively. This repair disappears after a successful repository-layout check."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Resolve the embedded Git repository",
+            "description": "git-ha-ppens intentionally stopped Git mutations because files below `{paths}` might be missing from the outer backup. Assessment: `{reason}`.\n\nAutomatic migration is offered only for a single, clearly identified ESPHome Device Builder repository. All other layouts must be repaired manually.",
+            "menu_options": {
+              "migrate_esphome": "Migrate the ESPHome repository",
+              "manual": "Repair manually and recheck"
+            }
+          },
+          "migrate_esphome": {
+            "title": "Migrate ESPHome into the main repository",
+            "description": "This moves `/config/esphome/.git` into a private recovery directory below the outer Git metadata and stages the actual ESPHome files in the outer index. Existing inner history is retained in the recovery copy and is not merged. The operation will stop if the repositories or index no longer match the verified safe state.\n\nBefore continuing, disable **Settings → Expert mode → Save version history** in ESPHome or stop the ESPHome add-on/Device Builder. Current assessment: `{reason}`.",
+            "data": {
+              "confirm_esphome_stopped": "I confirm that ESPHome is stopped or Save version history is disabled"
+            },
+            "data_description": {
+              "confirm_esphome_stopped": "This prevents ESPHome from recreating its repository while the atomic migration is running."
+            }
+          },
+          "manual": {
+            "title": "Repair the embedded repository manually",
+            "description": "Affected paths: `{paths}`.\n\n1. Stop the app that owns the embedded repository. For ESPHome, first disable **Settings → Expert mode → Save version history** if available.\n2. Back up the inner `.git` directory outside the outer repository. Never delete it before checking the remote backup.\n3. If `git -C /config ls-files --stage -- esphome` shows mode `160000`, run `git -C /config rm --cached -f -- esphome`.\n4. Make sure secrets and runtime data are ignored, move the inner Git metadata aside, then run `git -C /config add -A -- esphome`.\n5. Confirm that YAML files use mode `100644`, while no `160000`, `secrets.yaml`, `.esphome/`, key, or pairing files are staged. Commit or sync the ESPHome path.\n6. Submit this form to recheck the layout. Keep the backup until the remote contains the expected files."
+          }
+        },
+        "error": {
+          "confirm_required": "Confirm that ESPHome cannot write version-history data before migrating.",
+          "migration_failed": "The repository changed or did not meet every safety requirement. Nothing was intentionally published; review the logs and use the manual repair path.",
+          "recheck_failed": "The repository layout could not be checked. Review the Home Assistant logs and try again.",
+          "still_unsafe": "An embedded repository or Gitlink is still present. Complete the manual steps, then recheck."
+        },
+        "abort": {
+          "entry_removed": "The related git-ha-ppens configuration entry no longer exists."
+        },
+        "create_entry": {
+          "migration_successful": "ESPHome is now staged as regular files in the outer repository. The original inner Git metadata and an outer-index snapshot remain at `{backup_path}`. Auto-Commit will commit the snapshot when enabled; otherwise use Commit or Sync. Verify the remote backup before removing the recovery directory manually, then restart ESPHome if it was stopped.",
+          "manual_fix_complete": "The repository layout is safe again. git-ha-ppens has scheduled a reload. Verify that the expected ESPHome files reach the remote before removing your manual backup."
+        }
+      }
     }
   },
   "services": {

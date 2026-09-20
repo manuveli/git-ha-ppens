@@ -236,7 +236,45 @@
     },
     "unsafe_repository_layout": {
       "title": "Las operaciones de Git están bloqueadas por un repositorio integrado",
-      "description": "git-ha-ppens encontró un repositorio Git integrado o Gitlink no declarado. Sus archivos podrían faltar en la copia de seguridad externa, por lo que se bloquean los commits, envíos, descargas, restauraciones y descartes.\n\nRutas afectadas:\n{paths}\n\n1. Detén la aplicación propietaria del repositorio integrado (para ESPHome, detén el complemento ESPHome o Device Builder).\n2. Haz una copia de seguridad del directorio o archivo `.git` interno antes de modificarlo.\n3. Si la ruta se guardó accidentalmente como Gitlink, elimina solo ese Gitlink del índice del repositorio externo.\n4. Elimina o mueve los metadatos Git internos y añade y confirma los archivos como archivos normales en el repositorio externo.\n5. Reinicia ESPHome o la aplicación propietaria y vuelve a cargar git-ha-ppens.\n\nLos submódulos declarados son compatibles, pero no se administran de forma recursiva. Esta reparación desaparece tras una comprobación correcta de la estructura."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Resolver el repositorio Git integrado",
+            "description": "git-ha-ppens detuvo intencionadamente las modificaciones porque podrían faltar archivos de `{paths}` en la copia externa. Evaluación: `{reason}`. La migración automática solo aparece para un único repositorio de ESPHome Device Builder identificado claramente.",
+            "menu_options": {
+              "migrate_esphome": "Migrar el repositorio de ESPHome",
+              "manual": "Reparar manualmente y volver a comprobar"
+            }
+          },
+          "migrate_esphome": {
+            "title": "Migrar ESPHome al repositorio principal",
+            "description": "Se moverá `/config/esphome/.git` a un directorio privado de recuperación y se prepararán los archivos reales de ESPHome en el índice externo. El historial interno se conserva y no se combina. Antes de continuar, desactiva **Settings → Expert mode → Save version history** o detén ESPHome. Evaluación: `{reason}`.",
+            "data": {
+              "confirm_esphome_stopped": "Confirmo que ESPHome está detenido o que Save version history está desactivado"
+            },
+            "data_description": {
+              "confirm_esphome_stopped": "Evita que ESPHome vuelva a crear el repositorio durante la migración atómica."
+            }
+          },
+          "manual": {
+            "title": "Reparar manualmente el repositorio integrado",
+            "description": "Rutas afectadas: `{paths}`.\n\n1. Detén la aplicación propietaria y, en ESPHome, desactiva Save version history.\n2. Guarda el `.git` interno fuera del repositorio externo.\n3. Si `git -C /config ls-files --stage -- esphome` muestra `160000`, ejecuta `git -C /config rm --cached -f -- esphome`.\n4. Ignora secretos y datos de ejecución, mueve `.git` y ejecuta `git -C /config add -A -- esphome`.\n5. Verifica modos `100644` y que no se preparen `160000`, secretos, `.esphome/`, claves ni archivos de emparejamiento.\n6. Confirma o sincroniza, envía este formulario y conserva la copia hasta comprobar el remoto."
+          }
+        },
+        "error": {
+          "confirm_required": "Confirma que ESPHome no puede escribir el historial de versiones.",
+          "migration_failed": "El estado cambió o no cumple todos los requisitos de seguridad. Revisa los registros y usa la reparación manual.",
+          "recheck_failed": "No se pudo comprobar el repositorio. Revisa los registros e inténtalo de nuevo.",
+          "still_unsafe": "Todavía existe un repositorio integrado o Gitlink. Completa los pasos y vuelve a comprobar."
+        },
+        "abort": {
+          "entry_removed": "La entrada de configuración relacionada ya no existe."
+        },
+        "create_entry": {
+          "migration_successful": "ESPHome está preparado como archivos normales. La copia recuperable permanece en `{backup_path}`. Auto-Commit confirmará la instantánea si está activo; de lo contrario usa Commit o Sync. Comprueba el remoto antes de borrar la recuperación y reinicia ESPHome si lo detuviste.",
+          "manual_fix_complete": "La estructura vuelve a ser segura y git-ha-ppens se recargará. Comprueba el remoto antes de borrar la copia manual."
+        }
+      }
     }
   },
   "services": {

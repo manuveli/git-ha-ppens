@@ -587,22 +587,101 @@ themselves.
 
 git-ha-ppens detects nested `.git` directories, `.git` files, and indexed
 Gitlinks before changing repository contents or history. It blocks setup and
-runtime mutations with a Home Assistant repair rather than modifying another
-app's Git metadata automatically. Follow the repair in this order:
+runtime mutations with a Home Assistant repair. This setup error is an
+intentional safety stop, not a crash: open **Settings → System → Repairs**.
 
-1. Stop ESPHome or the app that owns the embedded repository.
-2. Back up its inner `.git` directory or `.git` file.
-3. If the outer repository indexed the path as a Gitlink, remove only that
-   Gitlink from the outer index.
-4. Remove or relocate the inner Git metadata, then add and commit the actual
-   files as regular files in the outer repository.
-5. Restart the owning app and reload git-ha-ppens. For ESPHome, its log should
-   report the parent work tree, normally `/config`.
+The repair offers a reversible **Migrate the ESPHome repository** action only
+when it can prove that exactly `/config/esphome/.git` is a simple Device
+Builder-managed repository. It refuses repositories with remotes, submodules,
+extra worktrees, active Git operations or locks, ignored `esphome/` paths,
+missing ignore rules for known secrets and Device Builder runtime state,
+unexpected index entries, or ambiguous ownership. Before confirming the
+migration, either stop ESPHome or disable **Settings → Expert mode → Save
+version history**. The repair then:
+
+1. moves the inner `.git` directory atomically into a private
+   `.git/git-ha-ppens-recovery/...` directory instead of deleting it;
+2. prepares the real ESPHome files in a separate temporary Git index;
+3. rejects Gitlinks, secrets, `.esphome/`, key files, and pairing files;
+4. publishes the prepared index only if the real outer index is unchanged.
+
+The success screen shows the recovery path. Keep that directory until you
+have verified the ESPHome YAML files in the remote repository. With Auto-Commit
+enabled, the staged snapshot is committed normally; otherwise use **Commit**
+or **Sync**. The inner commit history is retained in the recovery copy but is
+not merged into the outer history.
+
+If automatic migration is unavailable, use the repair's manual recheck after
+the following procedure. The
+[official Terminal & SSH add-on](https://github.com/home-assistant/addons/blob/master/ssh/config.yaml)
+mounts `/backup` writable, which makes it a suitable recovery location:
+
+```bash
+git -C /config rev-parse --show-toplevel
+git -C /config/esphome rev-parse --show-toplevel
+git -C /config/esphome status --short
+git -C /config/esphome log --oneline -n 10
+git -C /config ls-files --stage -- esphome
+```
+
+Disable ESPHome version history where available and stop ESPHome. Then preserve
+the inner repository outside `/config`:
+
+```bash
+esphome_backup="/backup/esphome-git-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$esphome_backup"
+mv /config/esphome/.git "$esphome_backup/dot-git"
+```
+
+Only when the first check showed mode `160000` for `esphome`, remove that
+Gitlink from the outer index:
+
+```bash
+git -C /config rm --cached -f -- esphome
+```
+
+Before staging, verify that sensitive and runtime paths are ignored:
+
+```bash
+git -C /config check-ignore -v --no-index -- \
+  esphome/secrets.yaml \
+  esphome/.esphome/ \
+  esphome/.device-builder.json \
+  esphome/.device-builder-peer-link-key.bin \
+  esphome/.receiver_peers.json \
+  esphome/.offloader_pairings.json
+```
+
+Add missing ignore rules first. Then stage and inspect only the ESPHome path:
+
+```bash
+git -C /config add -A -- esphome
+git -C /config status --short -- esphome
+git -C /config ls-files --stage -- esphome
+```
+
+YAML files should have mode `100644`; no `160000`, `secrets.yaml`, `.esphome/`,
+key, or pairing files may appear. Commit the verified path, reload
+git-ha-ppens, restart ESPHome, and confirm that ESPHome now resolves the parent
+work tree:
+
+```bash
+git -C /config commit -m "fix: track ESPHome configuration in main repository" -- esphome
+git -C /config/esphome rev-parse --show-toplevel
+```
+
+The expected final output is `/config`. If it is `/config/esphome` again,
+`esphome/` is usually ignored by the outer repository. Keep the recovery copy
+until the remote backup has been verified.
 
 Repositories excluded by the outer `.gitignore` do not block git-ha-ppens.
 Correctly declared Git submodules are also allowed for compatibility, but
 git-ha-ppens does not commit, pull, push, or otherwise manage their contents
 recursively.
+
+For manual installations, also verify that the integration directory is named
+`/config/custom_components/git_ha_ppens`; `/config/custom_components/githappens`
+is not the supported component path and is unrelated to the Git collision.
 </details>
 
 <details>

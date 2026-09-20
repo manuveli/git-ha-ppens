@@ -11,19 +11,29 @@ from homeassistant.core import HomeAssistant
 from .const import (
     CONF_AUTH_TOKEN,
     CONF_AUTH_USERNAME,
+    CONF_GIT_EMAIL,
+    CONF_GIT_USER,
     CONF_REMOTE_URL,
+    CONF_REPO_PATH,
     CONF_SSH_KEY_PATH,
     DOMAIN,
 )
 from .git_manager import GitError, GitManager
+from .repository_migration import async_assess_esphome_repository_migration
 
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     git_manager: GitManager | None = entry_data.get("git_manager")
+    if git_manager is None:
+        git_manager = GitManager(
+            entry.data[CONF_REPO_PATH],
+            entry.data.get(CONF_GIT_USER, ""),
+            entry.data.get(CONF_GIT_EMAIL, ""),
+        )
     file_watcher = entry_data.get("file_watcher")
 
     diagnostics: dict[str, Any] = {
@@ -52,6 +62,15 @@ async def async_get_config_entry_diagnostics(
             unsafe_repository_paths = []
             repository_layout_safe = None
 
+        migration_assessment = (
+            await async_assess_esphome_repository_migration(
+                git_manager,
+                unsafe_repository_paths
+                if repository_layout_safe is not None
+                else None,
+            )
+        )
+
         diagnostics["git"] = {
             "version": await git_manager.get_git_version(),
             "repo_initialized": await git_manager.is_repo_initialized(),
@@ -60,6 +79,10 @@ async def async_get_config_entry_diagnostics(
             "uid_mismatch": uid_mismatch,
             "repository_layout_safe": repository_layout_safe,
             "repository_layout_unsafe_paths": unsafe_repository_paths,
+            "repository_layout_migration_eligible": (
+                migration_assessment.eligible
+            ),
+            "repository_layout_migration_reason": migration_assessment.reason,
         }
 
         # Current status

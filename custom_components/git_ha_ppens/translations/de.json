@@ -253,7 +253,45 @@
     },
     "unsafe_repository_layout": {
       "title": "Git-Vorgänge sind durch ein eingebettetes Repository blockiert",
-      "description": "git-ha-ppens hat ein nicht deklariertes eingebettetes Git-Repository oder einen Gitlink gefunden. Dessen Dateien können im äußeren Backup fehlen. Deshalb sind Commits, Pushes, Pulls, Restores und das Verwerfen von Änderungen blockiert.\n\nBetroffene Pfade:\n{paths}\n\n1. Stoppe die App, der das eingebettete Repository gehört (bei ESPHome das ESPHome-Add-on bzw. den Device Builder).\n2. Sichere das innere `.git`-Verzeichnis oder die `.git`-Datei, bevor du Änderungen vornimmst.\n3. Falls der Pfad versehentlich als Gitlink gespeichert wurde, entferne nur diesen Gitlink aus dem Index des äußeren Repositorys.\n4. Entferne oder verschiebe die inneren Git-Metadaten und füge die Dateien anschließend als normale Dateien zum äußeren Repository hinzu und committe sie.\n5. Starte ESPHome bzw. die besitzende App neu und lade danach git-ha-ppens neu.\n\nDeklarierte Submodule werden unterstützt, aber nicht rekursiv verwaltet. Dieser Repair-Hinweis verschwindet nach einer erfolgreichen erneuten Strukturprüfung."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Eingebettetes Git-Repository auflösen",
+            "description": "git-ha-ppens hat Git-Änderungen absichtlich gestoppt, weil Dateien unter `{paths}` im äußeren Backup fehlen könnten. Prüfergebnis: `{reason}`.\n\nDie automatische Migration wird nur für genau ein eindeutig erkanntes ESPHome-Device-Builder-Repository angeboten. Alle anderen Strukturen müssen manuell bereinigt werden.",
+            "menu_options": {
+              "migrate_esphome": "ESPHome-Repository migrieren",
+              "manual": "Manuell beheben und erneut prüfen"
+            }
+          },
+          "migrate_esphome": {
+            "title": "ESPHome in das Haupt-Repository migrieren",
+            "description": "Dabei wird `/config/esphome/.git` in ein privates Recovery-Verzeichnis unter den äußeren Git-Metadaten verschoben und die tatsächlichen ESPHome-Dateien werden im äußeren Index gestagt. Die innere Historie bleibt in der Recovery-Kopie erhalten und wird nicht zusammengeführt. Sobald Repository oder Index nicht mehr dem geprüften sicheren Zustand entsprechen, bricht der Vorgang ab.\n\nDeaktiviere vor dem Fortfahren in ESPHome **Settings → Expert mode → Save version history** oder stoppe das ESPHome-Add-on bzw. den Device Builder. Aktuelles Prüfergebnis: `{reason}`.",
+            "data": {
+              "confirm_esphome_stopped": "Ich bestätige, dass ESPHome gestoppt oder „Save version history“ deaktiviert ist"
+            },
+            "data_description": {
+              "confirm_esphome_stopped": "Dadurch kann ESPHome sein Repository während der atomaren Migration nicht neu anlegen."
+            }
+          },
+          "manual": {
+            "title": "Eingebettetes Repository manuell beheben",
+            "description": "Betroffene Pfade: `{paths}`.\n\n1. Stoppe die App, der das eingebettete Repository gehört. Deaktiviere bei ESPHome nach Möglichkeit zuerst **Settings → Expert mode → Save version history**.\n2. Sichere das innere `.git`-Verzeichnis außerhalb des äußeren Repositorys. Lösche es niemals, bevor das Remote-Backup geprüft wurde.\n3. Zeigt `git -C /config ls-files --stage -- esphome` den Modus `160000`, führe `git -C /config rm --cached -f -- esphome` aus.\n4. Stelle sicher, dass Secrets und Laufzeitdaten ignoriert werden, verschiebe die inneren Git-Metadaten und führe danach `git -C /config add -A -- esphome` aus.\n5. Prüfe, dass YAML-Dateien den Modus `100644` haben und weder `160000` noch `secrets.yaml`, `.esphome/`, Schlüssel- oder Pairing-Dateien gestagt sind. Committe oder synchronisiere den ESPHome-Pfad.\n6. Sende dieses Formular zur erneuten Prüfung ab. Behalte das Backup, bis das Remote die erwarteten Dateien enthält."
+          }
+        },
+        "error": {
+          "confirm_required": "Bestätige vor der Migration, dass ESPHome keine Versionshistorie schreiben kann.",
+          "migration_failed": "Das Repository hat sich geändert oder erfüllt nicht mehr alle Sicherheitsanforderungen. Es wurde absichtlich nichts veröffentlicht. Prüfe die Logs und nutze den manuellen Reparaturweg.",
+          "recheck_failed": "Die Repository-Struktur konnte nicht geprüft werden. Prüfe die Home-Assistant-Logs und versuche es erneut.",
+          "still_unsafe": "Ein eingebettetes Repository oder ein Gitlink ist weiterhin vorhanden. Schließe die manuellen Schritte ab und prüfe erneut."
+        },
+        "abort": {
+          "entry_removed": "Der zugehörige git-ha-ppens-Konfigurationseintrag existiert nicht mehr."
+        },
+        "create_entry": {
+          "migration_successful": "ESPHome ist jetzt als normale Dateien im äußeren Repository gestagt. Die ursprünglichen inneren Git-Metadaten und eine Kopie des äußeren Index liegen weiterhin unter `{backup_path}`. Bei aktiviertem Auto-Commit wird der Snapshot automatisch committet; andernfalls nutze Commit oder Sync. Prüfe das Remote-Backup, bevor du das Recovery-Verzeichnis manuell entfernst, und starte anschließend ESPHome neu, falls es gestoppt wurde.",
+          "manual_fix_complete": "Die Repository-Struktur ist wieder sicher. git-ha-ppens wird neu geladen. Prüfe, ob die erwarteten ESPHome-Dateien das Remote erreichen, bevor du dein manuelles Backup entfernst."
+        }
+      }
     }
   },
   "services": {
