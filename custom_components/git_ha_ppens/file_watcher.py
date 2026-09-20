@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant
@@ -79,6 +80,7 @@ class _ChangeCollector(FileSystemEventHandler):
         """Check if a path should be ignored based on .gitignore contents."""
         path_obj = Path(path)
         parts = path_obj.parts
+        relative_parts = Path(self._get_relative_path(path)).parts
 
         # Always ignore the .git directory itself
         if ".git" in parts:
@@ -88,6 +90,18 @@ class _ChangeCollector(FileSystemEventHandler):
         self._load_gitignore()
 
         for pattern in self._ignore_patterns:
+            # Root-relative path globs such as "backups/*.tar" should match
+            # only files at that exact depth, not nested or similarly named
+            # directories elsewhere in the repository.
+            if "/" in pattern:
+                pattern_parts = Path(pattern.lstrip("/")).parts
+                if len(relative_parts) == len(pattern_parts) and all(
+                    fnmatchcase(path_part, pattern_part)
+                    for path_part, pattern_part in zip(
+                        relative_parts, pattern_parts, strict=True
+                    )
+                ):
+                    return True
             # Check directory names (e.g. ".storage", "deps")
             if pattern in parts:
                 return True

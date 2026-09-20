@@ -15,6 +15,10 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 
 from .ai_commit import async_generate_ai_commit_message
+from .backup_gitignore import (
+    async_migrate_backup_gitignore,
+    is_core_config_repository,
+)
 from .const import (
     ATTR_MESSAGE,
     AUTH_SSH,
@@ -38,6 +42,7 @@ from .const import (
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
     CONF_SSH_KEY_PATH,
+    CORE_BACKUP_GITIGNORE_ENTRIES,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
@@ -312,8 +317,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not gitignore_initialized:
         try:
             skip_defaults = data.get(CONF_GITIGNORE_CUSTOM, False)
+            additional_entries = (
+                CORE_BACKUP_GITIGNORE_ENTRIES
+                if is_core_config_repository(hass, repo_path)
+                else ()
+            )
             gitignore_updated = await git_manager.setup_gitignore(
-                skip_defaults=skip_defaults
+                skip_defaults=skip_defaults,
+                additional_entries=additional_entries,
             )
             if gitignore_updated:
                 _LOGGER.info("Updated .gitignore with security defaults")
@@ -358,6 +369,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(
             entry, data={**data, CONF_GITIGNORE_INITIALIZED: True}
         )
+
+    await async_migrate_backup_gitignore(hass, entry, git_manager)
 
     # Configure remote if specified (must happen BEFORE initial commit so push works)
     remote_url = data.get(CONF_REMOTE_URL, "")

@@ -8,7 +8,7 @@ import os
 import re
 import stat
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1591,11 +1591,26 @@ class GitManager:
         except GitError:
             return ""
 
-    async def setup_gitignore(self, skip_defaults: bool = False) -> bool:
+    async def setup_gitignore(
+        self,
+        skip_defaults: bool = False,
+        additional_entries: Sequence[str] = (),
+    ) -> bool:
         """Create or update .gitignore with security defaults."""
-        return await asyncio.to_thread(self._setup_gitignore_sync, skip_defaults)
+        try:
+            return await asyncio.to_thread(
+                self._setup_gitignore_sync,
+                skip_defaults,
+                additional_entries,
+            )
+        except OSError as err:
+            raise GitError(f"Could not update .gitignore: {err}") from err
 
-    def _setup_gitignore_sync(self, skip_defaults: bool = False) -> bool:
+    def _setup_gitignore_sync(
+        self,
+        skip_defaults: bool = False,
+        additional_entries: Sequence[str] = (),
+    ) -> bool:
         """Synchronous implementation of setup_gitignore."""
         if skip_defaults:
             # User manages .gitignore via UI; don't append defaults
@@ -1616,7 +1631,7 @@ class GitManager:
             content = ""
 
         entries_to_add: list[str] = []
-        for entry in DEFAULT_GITIGNORE_ENTRIES:
+        for entry in (*DEFAULT_GITIGNORE_ENTRIES, *additional_entries):
             clean = entry.strip()
             if not clean or clean.startswith("#"):
                 if not existing_entries:
@@ -1638,6 +1653,101 @@ class GitManager:
             return True
 
         return False
+
+    async def get_unignored_gitignore_patterns(
+        self,
+        pattern_probes: Mapping[str, str],
+    ) -> list[str]:
+        """Return patterns whose representative path is not ignored by Git."""
+        missing: list[str] = []
+        for pattern, probe_path in pattern_probes.items():
+            if not await self._is_path_ignored(probe_path):
+                missing.append(pattern)
+        return missing
+
+    @staticmethod
+    def _append_gitignore_patterns_sync(
+        gitignore_path: Path,
+        patterns: Sequence[str],
+        comment: str,
+    ) -> None:
+        """Append a bounded group of missing patterns to .gitignore."""
+        try:
+            content = gitignore_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            content = ""
+
+        if content and not content.endswith("\n"):
+            content += "\n"
+        if content:
+            content += "\n"
+        content += f"{comment}\n"
+        content += "\n".join(patterns) + "\n"
+        gitignore_path.write_text(content, encoding="utf-8")
+
+    async def ensure_gitignore_patterns(
+        self,
+        pattern_probes: Mapping[str, str],
+        *,
+        comment: str,
+    ) -> list[str]:
+        """Append only patterns not already covered by existing ignore rules."""
+        missing = await self.get_unignored_gitignore_patterns(pattern_probes)
+        if not missing:
+            return []
+
+        gitignore_path = Path(self._repo_path) / ".gitignore"
+        try:
+            await asyncio.to_thread(
+                self._append_gitignore_patterns_sync,
+                gitignore_path,
+                missing,
+                comment,
+            )
+        except OSError as err:
+            raise GitError(f"Could not update .gitignore: {err}") from err
+
+        _LOGGER.info(
+            "Added %d missing pattern(s) to %s",
+            len(missing),
+            gitignore_path,
+        )
+        return missing
+
+    async def untrack_matching_files(
+        self,
+        patterns: Sequence[str],
+    ) -> list[str]:
+        """Remove root-relative glob matches from the index, never from disk."""
+        await self.assert_repository_layout_safe()
+        tracked_files: set[str] = set()
+        for pattern in patterns:
+            output = await self._run_git(
+                "ls-files",
+                "-z",
+                "--",
+                f":(top,glob){pattern}",
+            )
+            tracked_files.update(path for path in output.split("\x00") if path)
+
+        sorted_files = sorted(tracked_files)
+        for offset in range(0, len(sorted_files), 100):
+            batch = sorted_files[offset : offset + 100]
+            await self._run_git(
+                "rm",
+                "--cached",
+                "-f",
+                "--",
+                *batch,
+            )
+
+        if sorted_files:
+            _LOGGER.warning(
+                "Removed %d ignored backup archive(s) from the Git index; "
+                "files on disk were preserved",
+                len(sorted_files),
+            )
+        return sorted_files
 
     async def apply_gitignore(self) -> None:
         """Remove tracked files that are now covered by .gitignore.

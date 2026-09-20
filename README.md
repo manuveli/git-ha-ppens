@@ -109,6 +109,7 @@
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
+- 📦 **Core/Container backup protection** excludes HA-created `.tar` archives without hiding other files in a user-created `backups` directory
 - 🔍 **Best-effort secret warning** checks staged or modified configuration files when the integration loads
 - 🔔 Fires a `git_ha_ppens_secret_detected` event when potential secrets are found
 - ⚠️ Secret warnings do not block commits or pushes and are not a substitute for a carefully maintained `.gitignore`
@@ -503,6 +504,7 @@ addition to dashboard configuration.
 | Category | Entries |
 |----------|---------|
 | **Sensitive files** | `secrets.yaml`, `.storage/`, `.cloud/`, `tls/`, `.ssh/`, `.jwt_secret`, `SERVICE_ACCOUNT.json` |
+| **HA Core/Container backups** | `backups/*.tar`, `tmp_backups/*.tar` *(only for the live HA config repository on installations without Supervisor)* |
 | **Databases & logs** | `*.db`, `*.db-shm`, `*.db-wal`, `*.log`, `home-assistant_v2.db`, `home-assistant.log*`, `zigbee.db`, `OZW_Log.txt` |
 | **System files** | `.HA_VERSION`, `known_devices.yaml`, `ip_bans.yaml` |
 | **Python cache** | `__pycache__/`, `*.pyc`, `*.pyo` |
@@ -511,6 +513,33 @@ addition to dashboard configuration.
 | **Editor swap files** | `*.swp`, `*.swo` |
 
 > 📌 Defaults are applied once during initial setup. After that, you can freely edit `.gitignore` — your changes will be preserved across restarts.
+
+Home Assistant Core and Container installations store locally created backup
+archives below the configuration directory. These compressed `.tar` files can
+contain the complete configuration and, depending on the backup, the database;
+they are large, binary, and potentially highly sensitive. When the configured
+repository is the live Home Assistant configuration directory and no Supervisor
+is present, git-ha-ppens therefore adds the precise root-relative patterns
+`backups/*.tar` and `tmp_backups/*.tar`. Home Assistant OS/Supervised uses its
+separate Supervisor backup storage, and repositories outside the live config
+directory are not changed. Files such as `backups/notes.yaml`, nested files, and
+similarly named directories elsewhere remain trackable.
+
+Existing installations receive the same protection through a versioned
+one-time migration. A git-ha-ppens-managed `.gitignore` is extended only when
+Git confirms that its existing rules do not already cover the archives. Matching
+archives that were already tracked are removed only from the Git index; the
+files on disk and unrelated staged, unstaged, or untracked changes are preserved.
+For a manually managed `.gitignore`, git-ha-ppens never adds rules: it logs a
+warning that names any missing pattern and points to **Configure → Edit
+.gitignore**.
+
+> ⚠️ Removing an archive from the index affects future commits only. It does
+> not remove data from existing local or remote Git history. If a backup archive
+> was already pushed, inspect the repository history and assume credentials in
+> the archive may have been exposed. Rotate affected credentials and clean the
+> history using an appropriate manual process if necessary. git-ha-ppens never
+> rewrites history or force-pushes this migration.
 
 ---
 

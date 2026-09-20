@@ -28,6 +28,7 @@ CONF_FETCH_INTERVAL: Final = "fetch_interval"
 CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
 CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
 CONF_GITIGNORE_INITIALIZED: Final = "gitignore_initialized"
+CONF_GITIGNORE_MIGRATION_VERSION: Final = "gitignore_migration_version"
 CONF_PRE_DEPLOY_CHECK: Final = "pre_deploy_check"
 CONF_RESTORE_TARGET: Final = "restore_target"
 CONF_RESTORE_CONFIRM: Final = "restore_confirm"
@@ -51,6 +52,7 @@ DEFAULT_PRE_DEPLOY_CHECK: Final = False
 RESTORE_HISTORY_LIMIT: Final = 20
 RESTORE_PREVIEW_COMMIT_LIMIT: Final = 20
 RESTORE_PREVIEW_FILE_LIMIT: Final = 50
+GITIGNORE_MIGRATION_VERSION: Final = 1
 
 # Persistent runtime storage
 STORAGE_VERSION: Final = 1
@@ -279,6 +281,23 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     "# Claude Code",
     "CLAUDE.md",
 ]
+
+# Home Assistant Core/Container writes local backup archives below the config
+# directory. Home Assistant OS/Supervised stores backups outside that directory,
+# so these entries are added only after the installation type is checked.
+CORE_BACKUP_GITIGNORE_PATTERNS: Final = (
+    "backups/*.tar",
+    "tmp_backups/*.tar",
+)
+CORE_BACKUP_GITIGNORE_ENTRIES: Final = (
+    "",
+    "# Home Assistant Core/Container backup archives",
+    *CORE_BACKUP_GITIGNORE_PATTERNS,
+)
+CORE_BACKUP_GITIGNORE_PROBES: Final = {
+    "backups/*.tar": "backups/.git-ha-ppens-ignore-probe.tar",
+    "tmp_backups/*.tar": "tmp_backups/.git-ha-ppens-ignore-probe.tar",
+}
 
 # Secret detection patterns (regex)
 SECRET_PATTERNS: Final = [
