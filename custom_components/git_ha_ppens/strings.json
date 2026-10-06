@@ -80,8 +80,35 @@
         "menu_options": {
           "general": "General Settings",
           "gitignore": "Edit .gitignore",
+          "sops": "SOPS Secrets Encryption",
           "restore": "Restore configuration"
         }
+      },
+      "sops": {
+        "title": "SOPS Secrets Encryption",
+        "description": "Configure SOPS (Secrets OPerationS) with age to securely encrypt secrets.yaml and ESPHome secrets for GitOps.",
+        "data": {
+          "sops_enabled": "Enable SOPS encryption",
+          "generate_key": "Generate a new age key pair automatically",
+          "confirm_replace_key": "I understand this will replace the existing age key",
+          "sops_age_key": "Age secret key",
+          "sops_age_recipient": "Age public recipient",
+          "sops_secrets_files": "Secrets files and glob patterns (one per line)",
+          "sops_binary_path": "Custom SOPS binary path (optional)"
+        },
+        "data_description": {
+          "sops_enabled": "When enabled, secrets.yaml is encrypted to secrets.enc.yaml before git commits, and decrypted after git pulls.",
+          "generate_key": "Check this to generate a new X25519 age key pair right now.",
+          "confirm_replace_key": "Required when an age secret key is already configured. Existing secrets are re-encrypted for the new recipient before the old key is discarded, but you must still keep the newly generated key safe -- anything encrypted before this change and not yet re-synced elsewhere will only decrypt with the OLD key.",
+          "sops_age_key": "Your private age key (AGE-SECRET-KEY-1...) used for decrypting secrets on this instance.",
+          "sops_age_recipient": "Public age recipient (age1...) used to encrypt secrets. If left blank, it is automatically derived from the secret key.",
+          "sops_secrets_files": "List of relative file paths (e.g. secrets.yaml, esphome/secrets.yaml) or wildcard glob patterns (e.g. **/secrets.yaml) to encrypt with SOPS. One per line.",
+          "sops_binary_path": "Leave blank to auto-download the official standalone SOPS binary from GitHub (64-bit x86/ARM only). On 32-bit systems (e.g. 32-bit ARM), install sops manually and enter its path here."
+        }
+      },
+      "sops_key_generated": {
+        "title": "New Age Key Pair Generated",
+        "description": "A new age key pair has been generated and configured.\n\n⚠️ **IMPORTANT**: Save your Secret Key in your password manager! If lost, encrypted secrets cannot be recovered.\n\n**Secret Key (Private):**\n```\n{secret_key}\n```\n\n**Recipient (Public):**\n```\n{recipient}\n```\n\nClick Submit to save and apply."
       },
       "restore": {
         "title": "Restore configuration",
@@ -185,7 +212,14 @@
       "stale_restore_preview": "Repository history changed after the preview. Select the target again and review the updated changes.",
       "confirm_restore": "You must explicitly confirm the restore.",
       "restore_validation_failed": "The historical configuration failed validation. All restore changes were rolled back.",
-      "restore_failed": "The restore failed and was rolled back. Check the Home Assistant logs."
+      "restore_failed": "The restore failed and was rolled back. Check the Home Assistant logs.",
+      "invalid_age_secret_key": "Invalid age secret key format or checksum. It must start with AGE-SECRET-KEY-1.",
+      "invalid_age_recipient": "Invalid age recipient format or checksum. It must start with age1.",
+      "key_generation_failed": "Failed to generate a new age keypair. Check the Home Assistant logs.",
+      "confirm_replace_age_key": "An age key is already configured. Check \"I understand this will replace the existing age key\" to confirm and generate a new one.",
+      "sops_requires_key_or_recipient": "Enter an age secret key or recipient, or generate a new key pair, before enabling SOPS. Without one, every commit will fail.",
+      "sops_binary_path_invalid": "The custom SOPS binary path does not exist or is not executable.",
+      "sops_reencrypt_failed": "The new age key was generated, but existing secrets could not be re-encrypted for it. Check the Home Assistant logs and re-run 'Generate a new age key pair' once fixed."
     },
     "abort": {
       "restore_preview_missing": "The restore preview expired. Start the restore flow again.",
@@ -224,11 +258,17 @@
       },
       "commits_ahead": {
         "name": "Commits Ahead"
+      },
+      "sops_status": {
+        "name": "SOPS Status"
       }
     },
     "binary_sensor": {
       "dirty": {
         "name": "Uncommitted Changes"
+      },
+      "sops_ready": {
+        "name": "SOPS Ready"
       }
     },
     "button": {

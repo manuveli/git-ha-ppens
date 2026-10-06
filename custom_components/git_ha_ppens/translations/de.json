@@ -80,8 +80,35 @@
         "menu_options": {
           "general": "Allgemeine Einstellungen",
           "gitignore": ".gitignore bearbeiten",
+          "sops": "SOPS-Secret-Verschlüsselung",
           "restore": "Konfiguration wiederherstellen"
         }
+      },
+      "sops": {
+        "title": "SOPS-Secret-Verschlüsselung",
+        "description": "Konfiguriere SOPS (Secrets OPerationS) mit age, um deine secrets.yaml und ESPHome-Secrets sicher für GitOps zu verschlüsseln.",
+        "data": {
+          "sops_enabled": "SOPS-Verschlüsselung aktivieren",
+          "generate_key": "Neues age-Schlüsselpaar automatisch generieren",
+          "confirm_replace_key": "Ich weiß, dass dies den vorhandenen age-Schlüssel ersetzt",
+          "sops_age_key": "Privater age-Schlüssel (Secret Key)",
+          "sops_age_recipient": "Öffentlicher age-Schlüssel (Recipient)",
+          "sops_secrets_files": "Secret-Dateien und Glob-Muster (eine pro Zeile)",
+          "sops_binary_path": "Benutzerdefinierter Pfad zum SOPS-Binary (optional)"
+        },
+        "data_description": {
+          "sops_enabled": "Wenn aktiviert, wird secrets.yaml vor Git-Commits zu secrets.enc.yaml verschlüsselt und nach Git-Pulls automatisch entschlüsselt.",
+          "generate_key": "Aktivieren, um sofort ein neues X25519-age-Schlüsselpaar zu generieren.",
+          "confirm_replace_key": "Erforderlich, wenn bereits ein privater age-Schlüssel konfiguriert ist. Vorhandene Secrets werden für den neuen Empfänger neu verschlüsselt, bevor der alte Schlüssel verworfen wird. Bewahre den neu generierten Schlüssel trotzdem sicher auf – alles, was vor dieser Änderung verschlüsselt wurde und nicht anderswo neu synchronisiert wird, lässt sich nur mit dem ALTEN Schlüssel entschlüsseln.",
+          "sops_age_key": "Dein privater age-Schlüssel (AGE-SECRET-KEY-1...) zur Entschlüsselung auf dieser Instanz. Niemals veröffentlichen!",
+          "sops_age_recipient": "Öffentlicher age-Schlüssel (age1...) zur Verschlüsselung. Wird bei leerem Feld automatisch aus dem privaten Schlüssel abgeleitet.",
+          "sops_secrets_files": "Liste relativer Dateipfade (z. B. secrets.yaml, esphome/secrets.yaml) oder Wildcard-Glob-Muster (z. B. **/secrets.yaml), die mit SOPS verschlüsselt werden sollen. Ein Eintrag pro Zeile.",
+          "sops_binary_path": "Leer lassen, um das offizielle eigenständige SOPS-Binary automatisch von GitHub herunterzuladen (nur 64-Bit x86/ARM). Bei 32-Bit-Systemen (z. B. 32-Bit-ARM) sops manuell installieren und hier den Pfad angeben."
+        }
+      },
+      "sops_key_generated": {
+        "title": "Neues age-Schlüsselpaar generiert",
+        "description": "Ein neues age-Schlüsselpaar wurde erfolgreich generiert und konfiguriert.\n\n⚠️ **WICHTIG**: Sichere deinen geheimen Schlüssel (Secret Key) jetzt in deinem Passwort-Manager! Bei Verlust können verschlüsselte Secrets nicht wiederhergestellt werden.\n\n**Privater Schlüssel (Secret Key):**\n```\n{secret_key}\n```\n\n**Öffentlicher Schlüssel (Recipient):**\n```\n{recipient}\n```\n\nKlicke auf Absenden, um die Einstellungen zu speichern."
       },
       "restore": {
         "title": "Konfiguration wiederherstellen",
@@ -185,7 +212,14 @@
       "stale_restore_preview": "Die Repository-Historie hat sich seit der Vorschau geändert. Wähle das Ziel erneut aus und prüfe die aktualisierten Änderungen.",
       "confirm_restore": "Du musst die Wiederherstellung ausdrücklich bestätigen.",
       "restore_validation_failed": "Die historische Konfiguration hat die Prüfung nicht bestanden. Alle Wiederherstellungsänderungen wurden zurückgerollt.",
-      "restore_failed": "Die Wiederherstellung ist fehlgeschlagen und wurde zurückgerollt. Prüfe die Home-Assistant-Protokolle."
+      "restore_failed": "Die Wiederherstellung ist fehlgeschlagen und wurde zurückgerollt. Prüfe die Home-Assistant-Protokolle.",
+      "invalid_age_secret_key": "Ungültiges Format oder Prüfsumme des Age-Secret-Keys. Er muss mit AGE-SECRET-KEY-1 beginnen.",
+      "invalid_age_recipient": "Ungültiges Format oder Prüfsumme des Age-Public-Keys (Recipient). Er muss mit age1 beginnen.",
+      "key_generation_failed": "Fehler beim Generieren des neuen Age-Schlüsselpaars. Prüfe die Home-Assistant-Protokolle.",
+      "confirm_replace_age_key": "Es ist bereits ein age-Schlüssel konfiguriert. Aktiviere \"Ich weiß, dass dies den vorhandenen age-Schlüssel ersetzt\", um zu bestätigen und einen neuen zu generieren.",
+      "sops_requires_key_or_recipient": "Gib einen privaten age-Schlüssel oder Recipient ein, oder generiere ein neues Schlüsselpaar, bevor du SOPS aktivierst. Ohne einen davon schlägt jeder Commit fehl.",
+      "sops_binary_path_invalid": "Der benutzerdefinierte SOPS-Binary-Pfad existiert nicht oder ist nicht ausführbar.",
+      "sops_reencrypt_failed": "Der neue age-Schlüssel wurde generiert, aber vorhandene Secrets konnten nicht dafür neu verschlüsselt werden. Prüfe die Home-Assistant-Protokolle und führe \"Neues age-Schlüsselpaar automatisch generieren\" nach der Behebung erneut aus."
     },
     "abort": {
       "restore_preview_missing": "Die Vorschau ist abgelaufen. Starte die Wiederherstellung erneut.",
@@ -224,11 +258,17 @@
       },
       "commits_ahead": {
         "name": "Commits voraus"
+      },
+      "sops_status": {
+        "name": "SOPS-Status"
       }
     },
     "binary_sensor": {
       "dirty": {
         "name": "Nicht committete Änderungen"
+      },
+      "sops_ready": {
+        "name": "SOPS bereit"
       }
     },
     "button": {

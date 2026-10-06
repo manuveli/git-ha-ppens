@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -47,11 +48,17 @@ from .const import (
     CONF_RESTORE_PUSH,
     CONF_RESTORE_TARGET,
     CONF_SCAN_INTERVAL,
+    CONF_SOPS_AGE_KEY,
+    CONF_SOPS_AGE_RECIPIENT,
+    CONF_SOPS_BINARY_PATH,
+    CONF_SOPS_ENABLED,
+    CONF_SOPS_SECRETS_FILES,
     CONF_SSH_KEY_PATH,
     DEFAULT_COMMIT_INTERVAL,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_REPO_PATH,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SOPS_SECRETS_FILES,
     DEFAULT_TOKEN_AUTH_USERNAME,
     DOMAIN,
     RESTORE_HISTORY_LIMIT,
@@ -59,6 +66,14 @@ from .const import (
     RESTORE_PREVIEW_FILE_LIMIT,
 )
 from .coordinator import GitHaPpensCoordinator
+from .sops_manager import (
+    SopsError,
+    SopsManager,
+    age_secret_to_recipient,
+    generate_age_keypair,
+    validate_age_recipient,
+    validate_age_secret_key,
+)
 from .git_manager import (
     CommitInfo,
     DirtyWorkingTreeError,
@@ -273,6 +288,15 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         self._config_entry = config_entry
         self._restore_preview: RestorePreview | None = None
         self._restore_source_step = "restore_recent"
+        # Set by async_step_sops() when "generate_key" is submitted, read
+        # back by async_step_sops_key_generated() to show and then persist
+        # the newly generated key pair. Declared here (rather than relying
+        # on hasattr()/getattr() at each use) so the flow's transient state
+        # is visible from one place.
+        self._generated_age_key: str = ""
+        self._generated_age_recipient: str = ""
+        self._pending_sops_data: dict[str, Any] | None = None
+        self._previous_sops_data: dict[str, Any] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -280,8 +304,241 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         """Show menu with options categories."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=["general", "gitignore", "restore"],
+            menu_options=["general", "gitignore", "sops", "restore"],
         )
+
+    async def async_step_sops(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage SOPS secrets encryption options."""
+        errors: dict[str, str] = {}
+        current = self._config_entry.data
+        current_secrets_raw = current.get(
+            CONF_SOPS_SECRETS_FILES, DEFAULT_SOPS_SECRETS_FILES
+        )
+        if isinstance(current_secrets_raw, (list, tuple)):
+            current_secrets_str = "\n".join(current_secrets_raw)
+        else:
+            current_secrets_str = str(current_secrets_raw)
+
+        if user_input is not None:
+            sops_enabled = user_input.get(CONF_SOPS_ENABLED, False)
+            generate_key = user_input.get("generate_key", False)
+            confirm_replace_key = user_input.get("confirm_replace_key", False)
+            age_key = user_input.get(CONF_SOPS_AGE_KEY, "").strip()
+            age_recipient = user_input.get(CONF_SOPS_AGE_RECIPIENT, "").strip()
+            custom_bin = user_input.get(CONF_SOPS_BINARY_PATH, "").strip()
+            raw_files = user_input.get(CONF_SOPS_SECRETS_FILES, "")
+            if isinstance(raw_files, str):
+                secrets_files = [
+                    line.strip()
+                    for line in raw_files.splitlines()
+                    if line.strip() and not line.strip().startswith("#")
+                ]
+            else:
+                secrets_files = list(raw_files)
+            if not secrets_files:
+                secrets_files = list(DEFAULT_SOPS_SECRETS_FILES)
+
+            # Validate the custom binary path at the boundary, before it is
+            # persisted, instead of only discovering it is unusable the next
+            # time a commit/pull tries to run SOPS.
+            if custom_bin:
+                custom_bin_path = Path(custom_bin)
+                if not custom_bin_path.is_file() or not os.access(
+                    custom_bin_path, os.X_OK
+                ):
+                    errors[CONF_SOPS_BINARY_PATH] = "sops_binary_path_invalid"
+
+            if generate_key and not errors:
+                existing_key = str(current.get(CONF_SOPS_AGE_KEY, "")).strip()
+                if existing_key and not confirm_replace_key:
+                    # Refuse to silently replace a key that already protects
+                    # committed secrets: every .enc.* file encrypted for the
+                    # old recipient would stop decrypting on the next pull.
+                    errors["base"] = "confirm_replace_age_key"
+                else:
+                    try:
+                        new_sec, new_rec = generate_age_keypair()
+                        self._generated_age_key = new_sec
+                        self._generated_age_recipient = new_rec
+                        # Kept so the confirm step can re-encrypt existing
+                        # secrets for the new recipient (encryption only
+                        # needs the new public recipient, not the old
+                        # private key) before the old key is discarded.
+                        self._previous_sops_data = dict(current)
+                        self._pending_sops_data = {
+                            **current,
+                            CONF_SOPS_ENABLED: True,
+                            CONF_SOPS_AGE_KEY: new_sec,
+                            CONF_SOPS_AGE_RECIPIENT: new_rec,
+                            CONF_SOPS_BINARY_PATH: custom_bin,
+                            CONF_SOPS_SECRETS_FILES: secrets_files,
+                        }
+                        return await self.async_step_sops_key_generated()
+                    except Exception as err:
+                        _LOGGER.error("Failed to generate age keypair: %s", err)
+                        errors["base"] = "key_generation_failed"
+            elif sops_enabled and not errors:
+                if age_key and not validate_age_secret_key(age_key):
+                    errors[CONF_SOPS_AGE_KEY] = "invalid_age_secret_key"
+                elif age_key and not age_recipient:
+                    try:
+                        age_recipient = age_secret_to_recipient(age_key)
+                    except Exception:
+                        errors[CONF_SOPS_AGE_KEY] = "invalid_age_secret_key"
+
+                if age_recipient and not validate_age_recipient(age_recipient):
+                    errors[CONF_SOPS_AGE_RECIPIENT] = "invalid_age_recipient"
+
+                if not errors and not age_key and not age_recipient:
+                    # Enabling SOPS with neither a key, a recipient, nor an
+                    # existing .sops.yaml means every commit will fail with
+                    # SopsConfigError from the moment it's saved. Require at
+                    # least one so the config is usable immediately.
+                    repo_path = current.get(CONF_REPO_PATH, "")
+                    has_sops_config = bool(repo_path) and (
+                        Path(repo_path) / ".sops.yaml"
+                    ).is_file()
+                    if not has_sops_config:
+                        errors["base"] = "sops_requires_key_or_recipient"
+
+                if not errors:
+                    new_data = {
+                        **current,
+                        CONF_SOPS_ENABLED: sops_enabled,
+                        CONF_SOPS_AGE_KEY: age_key,
+                        CONF_SOPS_AGE_RECIPIENT: age_recipient,
+                        CONF_SOPS_BINARY_PATH: custom_bin,
+                        CONF_SOPS_SECRETS_FILES: secrets_files,
+                    }
+                    self.hass.config_entries.async_update_entry(
+                        self._config_entry, data=new_data
+                    )
+                    return self.async_create_entry(title="", data={})
+            elif not errors:
+                new_data = {
+                    **current,
+                    CONF_SOPS_ENABLED: False,
+                    CONF_SOPS_AGE_KEY: age_key,
+                    CONF_SOPS_AGE_RECIPIENT: age_recipient,
+                    CONF_SOPS_BINARY_PATH: custom_bin,
+                    CONF_SOPS_SECRETS_FILES: secrets_files,
+                }
+                self.hass.config_entries.async_update_entry(
+                    self._config_entry, data=new_data
+                )
+                return self.async_create_entry(title="", data={})
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_SOPS_ENABLED,
+                    default=current.get(CONF_SOPS_ENABLED, False),
+                ): bool,
+                vol.Optional(
+                    "generate_key",
+                    default=False,
+                ): bool,
+                vol.Optional(
+                    "confirm_replace_key",
+                    default=False,
+                ): bool,
+                vol.Optional(
+                    CONF_SOPS_AGE_KEY,
+                    default=current.get(CONF_SOPS_AGE_KEY, ""),
+                ): TextSelector(TextSelectorConfig(type="password")),
+                vol.Optional(
+                    CONF_SOPS_AGE_RECIPIENT,
+                    default=current.get(CONF_SOPS_AGE_RECIPIENT, ""),
+                ): str,
+                vol.Optional(
+                    CONF_SOPS_SECRETS_FILES,
+                    default=current_secrets_str,
+                ): TextSelector(TextSelectorConfig(multiline=True)),
+                vol.Optional(
+                    CONF_SOPS_BINARY_PATH,
+                    default=current.get(CONF_SOPS_BINARY_PATH, ""),
+                ): str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="sops",
+            data_schema=schema,
+            errors=errors,
+        )
+
+    async def async_step_sops_key_generated(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show the newly generated age key pair."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if self._pending_sops_data is not None:
+                previous = self._previous_sops_data
+                if previous is not None and previous.get(CONF_SOPS_AGE_KEY):
+                    # Replacing an existing key: re-encrypt already-tracked
+                    # secrets for the new recipient before the old key is
+                    # discarded, so existing .enc.* files keep decrypting
+                    # instead of every future pull failing on them.
+                    try:
+                        await self._async_reencrypt_for_new_recipient(previous)
+                    except SopsError as err:
+                        _LOGGER.error(
+                            "Could not re-encrypt existing secrets for the new "
+                            "age recipient: %s",
+                            err,
+                        )
+                        errors["base"] = "sops_reencrypt_failed"
+
+                if not errors:
+                    self.hass.config_entries.async_update_entry(
+                        self._config_entry, data=self._pending_sops_data
+                    )
+                    return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="sops_key_generated",
+            data_schema=vol.Schema({}),
+            errors=errors,
+            description_placeholders={
+                "secret_key": self._generated_age_key,
+                "recipient": self._generated_age_recipient,
+            },
+        )
+
+    async def _async_reencrypt_for_new_recipient(
+        self, previous_data: dict[str, Any]
+    ) -> None:
+        """Add the new recipient to .sops.yaml and re-encrypt tracked secrets.
+
+        Encryption only needs the new public recipient, not the old private
+        key, so this runs with the OLD key/config still in hand (before it
+        is overwritten) purely to read the plaintext currently on disk.
+        """
+        repo_path = self._config_entry.data.get(CONF_REPO_PATH)
+        if not repo_path:
+            return
+
+        storage_dir = Path(self.hass.config.path(".storage", DOMAIN))
+        manager = await self.hass.async_add_executor_job(
+            lambda: SopsManager(
+                repo_path=repo_path,
+                age_key=previous_data.get(CONF_SOPS_AGE_KEY, ""),
+                age_recipient=previous_data.get(CONF_SOPS_AGE_RECIPIENT, ""),
+                custom_binary_path=self._pending_sops_data.get(
+                    CONF_SOPS_BINARY_PATH, ""
+                ),
+                storage_dir=storage_dir,
+                secrets_files=self._pending_sops_data.get(
+                    CONF_SOPS_SECRETS_FILES, DEFAULT_SOPS_SECRETS_FILES
+                ),
+            )
+        )
+        new_recipient = self._generated_age_recipient
+        await manager.ensure_sops_config(new_recipient)
+        await manager.sync_secrets_to_encrypted(force=True)
 
     async def async_step_restore(
         self, user_input: dict[str, Any] | None = None

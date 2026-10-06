@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Native SOPS (Secrets OPerationS) & age encryption support for Home Assistant secrets.
+- Encrypted Sidecar Pattern: `secrets.yaml` and `esphome/secrets.yaml` remain permanently ignored on disk, while encrypted ciphertext (`secrets.enc.yaml`) is versioned in Git.
+- Pure-Python RFC 7748 X25519 & BIP 173 Bech32 cryptographic key management with zero external pip dependencies.
+- One-click age key pair generation directly within the integration Options Flow.
+- Automatic architecture detection and SHA-256 integrity-verified download for official standalone SOPS binary releases on 64-bit platforms (Linux `amd64`, `arm64`; macOS `amd64`, `arm64`).
+- Configurable custom SOPS binary path (`sops_binary_path`) for air-gapped systems and unsupported architectures (such as 32-bit ARM / `armv7l`).
+- Configurable secret files and wildcard glob patterns (e.g. `**/secrets.yaml`).
+- Non-destructive `.sops.yaml` configuration management preserving existing creation rules and supporting multi-recipient teams.
+- Pre-deploy decryption during `git pull` and historical restore with atomic rollback on failure.
+- Loop prevention in file watcher suppressing events during secret decryption.
+- Services `git_ha_ppens.encrypt_secrets` and `git_ha_ppens.decrypt_secrets` with optional `files` parameter.
+- Entities `sensor.git_ha_ppens_sops_status` and `binary_sensor.git_ha_ppens_sops_ready`.
+- Events `git_ha_ppens_sops_encrypted`, `git_ha_ppens_sops_decrypted` and `git_ha_ppens_sops_error`.
+- Plaintext secret files that were already tracked before SOPS was enabled are untracked (`git rm --cached`) before every commit and pull backup; their old content remains in Git history.
+
+### Changed
+- The default `.gitignore` for new repositories now also ignores `*gcp*.json` / `*service_account*.json` credential files and un-ignores `*.enc.yaml`, `*.enc.yml` and `*.enc.json`.
+- The file watcher ignores `*.tmp` files, and, when SOPS is enabled, generated `*.enc.*` sidecars and `.sops*` metadata.
+
 ## [1.4.1] - 2026-09-20
 
 ### Fixed

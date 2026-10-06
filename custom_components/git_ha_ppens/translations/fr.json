@@ -80,30 +80,74 @@
         "menu_options": {
           "general": "Paramètres généraux",
           "gitignore": "Modifier .gitignore",
+          "sops": "Chiffrement des secrets SOPS",
           "restore": "Restaurer la configuration"
         }
       },
+      "sops": {
+        "title": "Chiffrement des secrets SOPS",
+        "description": "Configurer SOPS (Secrets OPerationS) avec age pour chiffrer en toute sécurité secrets.yaml et les secrets ESPHome pour GitOps.",
+        "data": {
+          "sops_enabled": "Activer le chiffrement SOPS",
+          "generate_key": "Générer automatiquement une nouvelle paire de clés age",
+          "confirm_replace_key": "Je comprends que cela remplacera la clé age existante",
+          "sops_age_key": "Clé secrète age",
+          "sops_age_recipient": "Destinataire public age",
+          "sops_secrets_files": "Fichiers de secrets et motifs glob (un par ligne)",
+          "sops_binary_path": "Chemin binaire SOPS personnalisé (optionnel)"
+        },
+        "data_description": {
+          "sops_enabled": "Lorsqu'il est activé, secrets.yaml est chiffré dans secrets.enc.yaml avant les commits Git et déchiffré après les pulls Git.",
+          "generate_key": "Cochez cette case pour générer immédiatement une nouvelle paire de clés age X25519.",
+          "confirm_replace_key": "Requis lorsqu'une clé secrète age est déjà configurée. Les secrets existants sont rechiffrés pour le nouveau destinataire avant que l'ancienne clé ne soit abandonnée, mais conservez tout de même la nouvelle clé en lieu sûr : tout ce qui a été chiffré avant ce changement et n'a pas été resynchronisé ailleurs ne se déchiffrera qu'avec l'ANCIENNE clé.",
+          "sops_age_key": "Votre clé secrète age privée (AGE-SECRET-KEY-1...) utilisée pour déchiffrer les secrets sur cette instance.",
+          "sops_age_recipient": "Destinataire age public (age1...) utilisé pour chiffrer les secrets. S'il est laissé vide, il est dérivé automatiquement de la clé secrète.",
+          "sops_secrets_files": "Liste des chemins relatifs (ex: secrets.yaml, esphome/secrets.yaml) ou motifs glob (ex: **/secrets.yaml) à chiffrer avec SOPS. Un par ligne.",
+          "sops_binary_path": "Laissez vide pour télécharger automatiquement le binaire autonome officiel SOPS depuis GitHub (64 bits x86/ARM uniquement). Sur les systèmes 32 bits (ex. ARM 32 bits), installez sops manuellement et indiquez le chemin ici."
+        }
+      },
+      "sops_key_generated": {
+        "title": "Nouvelle paire de clés age générée",
+        "description": "Une nouvelle paire de clés age a été générée et configurée.\n\n⚠️ **IMPORTANT** : Enregistrez votre clé secrète dans votre gestionnaire de mots de passe ! En cas de perte, les secrets chiffrés ne pourront plus être récupérés.\n\n**Clé secrète (privée) :**\n```\n{secret_key}\n```\n\n**Destinataire (public) :**\n```\n{recipient}\n```\n\nCliquez sur Soumettre pour enregistrer et appliquer."
+      },
       "restore": {
         "title": "Restaurer la configuration",
-        "menu_options": {"restore_recent": "Choisir un commit récent", "restore_sha": "Saisir le SHA d’un ancien commit"}
+        "menu_options": {
+          "restore_recent": "Choisir un commit récent",
+          "restore_sha": "Saisir le SHA d’un ancien commit"
+        }
       },
       "restore_recent": {
         "title": "Choisir un commit récent",
         "description": "**HEAD actuel (déjà actif et non sélectionnable) :**\n{head_commit}\n\nPour annuler le HEAD actuel, sélectionnez le premier commit juste en dessous. La restauration crée un nouveau commit dont la configuration suivie correspond à l’état antérieur sélectionné.",
-        "data": {"restore_target": "Commit historique"},
-        "data_description": {"restore_target": "La restauration crée un nouveau commit sans réécrire l’historique."}
+        "data": {
+          "restore_target": "Commit historique"
+        },
+        "data_description": {
+          "restore_target": "La restauration crée un nouveau commit sans réécrire l’historique."
+        }
       },
       "restore_sha": {
         "title": "Saisir un ancien SHA",
         "description": "Saisissez 7 à 40 caractères hexadécimaux d’un commit ancêtre de la branche actuelle.",
-        "data": {"restore_target": "SHA du commit"},
-        "data_description": {"restore_target": "Utilisez ceci pour les commits plus anciens que ceux de la liste."}
+        "data": {
+          "restore_target": "SHA du commit"
+        },
+        "data_description": {
+          "restore_target": "Utilisez ceci pour les commits plus anciens que ceux de la liste."
+        }
       },
       "restore_confirm": {
         "title": "Confirmer la restauration",
         "description": "Vous allez restaurer `{target_hash}` — **{target_message}** par {target_author} ({target_time}).\n\nUn nouveau commit sera créé sans réinitialiser HEAD ni réécrire l’historique. La configuration Home Assistant sera validée avant le commit.\n\n**Commits plus récents annulés ({commit_count})**\n{commits}\n\n**Modifications des fichiers suivis ({file_count})**\n{files}\n\n**Statistiques :** +{additions} / -{deletions} ; fichiers binaires : {binary_files}",
-        "data": {"restore_confirm": "Je comprends et souhaite restaurer cette configuration", "restore_push": "Pousser le commit de restauration vers le dépôt distant"},
-        "data_description": {"restore_confirm": "Confirmation de sécurité obligatoire.", "restore_push": "Si le push échoue, le commit valide reste local et pourra être poussé plus tard."}
+        "data": {
+          "restore_confirm": "Je comprends et souhaite restaurer cette configuration",
+          "restore_push": "Pousser le commit de restauration vers le dépôt distant"
+        },
+        "data_description": {
+          "restore_confirm": "Confirmation de sécurité obligatoire.",
+          "restore_push": "Si le push échoue, le commit valide reste local et pourra être poussé plus tard."
+        }
       },
       "general": {
         "title": "Paramètres généraux",
@@ -168,7 +212,14 @@
       "stale_restore_preview": "L’historique a changé après l’aperçu. Sélectionnez à nouveau la cible.",
       "confirm_restore": "Vous devez confirmer explicitement la restauration.",
       "restore_validation_failed": "La configuration historique a échoué à la validation et toutes les modifications ont été annulées.",
-      "restore_failed": "La restauration a échoué et a été annulée. Consultez les journaux."
+      "restore_failed": "La restauration a échoué et a été annulée. Consultez les journaux.",
+      "invalid_age_secret_key": "Format ou somme de contrôle de la clé secrète age non valide. Elle doit commencer par AGE-SECRET-KEY-1.",
+      "invalid_age_recipient": "Format ou somme de contrôle du destinataire age non valide. Il doit commencer par age1.",
+      "key_generation_failed": "Échec de la génération de la nouvelle paire de clés age. Consultez les journaux de Home Assistant.",
+      "confirm_replace_age_key": "Une clé age est déjà configurée. Cochez \"Je comprends que cela remplacera la clé age existante\" pour confirmer et en générer une nouvelle.",
+      "sops_requires_key_or_recipient": "Saisissez une clé secrète age ou un destinataire, ou générez une nouvelle paire de clés, avant d'activer SOPS. Sans cela, chaque commit échouera.",
+      "sops_binary_path_invalid": "Le chemin binaire SOPS personnalisé n'existe pas ou n'est pas exécutable.",
+      "sops_reencrypt_failed": "La nouvelle clé age a été générée, mais les secrets existants n'ont pas pu être rechiffrés pour celle-ci. Consultez les journaux de Home Assistant puis relancez \"Générer automatiquement une nouvelle paire de clés age\" une fois corrigé."
     },
     "abort": {
       "restore_preview_missing": "L’aperçu a expiré. Recommencez la restauration.",
@@ -207,11 +258,17 @@
       },
       "commits_ahead": {
         "name": "Commits en avance"
+      },
+      "sops_status": {
+        "name": "Statut SOPS"
       }
     },
     "binary_sensor": {
       "dirty": {
         "name": "Modifications Non Commitées"
+      },
+      "sops_ready": {
+        "name": "SOPS prêt"
       }
     },
     "button": {

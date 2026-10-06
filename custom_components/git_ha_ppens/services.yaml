@@ -41,3 +41,27 @@ sync:
 diff:
   name: Diff
   description: Get the current git diff of uncommitted changes. Returns response data with the diff content and a status summary.
+
+encrypt_secrets:
+  name: Encrypt secrets
+  description: Manually encrypt local secrets.yaml files to their encrypted .enc.yaml counterparts using SOPS and age.
+  fields:
+    files:
+      name: Files
+      description: Optional list of secret file paths to encrypt. If omitted, all detected secrets are encrypted.
+      required: false
+      example: ["secrets.yaml"]
+      selector:
+        object:
+
+decrypt_secrets:
+  name: Decrypt secrets
+  description: Manually decrypt tracked .enc.yaml secrets files to plain secrets.yaml using SOPS and your configured age key.
+  fields:
+    files:
+      name: Files
+      description: Optional list of encrypted secret file paths to decrypt. If omitted, all detected secrets are decrypted.
+      required: false
+      example: ["secrets.enc.yaml"]
+      selector:
+        object:

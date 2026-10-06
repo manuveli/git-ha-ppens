@@ -19,6 +19,7 @@ from .const import (
     DEFAULT_TOKEN_AUTH_USERNAME,
     SECRET_PATTERNS,
 )
+from .sops_manager import SopsError, SopsManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -162,6 +163,16 @@ class PreDeployCheckError(GitError):
         super().__init__(f"Pre-deploy check failed: {joined}")
 
 
+class SecretsError(GitError):
+    """Raised when a SOPS/age secrets operation fails during a Git operation.
+
+    Wraps the underlying SopsError so every place that already handles
+    GitError (coordinator auto-pull/restore, commit/push services, the
+    encrypt/decrypt services) reacts to secrets failures too, instead of
+    letting them surface as unhandled exceptions.
+    """
+
+
 class RestoreError(GitError):
     """Base error for snapshot restore operations."""
 
@@ -196,16 +207,28 @@ class GitManager:
         repo_path: str,
         git_user: str = "",
         git_email: str = "",
+        sops_manager: SopsManager | None = None,
     ) -> None:
         """Initialize the git manager."""
         self._repo_path = repo_path
         self._git_user = git_user
         self._git_email = git_email
+        self._sops_manager = sops_manager
 
     @property
     def repo_path(self) -> str:
         """Return the repository path."""
         return self._repo_path
+
+    @property
+    def sops_manager(self) -> SopsManager | None:
+        """Return the SOPS manager."""
+        return self._sops_manager
+
+    @sops_manager.setter
+    def sops_manager(self, manager: SopsManager | None) -> None:
+        """Set or update the SOPS manager."""
+        self._sops_manager = manager
 
     async def _run_git(
         self,
@@ -458,6 +481,16 @@ class GitManager:
             "check-ignore", "--no-index", "--", path, check=False
         )
         return bool(output)
+
+    async def _is_path_tracked(self, path: str) -> bool:
+        """Return whether a repository-relative path is tracked in the index.
+
+        .gitignore has no effect on a path already tracked in the index, so
+        ``_is_path_ignored`` alone cannot tell whether a "protected" plain
+        secret can still be committed.
+        """
+        output = await self._run_git("ls-files", "--", path, check=False)
+        return bool(output.strip())
 
     async def get_unsafe_repository_paths(self) -> list[str]:
         """Return undeclared, unignored embedded repositories and Gitlinks."""
@@ -873,6 +906,92 @@ class GitManager:
                 raise
             await self._recover_index_lock_and_retry(err)
 
+    async def _protect_sops_plaintext_secrets(self) -> None:
+        """Encrypt configured secrets and guarantee their plaintext stays untracked.
+
+        This is the single enforcement point for the "plaintext secrets never
+        reach Git history" guarantee: it re-encrypts anything changed, then
+        verifies with ``git check-ignore`` that every resolved plain secret
+        path is actually ignored, adding a managed .gitignore entry for any
+        that is not. If a path is still not ignored afterwards (e.g. a custom
+        .gitignore explicitly un-ignores it), the commit is refused rather
+        than silently staging a plaintext secret.
+
+        A path already ignored can still be tracked from before SOPS was
+        enabled — .gitignore has no effect on tracked files — so any such
+        path is also untracked (``git rm --cached``) to stop future edits
+        from being committed in plaintext.
+        """
+        if self._sops_manager is None:
+            return
+
+        try:
+            await self._sops_manager.sync_secrets_to_encrypted()
+        except SopsError as err:
+            raise SecretsError(f"Could not encrypt secrets: {err}") from err
+
+        plain_paths = await asyncio.to_thread(
+            self._sops_manager.resolve_plain_secret_files
+        )
+        if not plain_paths:
+            return
+
+        still_unignored: list[str] = []
+        for rel_path in plain_paths:
+            if not await self._is_path_ignored(rel_path):
+                still_unignored.append(rel_path)
+
+        if not still_unignored:
+            return
+
+        await self.ensure_gitignore_patterns(
+            {f"/{path}": path for path in still_unignored},
+            comment="# SOPS-managed plaintext secrets (added by git-ha-ppens) — never commit these",
+        )
+
+        remaining = [
+            path
+            for path in still_unignored
+            if not await self._is_path_ignored(path)
+        ]
+        if remaining:
+            raise SecretsError(
+                "Refusing to commit: the following plaintext secret file(s) "
+                "are still not covered by .gitignore even after attempting "
+                "to add ignore rules automatically: " + ", ".join(remaining) +
+                ". Check for a manual .gitignore rule that re-includes them "
+                "(e.g. a trailing '!' pattern) and remove it."
+            )
+
+    async def _untrack_tracked_plain_secrets(self) -> None:
+        """Untrack plain secret files already committed before SOPS was enabled.
+
+        Being covered by .gitignore does not remove a path already tracked
+        in the index, so without this, a pre-existing tracked secrets.yaml
+        would still have its edits captured by the next commit.
+        """
+        if self._sops_manager is None:
+            return
+
+        plain_paths = await asyncio.to_thread(
+            self._sops_manager.resolve_plain_secret_files
+        )
+        if not plain_paths:
+            return
+
+        tracked = [
+            path for path in plain_paths if await self._is_path_tracked(path)
+        ]
+        if not tracked:
+            return
+
+        await self._run_git("rm", "--cached", "-q", "--", *tracked)
+        _LOGGER.warning(
+            "Untracked previously committed plaintext secret file(s) from "
+            "the Git index (old plaintext content remains in Git history): %s",
+            ", ".join(tracked),
+        )
+
     async def commit(self, message: str | None = None) -> CommitInfo | None:
         """Stage all changes and create a commit.
 
@@ -883,6 +1002,11 @@ class GitManager:
             CommitInfo for the new commit, or None if nothing to commit.
         """
         await self.assert_repository_layout_safe()
+
+        # If SOPS is configured, encrypt any modified secrets and guarantee
+        # their plaintext is git-ignored before anything gets staged.
+        await self._protect_sops_plaintext_secrets()
+        await self._untrack_tracked_plain_secrets()
 
         # Check for changes
         porcelain = await self._run_git("status", "--porcelain")
@@ -1164,8 +1288,15 @@ class GitManager:
                 "(Settings → Devices & Services → git-ha-ppens → Configure)."
             )
 
-        # Backup uncommitted changes before pull
+        # Backup uncommitted changes before pull. Encrypt any locally-edited
+        # secrets first so the edit is captured in the backup commit instead
+        # of being silently overwritten a few lines down when the pulled
+        # sidecars are decrypted back over the plain files.
         if backup:
+            await self._protect_sops_plaintext_secrets()
+            # Same guarantee as commit(): a plain secret tracked from before
+            # SOPS was enabled would otherwise be staged by "add -A" below.
+            await self._untrack_tracked_plain_secrets()
             porcelain = await self._run_git("status", "--porcelain")
             if porcelain:
                 await self._run_git("add", "-A")
@@ -1216,6 +1347,28 @@ class GitManager:
         except (GitError, ValueError):
             pulled = 0
 
+        # Decrypt secrets if SOPS is configured and new commits were pulled
+        plain_secrets_backup: dict[str, bytes | None] | None = None
+        if self._sops_manager is not None and pulled > 0:
+            plain_secrets_backup = await asyncio.to_thread(
+                self._sops_manager.backup_plain_secrets
+            )
+            try:
+                await self._sops_manager.sync_encrypted_to_secrets()
+            except SopsError as err:
+                _LOGGER.warning(
+                    "SOPS decryption failed after pull; rolling back to %s: %s",
+                    pre_pull_head[:8] if pre_pull_head else "HEAD",
+                    err,
+                )
+                if plain_secrets_backup is not None:
+                    await asyncio.to_thread(
+                        self._sops_manager.restore_plain_secrets_backup, plain_secrets_backup
+                    )
+                if pre_pull_head:
+                    await self.reset_hard(pre_pull_head)
+                raise SecretsError(f"Could not decrypt secrets after pull: {err}") from err
+
         # Pre-deploy gate: validate the merged result before keeping it.
         if validate is not None and pulled > 0 and pre_pull_head:
             errors = await validate()
@@ -1224,6 +1377,10 @@ class GitManager:
                     "Pre-deploy check failed after pull; rolling back to %s",
                     pre_pull_head[:8],
                 )
+                if plain_secrets_backup is not None:
+                    await asyncio.to_thread(
+                        self._sops_manager.restore_plain_secrets_backup, plain_secrets_backup
+                    )
                 await self.reset_hard(pre_pull_head)
                 raise PreDeployCheckError(errors)
 
@@ -1453,6 +1610,10 @@ class GitManager:
         original_head = current_head
         restore_verified = False
         restore_commit: CommitInfo | None = None
+        # Initialized before the try so a failure before the SOPS decrypt
+        # step (e.g. a failed read-tree) can never raise UnboundLocalError
+        # in the except block below and mask the real error.
+        plain_secrets_backup: dict[str, bytes | None] | None = None
         try:
             await self._run_git(
                 "read-tree", "--reset", "-u", preview.target.hash
@@ -1464,6 +1625,18 @@ class GitManager:
                 raise InvalidRestoreTargetError(
                     "The selected commit has the same tracked file tree as HEAD"
                 )
+
+            # Decrypt secrets corresponding to this restored tree
+            if self._sops_manager is not None:
+                plain_secrets_backup = await asyncio.to_thread(
+                    self._sops_manager.backup_plain_secrets
+                )
+                try:
+                    await self._sops_manager.sync_encrypted_to_secrets()
+                except SopsError as err:
+                    raise SecretsError(
+                        f"Could not decrypt secrets for restored snapshot: {err}"
+                    ) from err
 
             if validate is not None:
                 errors = await validate()
@@ -1492,6 +1665,10 @@ class GitManager:
             restore_verified = True
         except BaseException:
             if not restore_verified:
+                if self._sops_manager is not None and plain_secrets_backup is not None:
+                    await asyncio.to_thread(
+                        self._sops_manager.restore_plain_secrets_backup, plain_secrets_backup
+                    )
                 try:
                     await asyncio.shield(self.reset_hard(original_head))
                 except GitError as rollback_err:
@@ -1779,6 +1956,9 @@ class GitManager:
                 fp.strip()
                 for fp in staged.splitlines()
                 if fp.strip()
+                and not fp.strip().endswith(
+                    (".enc.yaml", ".enc.yml", ".enc.json", ".sops.yaml", ".sops.yml")
+                )
                 and fp.strip().endswith(
                     (".yaml", ".yml", ".json", ".conf", ".cfg", ".ini", ".txt", ".env")
                 )

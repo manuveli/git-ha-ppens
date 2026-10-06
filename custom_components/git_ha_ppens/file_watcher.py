@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Generator, Sequence
+from contextlib import contextmanager
 from fnmatch import fnmatchcase
 from pathlib import Path
 
@@ -13,9 +15,15 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from .ai_commit import async_generate_ai_commit_message
-from .const import EVENT_COMMIT, EVENT_ERROR, EVENT_PUSH
+from .const import (
+    DEFAULT_SOPS_SECRETS_FILES,
+    EVENT_COMMIT,
+    EVENT_ERROR,
+    EVENT_PUSH,
+)
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import GitError, GitManager, IndexLockError, PreDeployCheckError
+from .sops_manager import SopsError
 from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
@@ -38,6 +46,8 @@ class _ChangeCollector(FileSystemEventHandler):
         self,
         repo_path: str,
         on_change: Callable[[], None] | None = None,
+        sops_enabled: bool = False,
+        sops_secrets_files: Sequence[str] = DEFAULT_SOPS_SECRETS_FILES,
     ) -> None:
         """Initialize the change collector."""
         super().__init__()
@@ -45,6 +55,9 @@ class _ChangeCollector(FileSystemEventHandler):
         self._changed_files: set[str] = set()
         self._on_change = on_change
         self._ignore_patterns: list[str] = []
+        self._sops_enabled = sops_enabled
+        self._sops_secrets_files = tuple(sops_secrets_files)
+        self.suppress_secrets = False
 
     def _load_gitignore(self) -> None:
         """Load ignore patterns from the .gitignore file on disk.
@@ -80,15 +93,69 @@ class _ChangeCollector(FileSystemEventHandler):
         """Check if a path should be ignored based on .gitignore contents."""
         path_obj = Path(path)
         parts = path_obj.parts
-        relative_parts = Path(self._get_relative_path(path)).parts
+        rel_path = self._get_relative_path(path)
+        relative_parts = Path(rel_path).parts
 
         # Always ignore the .git directory itself
         if ".git" in parts:
             return True
 
+        name_lower = path_obj.name.lower()
+        # Temporary files (including the atomic-write temp files SOPS
+        # handling creates) are never worth a commit.
+        if name_lower.endswith(".tmp") or ".tmp." in name_lower:
+            return True
+
+        # Generated SOPS encrypted sidecars and .sops metadata are written by
+        # this integration itself. Only skip them when SOPS is enabled so
+        # repositories that do not use it keep their previous behaviour.
+        if self._sops_enabled and (
+            ".enc." in name_lower
+            or name_lower.startswith(".sops")
+            or name_lower.endswith((".sops.yaml", ".sops.yml"))
+        ):
+            return True
+
+        # Check if this is a configured secrets file or matches a secret pattern
+        is_secret = False
+        rel_lower = rel_path.lower()
+        is_example = (
+            ".example." in name_lower
+            or ".sample." in name_lower
+            or ".template." in name_lower
+        )
+        if not is_example:
+            if name_lower == "secrets.yaml":
+                is_secret = True
+            else:
+                for pattern in self._sops_secrets_files:
+                    pat_lower = pattern.lower()
+                    if (
+                        rel_lower == pat_lower
+                        or name_lower == pat_lower
+                        or fnmatchcase(rel_lower, pat_lower)
+                        or fnmatchcase(name_lower, pat_lower)
+                    ):
+                        is_secret = True
+                        break
+
+        if is_secret:
+            if self.suppress_secrets:
+                return True
+            if self._sops_enabled:
+                return False
+
         # Re-read .gitignore so edits take effect without restart
         self._load_gitignore()
 
+        # Case-sensitive throughout this loop, matching git's own .gitignore
+        # semantics on the platforms this integration actually runs on
+        # (Linux / HA OS / Docker all use case-sensitive filesystems, and
+        # git's pattern matching is case-sensitive regardless of platform).
+        # Case-folding here previously made this watcher heuristic treat
+        # differently-cased paths as ignored when git would still track and
+        # commit them -- the auto-commit debounce would then never fire for
+        # a real change, relying only on the slower periodic fallback poll.
         for pattern in self._ignore_patterns:
             # Root-relative path globs such as "backups/*.tar" should match
             # only files at that exact depth, not nested or similarly named
@@ -111,6 +178,10 @@ class _ChangeCollector(FileSystemEventHandler):
             # Check exact filename (e.g. "secrets.yaml", "CLAUDE.md")
             if path_obj.name == pattern:
                 return True
+            # Check wildcard filename (e.g. "*service_account*.json")
+            if any(char in pattern for char in ("*", "?", "[", "]")):
+                if fnmatchcase(path_obj.name, pattern) or fnmatchcase(rel_path, pattern):
+                    return True
 
         return False
 
@@ -176,6 +247,8 @@ class GitFileWatcher:
         ai_commit_enabled: bool = False,
         ai_agent_id: str = "",
         entry_id: str = "",
+        sops_enabled: bool = False,
+        sops_secrets_files: Sequence[str] = DEFAULT_SOPS_SECRETS_FILES,
     ) -> None:
         """Initialize the file watcher."""
         self._hass = hass
@@ -189,6 +262,8 @@ class GitFileWatcher:
         self._ai_commit_enabled = ai_commit_enabled
         self._ai_agent_id = ai_agent_id
         self._entry_id = entry_id
+        self._sops_enabled = sops_enabled
+        self._sops_secrets_files = tuple(sops_secrets_files)
         self._observer: Observer | None = None
         self._change_collector: _ChangeCollector | None = None
         self._debounce_handle: asyncio.TimerHandle | None = None
@@ -199,13 +274,38 @@ class GitFileWatcher:
         """Return True if the file watcher is active."""
         return self._running
 
+    @contextmanager
+    def suppress_secrets(self) -> Generator[None, None, None]:
+        """Temporarily suppress watcher events for secrets files.
+
+        Best-effort only: watchdog delivers filesystem events asynchronously
+        on its own OS thread, so an event for a write made just before
+        __exit__ can still arrive after the flag is cleared. The actual loop
+        prevention against re-triggering an auto-commit for our own
+        encrypt/decrypt writes comes from SopsManager's content-hash cache
+        (_plain_hashes), which is exact regardless of timing; this flag is a
+        cheap optimization on top of that to avoid unnecessary
+        git-status/hash-cache round trips while a suppressed operation is
+        in flight, not the correctness guarantee itself.
+        """
+        if self._change_collector is not None:
+            self._change_collector.suppress_secrets = True
+        try:
+            yield
+        finally:
+            if self._change_collector is not None:
+                self._change_collector.suppress_secrets = False
+
     async def async_start(self) -> None:
         """Start watching for file changes."""
         if self._running:
             return
 
         self._change_collector = _ChangeCollector(
-            self._repo_path, on_change=self.schedule_commit
+            self._repo_path,
+            on_change=self.schedule_commit,
+            sops_enabled=self._sops_enabled,
+            sops_secrets_files=self._sops_secrets_files,
         )
         await self._hass.async_add_executor_job(
             self._change_collector._load_gitignore
@@ -357,21 +457,45 @@ class GitFileWatcher:
                         )
 
                 await self._coordinator.async_request_refresh()
-        except GitError as err:
-            create_repository_layout_issue_from_error(
-                self._hass, self._entry_id, err
-            )
-            if isinstance(err, IndexLockError) and err.requires_repair:
-                create_stale_index_lock_issue(
-                    self._hass,
-                    self._entry_id,
-                    err.lock_path,
+        except (GitError, SopsError) as err:
+            if isinstance(err, GitError):
+                create_repository_layout_issue_from_error(
+                    self._hass, self._entry_id, err
                 )
+                if isinstance(err, IndexLockError) and err.requires_repair:
+                    create_stale_index_lock_issue(
+                        self._hass,
+                        self._entry_id,
+                        err.lock_path,
+                    )
             _LOGGER.error("Auto-commit failed: %s", err)
             self._hass.bus.async_fire(
                 EVENT_ERROR,
                 {"operation": "auto_commit", "error": str(err)},
             )
+
+    @staticmethod
+    def _find_changed_plain_secret_sync(sops_mgr) -> str | None:
+        """Return the relative path of the first changed plain secret, or None.
+
+        Runs glob resolution and file reads, which are blocking I/O and must
+        not execute directly on the event loop.
+        """
+        plain_files = sops_mgr.resolve_plain_secret_files()
+        for rel in plain_files:
+            plain_path = sops_mgr._repo_path / rel
+            enc_path = sops_mgr._repo_path / sops_mgr.get_encrypted_relative_path(rel)
+            if not plain_path.is_file():
+                continue
+            try:
+                content_bytes = plain_path.read_bytes()
+            except OSError:
+                continue
+            current_hash = hashlib.sha256(content_bytes).hexdigest()
+            cached_hash = sops_mgr._plain_hashes.get(rel)
+            if not enc_path.is_file() or cached_hash != current_hash:
+                return rel
+        return None
 
     async def async_check_and_commit(self) -> None:
         """Check for changes and commit if any exist.
@@ -391,6 +515,20 @@ class GitFileWatcher:
         if self._change_collector and self._change_collector.changed_files:
             await self._async_auto_commit()
             return
+
+        # Check plain secret changes when SOPS is active (they are ignored in .gitignore,
+        # so git status --porcelain won't see them on filesystems where watchdog misses events)
+        sops_mgr = self._git_manager._sops_manager
+        if sops_mgr is not None:
+            changed_secret = await asyncio.to_thread(
+                self._find_changed_plain_secret_sync, sops_mgr
+            )
+            if changed_secret is not None:
+                _LOGGER.debug(
+                    "Periodic check detected plain secret update: %s", changed_secret
+                )
+                await self._async_auto_commit_inner()
+                return
 
         # Fallback: ask git directly if there are uncommitted changes
         try:

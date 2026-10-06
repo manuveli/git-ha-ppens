@@ -15,6 +15,7 @@ from .const import (
     CONF_GIT_USER,
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
+    CONF_SOPS_AGE_KEY,
     CONF_SSH_KEY_PATH,
     DOMAIN,
 )
@@ -153,5 +154,9 @@ def _redact_config(config: dict[str, Any]) -> dict[str, Any]:
     # Redact SSH key path partially
     if redacted.get(CONF_SSH_KEY_PATH):
         redacted[CONF_SSH_KEY_PATH] = "**REDACTED**"
+
+    # Redact SOPS Age private key
+    if redacted.get(CONF_SOPS_AGE_KEY):
+        redacted[CONF_SOPS_AGE_KEY] = "**REDACTED**"
 
     return redacted

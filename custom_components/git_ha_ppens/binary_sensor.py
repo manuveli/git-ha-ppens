@@ -25,7 +25,14 @@ async def async_setup_entry(
     entity_ids: dict[str, str] = hass.data[DOMAIN][entry.entry_id]["entity_ids"][
         "binary_sensor"
     ]
-    async_add_entities([GitHaPpensDirtySensor(coordinator, entry, entity_ids["dirty"])])
+    entities: list[BinarySensorEntity] = [
+        GitHaPpensDirtySensor(coordinator, entry, entity_ids["dirty"])
+    ]
+    if "sops_ready" in entity_ids:
+        entities.append(
+            GitHaPpensSopsReadySensor(coordinator, entry, entity_ids["sops_ready"])
+        )
+    async_add_entities(entities)
 
 
 class GitHaPpensDirtySensor(
@@ -83,3 +90,39 @@ class GitHaPpensDirtySensor(
             "changed_files": all_changes,
             "change_count": len(all_changes),
         }
+
+
+class GitHaPpensSopsReadySensor(
+    CoordinatorEntity[GitHaPpensCoordinator], BinarySensorEntity
+):
+    """Binary sensor indicating whether SOPS secrets encryption is configured and ready."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "sops_ready"
+    _attr_icon = "mdi:shield-lock-outline"
+
+    def __init__(
+        self,
+        coordinator: GitHaPpensCoordinator,
+        entry: ConfigEntry,
+        entity_id: str,
+    ) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator)
+        self.entity_id = entity_id
+        self._attr_unique_id = f"{entry.entry_id}_sops_ready"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "git-ha-ppens",
+            "manufacturer": "git-ha-ppens",
+            "model": "Git Version Control",
+            "sw_version": "1.4.1",
+            "entry_type": "service",
+            "configuration_url": "https://github.com/manuveli/git-ha-ppens",
+        }
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if SOPS is enabled, binary is available, and credentials are configured."""
+        return self.coordinator.sops_ready
+

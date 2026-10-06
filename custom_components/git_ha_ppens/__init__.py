@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from pathlib import Path
 
 import voluptuous as vol
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.exceptions import ConfigEntryError
-from homeassistant.helpers import entity_registry as er
+from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
+from homeassistant.helpers import (
+    config_validation as cv,
+    entity_registry as er,
+)
 from homeassistant.helpers.event import async_track_time_interval
 
 from .ai_commit import async_generate_ai_commit_message
@@ -41,11 +45,17 @@ from .const import (
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
     CONF_SCAN_INTERVAL,
+    CONF_SOPS_AGE_KEY,
+    CONF_SOPS_AGE_RECIPIENT,
+    CONF_SOPS_BINARY_PATH,
+    CONF_SOPS_ENABLED,
+    CONF_SOPS_SECRETS_FILES,
     CONF_SSH_KEY_PATH,
     CORE_BACKUP_GITIGNORE_ENTRIES,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SOPS_SECRETS_FILES,
     DEFAULT_TOKEN_AUTH_USERNAME,
     DOMAIN,
     ENTITY_ID_KEYS,
@@ -54,8 +64,10 @@ from .const import (
     EVENT_PUSH,
     EVENT_SECRET_DETECTED,
     SERVICE_COMMIT,
+    SERVICE_DECRYPT_SECRETS,
     SERVICE_DIFF,
     SERVICE_DISCARD_CHANGES,
+    SERVICE_ENCRYPT_SECRETS,
     SERVICE_FETCH,
     SERVICE_PULL,
     SERVICE_PUSH,
@@ -71,6 +83,7 @@ from .git_manager import (
     PreDeployCheckError,
     UnsafeRepositoryLayoutError,
 )
+from .sops_manager import SopsError, SopsManager
 from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
@@ -92,6 +105,12 @@ PLATFORMS: list[Platform] = [
 SERVICE_COMMIT_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_MESSAGE): str,
+    }
+)
+
+SERVICE_SECRETS_SCHEMA = vol.Schema(
+    {
+        vol.Optional("files"): vol.All(cv.ensure_list, [cv.string]),
     }
 )
 
@@ -296,8 +315,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     git_user = data.get(CONF_GIT_USER, "")
     git_email = data.get(CONF_GIT_EMAIL, "")
 
+    # Initialize SOPS manager if enabled
+    sops_manager: SopsManager | None = None
+    if data.get(CONF_SOPS_ENABLED, False):
+        storage_dir = Path(hass.config.path(".storage", DOMAIN))
+        # Construction loads the on-disk hash cache synchronously; keep that
+        # blocking file I/O off the event loop.
+        sops_manager = await hass.async_add_executor_job(
+            lambda: SopsManager(
+                repo_path=repo_path,
+                age_key=data.get(CONF_SOPS_AGE_KEY, ""),
+                age_recipient=data.get(CONF_SOPS_AGE_RECIPIENT, ""),
+                custom_binary_path=data.get(CONF_SOPS_BINARY_PATH, ""),
+                storage_dir=storage_dir,
+                secrets_files=data.get(
+                    CONF_SOPS_SECRETS_FILES, DEFAULT_SOPS_SECRETS_FILES
+                ),
+            )
+        )
+        try:
+            await sops_manager.get_binary_path()
+        except SopsError as err:
+            _LOGGER.warning(
+                "SOPS binary could not be prepared during setup: %s", err
+            )
+
     # Create git manager
-    git_manager = GitManager(repo_path, git_user, git_email)
+    git_manager = GitManager(
+        repo_path, git_user, git_email, sops_manager=sops_manager
+    )
 
     # Verify git is installed
     if not await git_manager.is_git_installed():
@@ -440,6 +486,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         pre_deploy_check=pre_deploy_check,
         ai_commit_enabled=data.get(CONF_AI_COMMIT_MESSAGES, False),
         ai_agent_id=data.get(CONF_AI_AGENT_ID, ""),
+        sops_manager=sops_manager,
     )
 
     # Create initial commit if repository has no commits yet
@@ -527,6 +574,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ai_commit_enabled=ai_commit_enabled,
             ai_agent_id=ai_agent_id,
             entry_id=entry.entry_id,
+            sops_enabled=data.get(CONF_SOPS_ENABLED, False),
+            sops_secrets_files=data.get(
+                CONF_SOPS_SECRETS_FILES, DEFAULT_SOPS_SECRETS_FILES
+            ),
         )
         await file_watcher.async_start()
         _LOGGER.info(
@@ -545,6 +596,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, _periodic_check, timedelta(seconds=commit_interval)
         )
 
+    coordinator.file_watcher = file_watcher
     entity_ids = _resolve_entry_entity_ids(hass, entry)
 
     # Store references
@@ -619,6 +671,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_SYNC,
                 SERVICE_DIFF,
                 SERVICE_DISCARD_CHANGES,
+                SERVICE_ENCRYPT_SECRETS,
+                SERVICE_DECRYPT_SECRETS,
             ):
                 hass.services.async_remove(DOMAIN, service)
 
@@ -833,6 +887,36 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             _LOGGER.error("Diff failed: %s", err)
             return {"diff": "", "summary": "", "error": str(err)}
 
+    async def async_handle_encrypt_secrets(call: ServiceCall) -> None:
+        """Handle the encrypt_secrets service call."""
+        try:
+            _, coordinator = _get_manager_and_coordinator(call)
+            files = call.data.get("files")
+            processed = await coordinator.async_encrypt_secrets(files=files, force=True)
+            _LOGGER.info(
+                "Encrypted secrets: %s",
+                ", ".join(processed) if processed else "none",
+            )
+        except SopsError as err:
+            # coordinator.async_encrypt_secrets already fired EVENT_SOPS_ERROR.
+            _LOGGER.error("Encrypt secrets failed: %s", err)
+            raise HomeAssistantError(f"Encrypt secrets failed: {err}") from err
+
+    async def async_handle_decrypt_secrets(call: ServiceCall) -> None:
+        """Handle the decrypt_secrets service call."""
+        try:
+            _, coordinator = _get_manager_and_coordinator(call)
+            files = call.data.get("files")
+            restored = await coordinator.async_decrypt_secrets(files=files)
+            _LOGGER.info(
+                "Decrypted secrets: %s",
+                ", ".join(restored) if restored else "none",
+            )
+        except SopsError as err:
+            # coordinator.async_decrypt_secrets already fired EVENT_SOPS_ERROR.
+            _LOGGER.error("Decrypt secrets failed: %s", err)
+            raise HomeAssistantError(f"Decrypt secrets failed: {err}") from err
+
     # Only register services once
     if not hass.services.has_service(DOMAIN, SERVICE_COMMIT):
         hass.services.async_register(
@@ -854,4 +938,16 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             SERVICE_DIFF,
             async_handle_diff,
             supports_response=SupportsResponse.ONLY,
+        )
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_ENCRYPT_SECRETS,
+            async_handle_encrypt_secrets,
+            schema=SERVICE_SECRETS_SCHEMA,
+        )
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_DECRYPT_SECRETS,
+            async_handle_decrypt_secrets,
+            schema=SERVICE_SECRETS_SCHEMA,
         )

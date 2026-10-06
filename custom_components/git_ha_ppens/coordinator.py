@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -26,6 +27,9 @@ from .const import (
     EVENT_PULL,
     EVENT_PUSH,
     EVENT_RESTORE,
+    EVENT_SOPS_DECRYPTED,
+    EVENT_SOPS_ENCRYPTED,
+    EVENT_SOPS_ERROR,
     STORAGE_KEY_PREFIX,
     STORAGE_LAST_FETCH_TIME,
     STORAGE_LAST_PULL_TIME,
@@ -41,6 +45,7 @@ from .git_manager import (
     RestoreResult,
     RestoreValidationError,
 )
+from .sops_manager import SopsError, SopsManager
 from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
@@ -78,6 +83,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         ai_commit_enabled: bool = False,
         ai_agent_id: str = "",
         auto_push: bool = False,
+        sops_manager: SopsManager | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -87,6 +93,8 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             update_interval=timedelta(seconds=scan_interval),
         )
         self.git_manager = git_manager
+        self.sops_manager = sops_manager
+        self._file_watcher: Any = None
         self._entry_id = entry_id
         self._store: Store[dict[str, str]] = Store(
             hass, STORAGE_VERSION, f"{STORAGE_KEY_PREFIX}.{entry_id}"
@@ -107,6 +115,120 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         # Remote SHA whose merge was blocked by a failed pre-deploy check; skip
         # re-attempting (and re-running the heavy check) until it changes.
         self._blocked_remote_sha: str | None = None
+        # Refreshed off the event loop in _async_update_data; sops_status and
+        # sops_status_attributes read this instead of doing blocking file I/O.
+        self._sops_config_file_present: bool = False
+
+    @property
+    def file_watcher(self) -> Any:
+        """Return the file watcher instance if attached."""
+        return self._file_watcher
+
+    @file_watcher.setter
+    def file_watcher(self, watcher: Any) -> None:
+        """Set the file watcher instance."""
+        self._file_watcher = watcher
+
+    @contextmanager
+    def _suppress_secret_events_context(self):
+        """Context manager to suppress file watcher events on secrets if available."""
+        if self._file_watcher is not None and hasattr(
+            self._file_watcher, "suppress_secrets"
+        ):
+            with self._file_watcher.suppress_secrets():
+                yield
+        else:
+            yield
+
+    @property
+    def sops_enabled(self) -> bool:
+        """Return True if SOPS is configured."""
+        return self.sops_manager is not None
+
+    @property
+    def sops_status(self) -> str:
+        """Return current SOPS readiness status string."""
+        if not self.sops_enabled or not self.sops_manager:
+            return "disabled"
+        if not self.sops_manager._binary_available:
+            return "binary_missing"
+        if not self.sops_manager.age_recipient and not self._sops_config_file_present:
+            return "no_recipient"
+        if not self.sops_manager.age_key:
+            return "no_key"
+        return "ready"
+
+    @property
+    def sops_ready(self) -> bool:
+        """Return True if SOPS is fully configured and ready."""
+        return self.sops_status == "ready"
+
+    @property
+    def sops_status_attributes(self) -> dict[str, Any]:
+        """Return attributes for sensor.git_ha_ppens_sops_status."""
+        if not self.sops_manager:
+            return {
+                "enabled": False,
+                "has_encryption_key": False,
+                "has_decryption_key": False,
+                "binary_available": False,
+                "recipient": None,
+            }
+        bin_avail = self.sops_manager._binary_available
+        return {
+            "enabled": self.sops_enabled,
+            "has_encryption_key": bool(
+                self.sops_manager.age_recipient or self._sops_config_file_present
+            ),
+            "has_decryption_key": bool(self.sops_manager.age_key),
+            "binary_available": bin_avail,
+            "recipient": self.sops_manager.age_recipient,
+        }
+
+    async def async_encrypt_secrets(
+        self, files: Sequence[str] | None = None, force: bool = False
+    ) -> list[str]:
+        """Manually trigger encryption of secrets files."""
+        if not self.sops_manager:
+            raise SopsError("SOPS is not enabled")
+        async with self.git_lock:
+            try:
+                processed = await self.sops_manager.sync_secrets_to_encrypted(
+                    files=files, force=force
+                )
+                self.hass.bus.async_fire(
+                    EVENT_SOPS_ENCRYPTED,
+                    {"files": processed, "encrypted_files": processed},
+                )
+                return processed
+            except SopsError as err:
+                self.hass.bus.async_fire(
+                    EVENT_SOPS_ERROR, {"operation": "encrypt", "error": str(err)}
+                )
+                raise
+
+    async def async_decrypt_secrets(
+        self, files: Sequence[str] | None = None
+    ) -> list[str]:
+        """Manually trigger decryption of secrets files."""
+        if not self.sops_manager:
+            raise SopsError("SOPS is not enabled")
+        async with self.git_lock:
+            try:
+                with self._suppress_secret_events_context():
+                    restored = await self.sops_manager.sync_encrypted_to_secrets(
+                        files=files
+                    )
+                self.hass.bus.async_fire(
+                    EVENT_SOPS_DECRYPTED,
+                    {"files": restored, "decrypted_files": restored},
+                )
+                return restored
+            except SopsError as err:
+                self.hass.bus.async_fire(
+                    EVENT_SOPS_ERROR, {"operation": "decrypt", "error": str(err)}
+                )
+                raise
 
     @property
     def last_fetch_time(self) -> datetime | None:
@@ -396,9 +518,10 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 await async_ensure_repository_layout_safe(
                     self.hass, self._entry_id, self.git_manager
                 )
-                pull_result = await self.git_manager.pull(
-                    backup=True, validate=self.pre_deploy_validator()
-                )
+                with self._suppress_secret_events_context():
+                    pull_result = await self.git_manager.pull(
+                        backup=True, validate=self.pre_deploy_validator()
+                    )
                 await self.async_record_pull_time()
         except PreDeployCheckError as err:
             await self.async_handle_pre_deploy_failure(err.errors, auto=False)
@@ -486,11 +609,12 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 await async_ensure_repository_layout_safe(
                     self.hass, self._entry_id, self.git_manager
                 )
-                restore_result = await self.git_manager.restore_snapshot(
-                    target_hash,
-                    expected_head,
-                    validate=self.restore_validator(),
-                )
+                with self._suppress_secret_events_context():
+                    restore_result = await self.git_manager.restore_snapshot(
+                        target_hash,
+                        expected_head,
+                        validate=self.restore_validator(),
+                    )
                 if push:
                     try:
                         commits_pushed = await self.git_manager.push(
@@ -577,6 +701,15 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         if self._remote_configured:
             await self._maybe_fetch()
 
+        if self.sops_manager is not None:
+            # is_available() already catches SopsError/OSError internally and
+            # reports False; it deliberately never raises. The binary lookup
+            # cooldown in SopsManager keeps this from hammering downloads.
+            await self.sops_manager.is_available()
+            self._sops_config_file_present = await asyncio.to_thread(
+                (self.sops_manager.repo_path / ".sops.yaml").is_file
+            )
+
         try:
             status = await self.git_manager.get_status()
         except GitError as err:
@@ -611,9 +744,10 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         self.hass, self._entry_id, self.git_manager
                     )
                     should_push_merged_history = self._auto_push and status.ahead > 0
-                    pull_result = await self.git_manager.pull(
-                        backup=True, validate=self.pre_deploy_validator()
-                    )
+                    with self._suppress_secret_events_context():
+                        pull_result = await self.git_manager.pull(
+                            backup=True, validate=self.pre_deploy_validator()
+                        )
                     await self.async_record_pull_time()
                     self._blocked_remote_sha = None
                     self.hass.bus.async_fire(

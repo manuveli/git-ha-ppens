@@ -68,7 +68,8 @@
 - [📥 Installation](#-installation)
 - [✨ Features](#-features)
 - [🔁 GitOps Workflow](#-gitops-workflow)
-- [⚙️ Configuration](#️-configuration)
+- [⚙️ Configuration](#-configuration)
+- [🔐 SOPS Secrets Encryption](#-sops-secrets-encryption)
 - [⏪ Roll back to a historical configuration](#-roll-back-to-a-historical-configuration)
 - [🤖 AI Commit-Messages](#-ai-commit-messages)
 - [🚀 Services](#-services)
@@ -108,6 +109,7 @@
 - **Native rollback** from the configuration UI — select a historical commit, preview the changes, validate the configuration and restore it
 
 ### 🛡️ Security & Secrets
+- 🔐 **Native SOPS & age encryption** — seamlessly versions `secrets.yaml` (and `esphome/secrets.yaml`) as encrypted `secrets.enc.yaml` sidecar files in Git, with zero plaintext leakage risk
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
 - 📦 **Core/Container backup protection** excludes HA-created `.tar` archives without hiding other files in a user-created `backups` directory
 - 🔍 **Best-effort secret warning** checks staged or modified configuration files when the integration loads
@@ -119,8 +121,8 @@
 - **HTTPS** with personal access token or **SSH key** authentication
 
 ### 📊 Visibility & Monitoring
-- **10 sensors** + **1 binary sensor** for real-time git status
-- **Events** for commit, push, pull, fetch, errors, and secret detection
+- **11 sensors** + **2 binary sensors** for real-time git status and encryption health
+- **Events** for commit, push, pull, fetch, errors, secret detection, and SOPS lifecycle
 - Build dashboards, notifications, and automations around your config history
 
 ### 🩺 Diagnostics
@@ -217,7 +219,122 @@ setups. Bitbucket repository, project, or workspace access tokens commonly use
 account's Bitbucket username. The setting is ignored for SSH and unauthenticated
 remotes.
 
-> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, and **Restore configuration**.
+> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, **SOPS Secrets Encryption**, and **Restore configuration**.
+
+---
+
+## 🔐 SOPS Secrets Encryption
+
+Traditionally, GitOps for Home Assistant forced a dilemma: `secrets.yaml` contains passwords, API tokens, and credentials that must never be pushed to a Git remote unencrypted. But ignoring secrets completely means repository clones and remote restores are missing critical configuration needed to boot Home Assistant.
+
+**git-ha-ppens** solves this elegantly using **[SOPS](https://github.com/getsops/sops) (Secrets OPerationS)** and modern **[age](https://github.com/FiloSottile/age)** cryptography through an **Encrypted Sidecar Pattern**:
+
+```
+                       ┌───────────────────────────────┐
+                       │  Home Assistant Live Runtime  │
+                       │   (reads secrets.yaml / plain)│
+                       └───────────────┬───────────────┘
+                                       │
+                      Auto-Encrypt on Commit (SOPS + age)
+                                       │
+                                       ▼
+    secrets.yaml ─────────────► secrets.enc.yaml ─────────────► git push
+    (always in .gitignore,      (encrypted ciphertext,          (safe for private
+     NEVER leaves host)          committed to Git)               or public remotes)
+                                       ▲
+                                       │
+                       Auto-Decrypt on Pull (SOPS + age)
+                                       │
+                       ┌───────────────┴───────────────┐
+                       │   Pre-Deploy Validation Check │
+                       │    (validates before running) │
+                       └───────────────────────────────┘
+```
+
+### Why the Sidecar Pattern?
+
+- 🛡️ **Guaranteed Plaintext Leak Prevention**: `secrets.yaml` (and `esphome/secrets.yaml`) remain permanently listed in `.gitignore`. Even if SOPS fails, a manual git commit is run, or an external tool commits files, plaintext secrets **can never leak into Git history**.
+- ⚙️ **Home Assistant Native**: Home Assistant Core requires a standard plaintext `secrets.yaml` on disk to resolve `!secret` tags at boot. The sidecar pattern gives Home Assistant what it needs on disk while versioning only `secrets.enc.yaml` in Git.
+- 🔑 **Standard X25519 & Bech32 (`age`)**: Keys use standard modern `age` keypairs (`AGE-SECRET-KEY-1...` / `age1...`). Zero proprietary formatting.
+- 🚀 **Auto-Managed Binary**: No manual binary installation needed on 64-bit platforms. git-ha-ppens automatically detects your architecture (Linux `x86_64`/`amd64`, `aarch64`/`arm64`, and macOS) and downloads the official standalone SOPS binary into `/config/.storage/git_ha_ppens/bin/sops` with SHA-256 integrity verification.
+
+### 🖥️ Platform & Architecture Support
+
+Official standalone SOPS binaries are published by upstream [getsops/sops](https://github.com/getsops/sops):
+
+| Architecture                     | Platform                                              | Auto-Download | Setup Method                                         |
+|----------------------------------|-------------------------------------------------------|:-------------:|------------------------------------------------------|
+| `x86_64` / `amd64`               | Linux / Docker / HA OS                                |    ✅ Yes     | Automatic                                            |
+| `aarch64` / `arm64`              | Linux / Docker / HA OS (e.g. Raspberry Pi 4/5 64-bit) |    ✅ Yes     | Automatic                                            |
+| `x86_64` / `arm64`               | macOS (Intel / Apple Silicon)                         |    ✅ Yes     | Automatic                                            |
+| `armv7l` / `armv6l` (32-bit ARM) | Linux (e.g. Raspberry Pi 2/3/4 on 32-bit OS)          |     ❌ No     | **Manual installation required** (see callout below) |
+| `i386` / `i686` (32-bit x86)     | Linux                                                 |     ❌ No     | **Manual installation required** (see callout below) |
+
+> [!IMPORTANT]
+> **32-Bit ARM Architectures (`armv7l` / `armv6l` / Raspberry Pi 32-bit OS):**
+> Upstream SOPS does **not** publish pre-compiled 32-bit standalone binaries. If your Home Assistant runs on a 32-bit operating system or architecture:
+> 1. Install SOPS manually on the host:
+>    - Alpine Linux: `apk add sops`
+>    - Go toolchain: `go install github.com/getsops/sops/v3/cmd/sops@latest`
+>    - Or copy a custom pre-built 32-bit `sops` binary to your system.
+> 2. Open **Settings → Devices & Services → git-ha-ppens → Configure → SOPS Secrets Encryption**.
+> 3. Enter the absolute path to your binary (e.g. `/usr/bin/sops` or `/usr/local/bin/sops`) in **Custom SOPS binary path**.
+
+### Quick Setup
+
+1. Go to **Settings → Devices & Services → git-ha-ppens → Configure**.
+2. Select **SOPS Secrets Encryption**.
+3. Check **Enable SOPS encryption**.
+4. Check **Generate a new age key pair automatically** (or paste your existing age secret key if you already have one).
+5. *(Optional / 32-bit only)* If using a 32-bit architecture or custom binary, enter its path in **Custom SOPS binary path**.
+6. Click **Submit**.
+7. The integration generates a standard X25519 age keypair and displays your private key and public recipient.
+   > ⚠️ **IMPORTANT:** Save your secret key (`AGE-SECRET-KEY-1...`) in your password manager! If lost, encrypted secrets cannot be decrypted on other machines.
+8. Click **Submit** to confirm. A `.sops.yaml` configuration file is automatically created in your repository root with your public recipient, and any secrets already tracked are re-encrypted for it.
+
+> [!WARNING]
+> **Regenerating a key later:** if an age secret key is already configured, "Generate a new age key pair automatically" requires checking **I understand this will replace the existing age key** first. On confirm, tracked secrets are re-encrypted for the new recipient before the old key is discarded — but only the files currently resolved by your configured **Secrets files and glob patterns**. Anything encrypted outside that scope (e.g. an old export) will only ever decrypt with the OLD key, so keep it until you've confirmed everything you need still decrypts with the new one.
+
+### 📝 Configurable Secret Files & Glob Patterns
+
+Every Home Assistant setup is unique. In addition to the standard `secrets.yaml` and `esphome/secrets.yaml`, you can customize exactly which files contain secrets:
+
+1. Open **Settings → Devices & Services → git-ha-ppens → Configure → SOPS Secrets Encryption**.
+2. In the **Secrets files and glob patterns** field, list one relative path or wildcard glob pattern per line:
+   ```text
+   secrets.yaml
+   esphome/secrets.yaml
+   zigbee2mqtt/secrets.yaml
+   **/secrets.yaml
+   secrets/*.yaml
+   ```
+- **Direct paths:** Specific files like `zigbee2mqtt/secrets.yaml` are encrypted to `zigbee2mqtt/secrets.enc.yaml`.
+- **Wildcard glob patterns:** Patterns like `**/secrets.yaml` recursively discover and encrypt any matching file in subdirectories.
+- **Pull-time Decryption:** On `git pull`, git-ha-ppens decrypts the `.enc.*` sidecars that belong to your configured **Secrets files and glob patterns** (e.g. `secrets.enc.yaml` for `secrets.yaml`). Unrelated `*.enc.*` files elsewhere in the repository are intentionally left alone.
+
+### How it Works in the GitOps Loop
+
+- **On Commit:** Whenever files change (via file watcher auto-commit or the `commit` / `sync` services), git-ha-ppens automatically runs SOPS to encrypt `secrets.yaml` to `secrets.enc.yaml` (and `esphome/secrets.yaml` to `esphome/secrets.enc.yaml`) before staging and creating the git commit.
+- **On Pull:** When remote changes arrive via Auto-Pull or manual pull, git-ha-ppens decrypts `secrets.enc.yaml` back into `secrets.yaml` using your local secret key **before** running the pre-deploy Home Assistant configuration validation check.
+- **On Restore:** When rolling back to a historical commit snapshot, the matching secrets are decrypted and verified atomically before the new rollback commit is applied.
+- **Atomic & Safe:** File writes during decryption use atomic temp-file replacement with strict POSIX file permissions (`0600`, owner-only read/write). If decryption fails (e.g. invalid key or corrupted file), the existing `secrets.yaml` is never modified or wiped out.
+- **Loop Prevention:** The file watcher automatically suppresses events during pull and rollback decryptions and ignores `.enc.yaml` files, preventing recursive commit loops.
+
+### Multi-Instance & Team Sharing
+
+Because SOPS supports multiple age recipients simultaneously, you can share a single encrypted repository across multiple Home Assistant instances or team members without sharing private keys:
+
+1. Each Home Assistant instance generates its own unique age keypair.
+2. In `.sops.yaml`, add all public recipients under `creation_rules`:
+   ```yaml
+   creation_rules:
+     - age: >-
+         age1instance1...,
+         age1instance2...,
+         age1yourworkstation...
+   ```
+3. Run Developer Tools → Services → `git_ha_ppens.encrypt_secrets` to re-encrypt secrets with all recipients.
+4. Each instance can now decrypt using its own private `AGE-SECRET-KEY-1...`.
 
 ---
 
@@ -325,6 +442,8 @@ a change after auto-commit has already created a commit.
 | `git_ha_ppens.discard_changes` | Permanently discard staged and unstaged changes to tracked files; untracked files are preserved | — |
 | `git_ha_ppens.sync` | Commit + push in one step | `message` *(optional)* — custom commit message |
 | `git_ha_ppens.diff` | Get the current diff of uncommitted changes | — *(returns response data)* |
+| `git_ha_ppens.encrypt_secrets` | Encrypt plain secrets files to their `.enc.yaml` equivalents using SOPS | `files` *(optional)* — list of specific relative file paths to encrypt |
+| `git_ha_ppens.decrypt_secrets` | Decrypt encrypted `.enc.yaml` secrets files back to plain secrets | `files` *(optional)* — list of specific relative file paths to decrypt |
 
 ### Example: Call sync from an automation
 
@@ -363,12 +482,14 @@ action:
 | `sensor.git_ha_ppens_last_fetch_time` | Timestamp of last successful fetch | — |
 | `sensor.git_ha_ppens_last_pull_time` | Timestamp of last successful pull | — |
 | `sensor.git_ha_ppens_last_push_time` | Timestamp of last successful push | — |
+| `sensor.git_ha_ppens_sops_status` | Status of SOPS secret encryption (`ready`, `disabled`, `binary_missing`, `no_recipient` or `no_key`) | `enabled`, `has_encryption_key`, `has_decryption_key`, `binary_available`, `recipient` |
 
 ### Binary Sensors
 
 | Entity | Description | Device Class |
 |--------|-------------|--------------|
 | `binary_sensor.git_ha_ppens_dirty` | `on` when there are uncommitted changes | `problem` |
+| `binary_sensor.git_ha_ppens_sops_ready` | `on` when SOPS is enabled, binary is available, and keys are configured | — |
 
 ---
 
@@ -386,6 +507,9 @@ Use these events as automation triggers to build notifications, dashboards, or r
 | `git_ha_ppens_restore` | A historical snapshot was restored as a new commit | `target_hash`, `target_message`, `restore_hash`, `commits_restored`, `changed_files`, `pushed`, `auto` |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
 | `git_ha_ppens_secret_detected` | Potential secrets are found in staged or modified files during the load-time scan | `findings`, `count` |
+| `git_ha_ppens_sops_encrypted` | Secrets files were successfully encrypted | `files`, `encrypted_files` |
+| `git_ha_ppens_sops_decrypted` | Secrets files were successfully decrypted | `files`, `decrypted_files` |
+| `git_ha_ppens_sops_error` | A SOPS encrypt/decrypt operation fails (manual service call, or during an automatic commit/pull) | `operation`, `error` |
 
 ---
 

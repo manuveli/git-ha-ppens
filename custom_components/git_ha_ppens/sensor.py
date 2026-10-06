@@ -28,6 +28,7 @@ class GitHaPpensSensorDescription(SensorEntityDescription):
     value_fn: Callable[[GitStatus], str | int | datetime | None] | None = None
     coordinator_value_fn: Callable[[GitHaPpensCoordinator], str | int | datetime | None] | None = None
     extra_attrs_fn: Callable[[GitStatus], dict] | None = None
+    coordinator_extra_attrs_fn: Callable[[GitHaPpensCoordinator], dict] | None = None
 
 
 SENSOR_DESCRIPTIONS: tuple[GitHaPpensSensorDescription, ...] = (
@@ -115,6 +116,13 @@ SENSOR_DESCRIPTIONS: tuple[GitHaPpensSensorDescription, ...] = (
         native_unit_of_measurement="commits",
         value_fn=lambda s: max(s.ahead, 0),
     ),
+    GitHaPpensSensorDescription(
+        key="sops_status",
+        translation_key="sops_status",
+        icon="mdi:shield-key-outline",
+        coordinator_value_fn=lambda c: c.sops_status,
+        coordinator_extra_attrs_fn=lambda c: c.sops_status_attributes,
+    ),
 )
 
 
@@ -200,6 +208,8 @@ class GitHaPpensSensor(
     @property
     def extra_state_attributes(self) -> dict | None:
         """Return extra state attributes."""
+        if self.entity_description.coordinator_extra_attrs_fn is not None:
+            return self.entity_description.coordinator_extra_attrs_fn(self.coordinator)
         if (
             self.coordinator.data is None
             or self.entity_description.extra_attrs_fn is None

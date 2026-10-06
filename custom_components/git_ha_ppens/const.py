@@ -33,6 +33,11 @@ CONF_PRE_DEPLOY_CHECK: Final = "pre_deploy_check"
 CONF_RESTORE_TARGET: Final = "restore_target"
 CONF_RESTORE_CONFIRM: Final = "restore_confirm"
 CONF_RESTORE_PUSH: Final = "restore_push"
+CONF_SOPS_ENABLED: Final = "sops_enabled"
+CONF_SOPS_AGE_KEY: Final = "sops_age_key"
+CONF_SOPS_AGE_RECIPIENT: Final = "sops_age_recipient"
+CONF_SOPS_BINARY_PATH: Final = "sops_binary_path"
+CONF_SOPS_SECRETS_FILES: Final = "sops_secrets_files"
 
 # Authentication methods
 AUTH_NONE: Final = "none"
@@ -53,6 +58,19 @@ RESTORE_HISTORY_LIMIT: Final = 20
 RESTORE_PREVIEW_COMMIT_LIMIT: Final = 20
 RESTORE_PREVIEW_FILE_LIMIT: Final = 50
 GITIGNORE_MIGRATION_VERSION: Final = 1
+DEFAULT_SOPS_VERSION: Final = "v3.9.4"
+# Matching against these patterns is case-insensitive throughout (both
+# SopsManager's glob resolution and the file watcher's secret-file
+# detection), so an uppercase/lowercase variant of the same pattern would be
+# redundant -- one entry per pattern is enough to catch e.g. both
+# "gcp_creds.json" and "GCP_CREDS.json".
+DEFAULT_SOPS_SECRETS_FILES: Final = (
+    "secrets.yaml",
+    "**/secrets.yaml",
+    "*gcp*.json",
+    "*service_account*.json",
+)
+SOPS_ENC_EXTENSION: Final = ".enc.yaml"
 
 # Persistent runtime storage
 STORAGE_VERSION: Final = 1
@@ -70,6 +88,9 @@ EVENT_FETCH: Final = f"{DOMAIN}_fetch"
 EVENT_SECRET_DETECTED: Final = f"{DOMAIN}_secret_detected"
 EVENT_CHECK_FAILED: Final = f"{DOMAIN}_check_failed"
 EVENT_RESTORE: Final = f"{DOMAIN}_restore"
+EVENT_SOPS_ENCRYPTED: Final = f"{DOMAIN}_sops_encrypted"
+EVENT_SOPS_DECRYPTED: Final = f"{DOMAIN}_sops_decrypted"
+EVENT_SOPS_ERROR: Final = f"{DOMAIN}_sops_error"
 
 # Repairs
 REPAIR_STALE_INDEX_LOCK: Final = "stale_index_lock"
@@ -92,9 +113,11 @@ SENSOR_LAST_COMMIT_TIME: Final = "last_commit_time"
 SENSOR_UNCOMMITTED_CHANGES: Final = "uncommitted_changes"
 SENSOR_BRANCH: Final = "branch"
 SENSOR_REMOTE_STATUS: Final = "remote_status"
+SENSOR_SOPS_STATUS: Final = "sops_status"
 
 # Binary sensor keys
 BINARY_SENSOR_DIRTY: Final = "dirty"
+BINARY_SENSOR_SOPS_READY: Final = "sops_ready"
 
 # Service names
 SERVICE_COMMIT: Final = "commit"
@@ -104,6 +127,8 @@ SERVICE_SYNC: Final = "sync"
 SERVICE_FETCH: Final = "fetch"
 SERVICE_DIFF: Final = "diff"
 SERVICE_DISCARD_CHANGES: Final = "discard_changes"
+SERVICE_ENCRYPT_SECRETS: Final = "encrypt_secrets"
+SERVICE_DECRYPT_SECRETS: Final = "decrypt_secrets"
 
 # Service parameters
 ATTR_MESSAGE: Final = "message"
@@ -121,9 +146,11 @@ SENSOR_ENTITY_IDS: Final = {
     "last_push_time": f"sensor.{DOMAIN}_last_push_time",
     "commits_behind": f"sensor.{DOMAIN}_commits_behind",
     "commits_ahead": f"sensor.{DOMAIN}_commits_ahead",
+    "sops_status": f"sensor.{DOMAIN}_sops_status",
 }
 BINARY_SENSOR_ENTITY_IDS: Final = {
     "dirty": f"binary_sensor.{DOMAIN}_dirty",
+    "sops_ready": f"binary_sensor.{DOMAIN}_sops_ready",
 }
 BUTTON_ENTITY_IDS: Final = {
     "push": f"button.{DOMAIN}_push",
@@ -220,6 +247,13 @@ DEFAULT_GITIGNORE_ENTRIES: Final = [
     "# git-ha-ppens: Auto-generated .gitignore for Home Assistant",
     "# Sensitive files",
     "secrets.yaml",
+    "*gcp*.json",
+    "*GCP*.json",
+    "*service_account*.json",
+    "*SERVICE_ACCOUNT*.json",
+    "!*.enc.yaml",
+    "!*.enc.yml",
+    "!*.enc.json",
     ".storage/",
     ".cloud/",
     "tls/",
