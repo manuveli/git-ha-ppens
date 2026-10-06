@@ -248,7 +248,7 @@
           },
           "migrate_esphome": {
             "title": "Migrar ESPHome al repositorio principal",
-            "description": "Se moverá `/config/esphome/.git` a un directorio privado de recuperación y se prepararán los archivos reales de ESPHome en el índice externo. El historial interno se conserva y no se combina. Antes de continuar, desactiva **Settings → Expert mode → Save version history** o detén ESPHome. Evaluación: `{reason}`.",
+            "description": "Se moverá `/config/esphome/.git` a un directorio privado de recuperación y se prepararán los archivos reales de ESPHome en el índice externo. El historial interno se conserva y no se combina.\n\nAntes de continuar, asegúrate de que ESPHome no pueda escribir el historial de versiones:\n\n1. Abre la interfaz web de ESPHome Device Builder. En Home Assistant OS o Supervised, ve a **Settings → Apps → ESPHome Device Builder** y selecciona **Open Web UI**.\n2. Abre el menú de la esquina superior derecha y selecciona **Settings**.\n3. En **Appearance**, activa **Expert Mode** y desactiva **Save version history**.\n\nComo alternativa, detén el complemento ESPHome o Device Builder. Evaluación: `{reason}`.",
             "data": {
               "confirm_esphome_stopped": "Confirmo que ESPHome está detenido o que Save version history está desactivado"
             },
@@ -258,7 +258,7 @@
           },
           "manual": {
             "title": "Reparar manualmente el repositorio integrado",
-            "description": "Rutas afectadas: `{paths}`.\n\n1. Detén la aplicación propietaria y, en ESPHome, desactiva Save version history.\n2. Guarda el `.git` interno fuera del repositorio externo.\n3. Si `git -C /config ls-files --stage -- esphome` muestra `160000`, ejecuta `git -C /config rm --cached -f -- esphome`.\n4. Ignora secretos y datos de ejecución, mueve `.git` y ejecuta `git -C /config add -A -- esphome`.\n5. Verifica modos `100644` y que no se preparen `160000`, secretos, `.esphome/`, claves ni archivos de emparejamiento.\n6. Confirma o sincroniza, envía este formulario y conserva la copia hasta comprobar el remoto."
+            "description": "Rutas afectadas: `{paths}`.\n\n1. Asegúrate de que la aplicación propietaria no pueda escribir en el repositorio incrustado. Para ESPHome, abre la interfaz web de Device Builder y usa el menú superior derecho para abrir **Settings**. En **Appearance**, activa **Expert Mode** y desactiva **Save version history**. Como alternativa, detén ESPHome.\n2. Con la aplicación oficial Terminal & SSH, conserva el repositorio interno fuera de `/config`: `esphome_backup=\"/backup/esphome-git-$(date +%Y%m%d-%H%M%S)\"; mkdir -p \"$esphome_backup\"; mv /config/esphome/.git \"$esphome_backup/dot-git\"`. No lo elimines antes de comprobar el respaldo remoto.\n3. Si `git -C /config ls-files --stage -- esphome` muestra `160000`, ejecuta `git -C /config rm --cached -f -- esphome`.\n4. Asegúrate de que se ignoren los secretos y los datos de ejecución y ejecuta `git -C /config add -A -- esphome`.\n5. Verifica el modo `100644` y que no se preparen `160000`, `secrets.yaml`, `.esphome/`, claves ni archivos de emparejamiento. Confirma o sincroniza la ruta ESPHome.\n6. Envía este formulario para volver a comprobar el diseño. Conserva la copia hasta verificar los archivos en el remoto."
           }
         },
         "error": {
@@ -271,7 +271,7 @@
           "entry_removed": "La entrada de configuración relacionada ya no existe."
         },
         "create_entry": {
-          "migration_successful": "ESPHome está preparado como archivos normales. La copia recuperable permanece en `{backup_path}`. Auto-Commit confirmará la instantánea si está activo; de lo contrario usa Commit o Sync. Comprueba el remoto antes de borrar la recuperación y reinicia ESPHome si lo detuviste.",
+          "migration_successful": "ESPHome está preparado como archivos normales. La copia recuperable permanece en `{backup_path}`. Auto-Commit confirmará la instantánea si está activo; de lo contrario usa Commit o Sync. Comprueba el remoto antes de borrar la recuperación y reinicia ESPHome si lo detuviste. Puedes volver a activar Save version history si deseas commits de ESPHome en cada guardado; ESPHome debería mostrar `/config` como su árbol de trabajo Git.",
           "manual_fix_complete": "La estructura vuelve a ser segura y git-ha-ppens se recargará. Comprueba el remoto antes de borrar la copia manual."
         }
       }

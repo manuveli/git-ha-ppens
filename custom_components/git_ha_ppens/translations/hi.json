@@ -245,7 +245,7 @@
           },
           "migrate_esphome": {
             "title": "ESPHome को मुख्य रिपॉज़िटरी में माइग्रेट करें",
-            "description": "`/config/esphome/.git` को निजी रिकवरी डायरेक्टरी में ले जाकर वास्तविक ESPHome फ़ाइलें बाहरी इंडेक्स में स्टेज की जाएँगी। अंदरूनी इतिहास सुरक्षित रहेगा, मर्ज नहीं होगा। आगे बढ़ने से पहले **Settings → Expert mode → Save version history** बंद करें या ESPHome रोकें। जाँच: `{reason}`।",
+            "description": "`/config/esphome/.git` को निजी रिकवरी डायरेक्टरी में ले जाकर वास्तविक ESPHome फ़ाइलें बाहरी इंडेक्स में स्टेज की जाएँगी। अंदरूनी इतिहास सुरक्षित रहेगा, मर्ज नहीं होगा।\n\nआगे बढ़ने से पहले सुनिश्चित करें कि ESPHome वर्ज़न हिस्ट्री नहीं लिख सकता:\n\n1. ESPHome Device Builder Web UI खोलें। Home Assistant OS या Supervised में **Settings → Apps → ESPHome Device Builder** पर जाएँ और **Open Web UI** चुनें।\n2. ऊपर दाएँ कोने का मेनू खोलें और **Settings** चुनें।\n3. **Appearance** के अंदर **Expert Mode** चालू करें, फिर **Save version history** बंद करें।\n\nविकल्प के रूप में ESPHome add-on या Device Builder को रोकें। जाँच: `{reason}`।",
             "data": {
               "confirm_esphome_stopped": "मैं पुष्टि करता/करती हूँ कि ESPHome रुका है या Save version history बंद है"
             },
@@ -255,7 +255,7 @@
           },
           "manual": {
             "title": "एम्बेडेड रिपॉज़िटरी मैन्युअल रूप से ठीक करें",
-            "description": "प्रभावित पथ: `{paths}`।\n\n1. मालिक ऐप रोकें और ESPHome में Save version history बंद करें।\n2. अंदरूनी `.git` को बाहरी रिपॉज़िटरी से बाहर सुरक्षित रखें।\n3. यदि `git -C /config ls-files --stage -- esphome` में `160000` दिखे, तो `git -C /config rm --cached -f -- esphome` चलाएँ।\n4. सीक्रेट और रनटाइम डेटा को ignore करें, `.git` हटाकर सुरक्षित जगह रखें और `git -C /config add -A -- esphome` चलाएँ।\n5. `100644` मोड और `160000`, सीक्रेट, `.esphome/`, key या pairing फ़ाइलों की अनुपस्थिति जाँचें।\n6. Commit या Sync करें, यह फ़ॉर्म जमा करें और remote जाँचने तक बैकअप रखें।"
+            "description": "प्रभावित पथ: `{paths}`।\n\n1. सुनिश्चित करें कि मालिक ऐप एम्बेडेड रिपॉज़िटरी में नहीं लिख सकता। ESPHome के लिए Device Builder Web UI खोलें और ऊपर दाएँ मेनू से **Settings** खोलें। **Appearance** में **Expert Mode** चालू करें और **Save version history** बंद करें। विकल्प के रूप में ESPHome रोकें।\n2. आधिकारिक Terminal & SSH ऐप से अंदरूनी रिपॉज़िटरी को `/config` से बाहर सुरक्षित करें: `esphome_backup=\"/backup/esphome-git-$(date +%Y%m%d-%H%M%S)\"; mkdir -p \"$esphome_backup\"; mv /config/esphome/.git \"$esphome_backup/dot-git\"`। Remote backup की जाँच से पहले इसे कभी न हटाएँ।\n3. यदि `git -C /config ls-files --stage -- esphome` में `160000` दिखे, तो `git -C /config rm --cached -f -- esphome` चलाएँ।\n4. सुनिश्चित करें कि सीक्रेट और रनटाइम डेटा ignore हैं, फिर `git -C /config add -A -- esphome` चलाएँ।\n5. `100644` मोड और `160000`, `secrets.yaml`, `.esphome/`, key या pairing फ़ाइलों की अनुपस्थिति जाँचें। ESPHome पथ को Commit या Sync करें।\n6. दोबारा जाँच के लिए यह फ़ॉर्म जमा करें और remote फ़ाइलें जाँचने तक बैकअप रखें।"
           }
         },
         "error": {
@@ -268,7 +268,7 @@
           "entry_removed": "संबंधित कॉन्फ़िगरेशन एंट्री अब मौजूद नहीं है।"
         },
         "create_entry": {
-          "migration_successful": "ESPHome अब सामान्य फ़ाइलों के रूप में स्टेज है। रिकवरी कॉपी `{backup_path}` में सुरक्षित है। Auto-Commit चालू हो तो वह commit करेगा, अन्यथा Commit या Sync उपयोग करें। रिकवरी हटाने से पहले remote जाँचें और आवश्यकता पर ESPHome पुनः शुरू करें।",
+          "migration_successful": "ESPHome अब सामान्य फ़ाइलों के रूप में स्टेज है। रिकवरी कॉपी `{backup_path}` में सुरक्षित है। Auto-Commit चालू हो तो वह commit करेगा, अन्यथा Commit या Sync उपयोग करें। रिकवरी हटाने से पहले remote जाँचें और आवश्यकता पर ESPHome पुनः शुरू करें। यदि आप हर save पर ESPHome commit चाहते हैं तो Save version history फिर चालू कर सकते हैं; ESPHome को तब `/config` को Git work tree बताना चाहिए।",
           "manual_fix_complete": "रिपॉज़िटरी संरचना फिर सुरक्षित है और git-ha-ppens रीलोड होगा। मैन्युअल बैकअप हटाने से पहले remote जाँचें।"
         }
       }

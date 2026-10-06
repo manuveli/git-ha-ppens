@@ -245,7 +245,7 @@
           },
           "migrate_esphome": {
             "title": "ESPHome’u ana depoya taşı",
-            "description": "`/config/esphome/.git` özel bir kurtarma dizinine taşınır ve gerçek ESPHome dosyaları dış indekse eklenir. İç geçmiş korunur ve birleştirilmez. Devam etmeden önce **Settings → Expert mode → Save version history** seçeneğini kapatın veya ESPHome’u durdurun. Değerlendirme: `{reason}`.",
+            "description": "`/config/esphome/.git` özel bir kurtarma dizinine taşınır ve gerçek ESPHome dosyaları dış indekse eklenir. İç geçmiş korunur ve birleştirilmez.\n\nDevam etmeden önce ESPHome’un sürüm geçmişine yazamadığından emin olun:\n\n1. ESPHome Device Builder Web UI’yi açın. Home Assistant OS veya Supervised’da **Settings → Apps → ESPHome Device Builder** yoluna gidip **Open Web UI** seçeneğini seçin.\n2. Sağ üst köşedeki menüyü açın ve **Settings** seçeneğini seçin.\n3. **Appearance** altında **Expert Mode** seçeneğini etkinleştirin, ardından **Save version history** seçeneğini kapatın.\n\nAlternatif olarak ESPHome eklentisini veya Device Builder’ı durdurun. Değerlendirme: `{reason}`.",
             "data": {
               "confirm_esphome_stopped": "ESPHome’un durduğunu veya Save version history seçeneğinin kapalı olduğunu onaylıyorum"
             },
@@ -255,7 +255,7 @@
           },
           "manual": {
             "title": "Gömülü depoyu elle düzelt",
-            "description": "Etkilenen yollar: `{paths}`.\n\n1. Sahip uygulamayı durdurun ve ESPHome’da Save version history seçeneğini kapatın.\n2. İç `.git` dizinini dış deponun dışında yedekleyin.\n3. `git -C /config ls-files --stage -- esphome` çıktısı `160000` gösteriyorsa `git -C /config rm --cached -f -- esphome` komutunu çalıştırın.\n4. Gizli ve çalışma zamanı verilerini yok sayın, `.git` dizinini taşıyın ve `git -C /config add -A -- esphome` komutunu çalıştırın.\n5. `100644` modunu ve `160000`, gizli dosya, `.esphome/`, anahtar veya eşleştirme dosyası bulunmadığını doğrulayın.\n6. Commit veya Sync yapın, bu formu gönderin ve uzaktaki dosyaları doğrulayana kadar yedeği saklayın."
+            "description": "Etkilenen yollar: `{paths}`.\n\n1. Sahip uygulamanın gömülü depoya yazamadığından emin olun. ESPHome için Device Builder Web UI’yi açın ve sağ üst menüden **Settings** sayfasını açın. **Appearance** altında **Expert Mode** seçeneğini etkinleştirin ve **Save version history** seçeneğini kapatın. Alternatif olarak ESPHome’u durdurun.\n2. Resmî Terminal & SSH uygulamasıyla iç depoyu `/config` dışında koruyun: `esphome_backup=\"/backup/esphome-git-$(date +%Y%m%d-%H%M%S)\"; mkdir -p \"$esphome_backup\"; mv /config/esphome/.git \"$esphome_backup/dot-git\"`. Uzak yedeği doğrulamadan bunu silmeyin.\n3. `git -C /config ls-files --stage -- esphome` çıktısı `160000` gösteriyorsa `git -C /config rm --cached -f -- esphome` komutunu çalıştırın.\n4. Gizli ve çalışma zamanı verilerinin yok sayıldığından emin olun, ardından `git -C /config add -A -- esphome` komutunu çalıştırın.\n5. `100644` modunu ve indekste `160000`, `secrets.yaml`, `.esphome/`, anahtar veya eşleştirme dosyası bulunmadığını doğrulayın. ESPHome yolunu Commit veya Sync ile kaydedin.\n6. Yapıyı yeniden kontrol etmek için bu formu gönderin. Uzak dosyaları doğrulayana kadar yedeği saklayın."
           }
         },
         "error": {
@@ -268,7 +268,7 @@
           "entry_removed": "İlgili yapılandırma girdisi artık mevcut değil."
         },
         "create_entry": {
-          "migration_successful": "ESPHome artık normal dosyalar olarak indekslendi. Kurtarma kopyası `{backup_path}` konumunda duruyor. Auto-Commit etkinse anlık görüntüyü commit eder; değilse Commit veya Sync kullanın. Kurtarmayı silmeden önce uzak depoyu doğrulayın ve gerekiyorsa ESPHome’u yeniden başlatın.",
+          "migration_successful": "ESPHome artık normal dosyalar olarak indekslendi. Kurtarma kopyası `{backup_path}` konumunda duruyor. Auto-Commit etkinse anlık görüntüyü commit eder; değilse Commit veya Sync kullanın. Kurtarmayı silmeden önce uzak depoyu doğrulayın ve gerekiyorsa ESPHome’u yeniden başlatın. Her kayıtta ESPHome commit’i istiyorsanız Save version history seçeneğini yeniden açabilirsiniz; ESPHome bundan sonra Git çalışma ağacı olarak `/config` bildirmelidir.",
           "manual_fix_complete": "Depo yapısı yeniden güvenli ve git-ha-ppens yeniden yüklenecek. Elle alınan yedeği silmeden önce uzak depoyu doğrulayın."
         }
       }

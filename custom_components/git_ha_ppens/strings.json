@@ -265,7 +265,7 @@
           },
           "migrate_esphome": {
             "title": "Migrate ESPHome into the main repository",
-            "description": "This moves `/config/esphome/.git` into a private recovery directory below the outer Git metadata and stages the actual ESPHome files in the outer index. Existing inner history is retained in the recovery copy and is not merged. The operation will stop if the repositories or index no longer match the verified safe state.\n\nBefore continuing, disable **Settings → Expert mode → Save version history** in ESPHome or stop the ESPHome add-on/Device Builder. Current assessment: `{reason}`.",
+            "description": "This moves `/config/esphome/.git` into a private recovery directory below the outer Git metadata and stages the actual ESPHome files in the outer index. Existing inner history is retained in the recovery copy and is not merged. The operation will stop if the repositories or index no longer match the verified safe state.\n\nBefore continuing, make sure ESPHome cannot write version-history data:\n\n1. Open the ESPHome Device Builder Web UI. On Home Assistant OS or Supervised, go to **Settings → Apps → ESPHome Device Builder** and select **Open Web UI**.\n2. Open the menu in the top-right corner and select **Settings**.\n3. Under **Appearance**, enable **Expert Mode**, then turn off **Save version history**.\n\nAlternatively, stop the ESPHome add-on or Device Builder. Current assessment: `{reason}`.",
             "data": {
               "confirm_esphome_stopped": "I confirm that ESPHome is stopped or Save version history is disabled"
             },
@@ -275,7 +275,7 @@
           },
           "manual": {
             "title": "Repair the embedded repository manually",
-            "description": "Affected paths: `{paths}`.\n\n1. Stop the app that owns the embedded repository. For ESPHome, first disable **Settings → Expert mode → Save version history** if available.\n2. Back up the inner `.git` directory outside the outer repository. Never delete it before checking the remote backup.\n3. If `git -C /config ls-files --stage -- esphome` shows mode `160000`, run `git -C /config rm --cached -f -- esphome`.\n4. Make sure secrets and runtime data are ignored, move the inner Git metadata aside, then run `git -C /config add -A -- esphome`.\n5. Confirm that YAML files use mode `100644`, while no `160000`, `secrets.yaml`, `.esphome/`, key, or pairing files are staged. Commit or sync the ESPHome path.\n6. Submit this form to recheck the layout. Keep the backup until the remote contains the expected files."
+            "description": "Affected paths: `{paths}`.\n\n1. Make sure the app that owns the embedded repository cannot write to it. For ESPHome, open the Device Builder Web UI, then use the top-right menu to open **Settings**. Under **Appearance**, enable **Expert Mode** and turn off **Save version history**. Alternatively, stop ESPHome.\n2. Using the official Terminal & SSH app, preserve the inner repository outside `/config`: `esphome_backup=\"/backup/esphome-git-$(date +%Y%m%d-%H%M%S)\"; mkdir -p \"$esphome_backup\"; mv /config/esphome/.git \"$esphome_backup/dot-git\"`. Never delete it before checking the remote backup.\n3. If `git -C /config ls-files --stage -- esphome` shows mode `160000`, run `git -C /config rm --cached -f -- esphome`.\n4. Make sure secrets and runtime data are ignored, then run `git -C /config add -A -- esphome`.\n5. Confirm that YAML files use mode `100644`, while no `160000`, `secrets.yaml`, `.esphome/`, key, or pairing files are staged. Commit or sync the ESPHome path.\n6. Submit this form to recheck the layout. Keep the backup until the remote contains the expected files."
           }
         },
         "error": {
@@ -288,7 +288,7 @@
           "entry_removed": "The related git-ha-ppens configuration entry no longer exists."
         },
         "create_entry": {
-          "migration_successful": "ESPHome is now staged as regular files in the outer repository. The original inner Git metadata and an outer-index snapshot remain at `{backup_path}`. Auto-Commit will commit the snapshot when enabled; otherwise use Commit or Sync. Verify the remote backup before removing the recovery directory manually, then restart ESPHome if it was stopped.",
+          "migration_successful": "ESPHome is now staged as regular files in the outer repository. The original inner Git metadata and an outer-index snapshot remain at `{backup_path}`. Auto-Commit will commit the snapshot when enabled; otherwise use Commit or Sync. Verify the remote backup before removing the recovery directory manually, then restart ESPHome if it was stopped. You may turn Save version history back on if you want per-save ESPHome commits; ESPHome should then report `/config` as its Git work tree.",
           "manual_fix_complete": "The repository layout is safe again. git-ha-ppens has scheduled a reload. Verify that the expected ESPHome files reach the remote before removing your manual backup."
         }
       }

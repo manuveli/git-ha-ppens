@@ -625,8 +625,17 @@ Builder-managed repository. It refuses repositories with remotes, submodules,
 extra worktrees, active Git operations or locks, ignored `esphome/` paths,
 missing ignore rules for known secrets and Device Builder runtime state,
 unexpected index entries, or ambiguous ownership. Before confirming the
-migration, either stop ESPHome or disable **Settings → Expert mode → Save
-version history**. The repair then:
+migration, make sure ESPHome cannot write version-history data:
+
+1. Open the ESPHome Device Builder Web UI. On Home Assistant OS or Supervised,
+   go to **Settings → Apps → ESPHome Device Builder** and select
+   **Open Web UI**.
+2. Open the menu in the top-right corner and select **Settings**.
+3. Under **Appearance**, enable **Expert Mode**, then turn off
+   **Save version history**.
+
+If that setting is unavailable, or if you prefer not to change it, stop the
+ESPHome add-on or Device Builder instead. The repair then:
 
 1. moves the inner `.git` directory atomically into a private
    `.git/git-ha-ppens-recovery/...` directory instead of deleting it;
@@ -638,7 +647,17 @@ The success screen shows the recovery path. Keep that directory until you
 have verified the ESPHome YAML files in the remote repository. With Auto-Commit
 enabled, the staged snapshot is committed normally; otherwise use **Commit**
 or **Sync**. The inner commit history is retained in the recovery copy but is
-not merged into the outer history.
+not merged into the outer history. Restart ESPHome if you stopped it. You may
+also turn **Save version history** back on if you want ESPHome to create a
+commit whenever a configuration is saved. It should then use `/config` as its
+Git work tree instead of creating `/config/esphome/.git`. Confirm this with:
+
+```bash
+git -C /config/esphome rev-parse --show-toplevel
+```
+
+The expected output is `/config`. The ESPHome log may alternatively report
+`Version history active (git work tree: /config)`.
 
 If automatic migration is unavailable, use the repair's manual recheck after
 the following procedure. The
@@ -653,8 +672,11 @@ git -C /config/esphome log --oneline -n 10
 git -C /config ls-files --stage -- esphome
 ```
 
-Disable ESPHome version history where available and stop ESPHome. Then preserve
-the inner repository outside `/config`:
+First make sure ESPHome cannot write version-history data. In the ESPHome
+Device Builder Web UI, open the top-right menu, select **Settings**, enable
+**Expert Mode** under **Appearance**, and turn off **Save version history**.
+Alternatively, stop ESPHome. Then preserve the inner repository outside
+`/config`:
 
 ```bash
 esphome_backup="/backup/esphome-git-$(date +%Y%m%d-%H%M%S)"
@@ -701,7 +723,9 @@ git -C /config/esphome rev-parse --show-toplevel
 
 The expected final output is `/config`. If it is `/config/esphome` again,
 `esphome/` is usually ignored by the outer repository. Keep the recovery copy
-until the remote backup has been verified.
+until the remote backup has been verified. Once `/config` is confirmed, you
+may turn **Save version history** back on if you want ESPHome to create its own
+per-save commits in the shared repository.
 
 Repositories excluded by the outer `.gitignore` do not block git-ha-ppens.
 Correctly declared Git submodules are also allowed for compatibility, but
