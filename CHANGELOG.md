@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Raise a Home Assistant repair when the Git remote rejects the configured credentials (for example an expired or revoked access token) during fetch, pull, or push, instead of only logging the failure. Token setups can enter and verify a new token directly in the repair; the repair clears itself after the next successful synchronization.
+
 ## [1.4.1] - 2026-09-20
 
 ### Fixed
