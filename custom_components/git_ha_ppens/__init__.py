@@ -75,6 +75,7 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
+from .remote_auth import create_remote_authentication_issue_from_error
 from .repository_layout import (
     async_ensure_repository_layout_safe,
     create_repository_layout_issue_from_error,
@@ -473,6 +474,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         create_repository_layout_issue_from_error(
                             hass, entry.entry_id, push_err
                         )
+                        create_remote_authentication_issue_from_error(
+                            hass, entry.entry_id, "initial_push", push_err
+                        )
                         _LOGGER.warning(
                             "Initial push failed (will retry on next auto-push): %s",
                             push_err,
@@ -809,6 +813,9 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 coordinator.record_auto_push_failure()
                 create_repository_layout_issue_from_error(
                     hass, coordinator.entry_id, err
+                )
+                create_remote_authentication_issue_from_error(
+                    hass, coordinator.entry_id, "sync", err
                 )
                 if isinstance(err, IndexLockError) and err.requires_repair:
                     create_stale_index_lock_issue(

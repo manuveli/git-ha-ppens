@@ -24,6 +24,26 @@ _LOGGER = logging.getLogger(__name__)
 
 _STALE_INDEX_LOCK_SECONDS = 15 * 60
 
+# Lower-case fragments of Git/remote messages that unambiguously indicate
+# rejected or missing credentials. Generic "repository not found" messages are
+# intentionally excluded because they also cover typos in the remote URL.
+_REMOTE_AUTH_ERROR_MARKERS: tuple[str, ...] = (
+    "authentication failed",
+    "invalid username or token",
+    "invalid username or password",
+    "invalid credentials",
+    "bad credentials",
+    "could not read username",
+    "could not read password",
+    "the requested url returned error: 401",
+    "the requested url returned error: 403",
+    "http basic: access denied",
+    "authorization failed",
+    "permission denied (publickey",
+    "token has expired",
+)
+_REMOTE_PERMISSION_DENIED = re.compile(r"permission to \S+ denied to ")
+
 
 @dataclass
 class GitStatus:
@@ -113,6 +133,18 @@ class _IndexLockState:
 
 class GitError(Exception):
     """Raised when a git operation fails."""
+
+
+class RemoteAuthenticationError(GitError):
+    """Raised when the remote rejects or cannot obtain credentials."""
+
+
+def is_remote_authentication_message(message: str) -> bool:
+    """Return whether a Git error message describes an authentication failure."""
+    lowered = message.lower()
+    return any(marker in lowered for marker in _REMOTE_AUTH_ERROR_MARKERS) or (
+        _REMOTE_PERMISSION_DENIED.search(lowered) is not None
+    )
 
 
 class UnsafeRepositoryLayoutError(GitError):
@@ -263,6 +295,8 @@ class GitManager:
             error_msg = stderr or stdout or f"Git command failed with code {process.returncode}"
             safe_error = self._redact_text(error_msg)
             _LOGGER.error("Git command failed: %s -> %s", safe_cmd, safe_error)
+            if is_remote_authentication_message(safe_error):
+                raise RemoteAuthenticationError(safe_error)
             raise GitError(safe_error)
 
         return stdout
@@ -1840,13 +1874,13 @@ class GitManager:
             await self._run_git("remote", "add", "origin", url)
         _LOGGER.info("Remote origin set to %s", self._redact_url(url))
 
-    async def configure_token_auth(
-        self,
+    @staticmethod
+    def build_token_auth_url(
         url: str,
         token: str,
         username: str = DEFAULT_TOKEN_AUTH_USERNAME,
-    ) -> None:
-        """Configure token-based authentication by embedding in the remote URL."""
+    ) -> str:
+        """Return an HTTPS remote URL with the token embedded as userinfo."""
         username = username.strip()
         token = token.strip()
         if not username:
@@ -1866,7 +1900,7 @@ class GitManager:
         userinfo = (
             f"{quote(username, safe='')}:{quote(token, safe='')}"
         )
-        authed_url = urlunsplit(
+        return urlunsplit(
             (
                 parsed.scheme,
                 f"{userinfo}@{remote_host}",
@@ -1875,7 +1909,49 @@ class GitManager:
                 parsed.fragment,
             )
         )
-        await self.set_remote(authed_url)
+
+    async def configure_token_auth(
+        self,
+        url: str,
+        token: str,
+        username: str = DEFAULT_TOKEN_AUTH_USERNAME,
+    ) -> None:
+        """Configure token-based authentication by embedding in the remote URL."""
+        await self.set_remote(self.build_token_auth_url(url, token, username))
+
+    async def verify_token_auth(
+        self,
+        url: str,
+        token: str,
+        username: str = DEFAULT_TOKEN_AUTH_USERNAME,
+    ) -> None:
+        """Check that a token grants push access without storing it.
+
+        A dry-run push is used because many hosts allow anonymous reads of
+        public repositories and only challenge for credentials on writes. A
+        push rejected for history reasons still proves that authentication
+        succeeded.
+
+        Raises:
+            RemoteAuthenticationError: If the remote rejects the credentials.
+            GitError: If the remote cannot be reached for another reason.
+        """
+        authed_url = self.build_token_auth_url(url, token, username)
+        branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
+        try:
+            await self._run_git(
+                "push",
+                "--dry-run",
+                "--porcelain",
+                authed_url,
+                f"HEAD:refs/heads/{branch}",
+            )
+        except RemoteAuthenticationError:
+            raise
+        except GitError as err:
+            if "rejected" in str(err).lower():
+                return
+            raise
 
     async def configure_ssh_auth(self, ssh_key_path: str) -> None:
         """Configure SSH-based authentication."""
