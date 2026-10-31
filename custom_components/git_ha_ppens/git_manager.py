@@ -207,6 +207,88 @@ class GitManager:
         """Return the repository path."""
         return self._repo_path
 
+    async def garbage_collect(self, *, aggressive: bool = False) -> dict[str, str]:
+        """Prune unreachable objects and optimize pack files.
+
+        The caller must hold the integration's git lock so collection cannot
+        overlap with another managed Git operation.
+        """
+        before = await self._run_git("count-objects", "-vH", check=False)
+        _LOGGER.info("Starting git garbage collection (aggressive=%s)", aggressive)
+
+        await self._run_git("prune", "--expire=now")
+        gc_args = ["gc", "--prune=now"]
+        if aggressive:
+            gc_args.append("--aggressive")
+        await self._run_git(*gc_args)
+
+        after = await self._run_git("count-objects", "-vH", check=False)
+        _LOGGER.info("Git garbage collection finished")
+        return {"before": before, "after": after}
+
+    async def get_repo_size_bytes(self) -> int:
+        """Return the total size of the repository's Git metadata in bytes."""
+        git_dir = await self._run_git("rev-parse", "--git-dir")
+        git_path = Path(git_dir)
+        if not git_path.is_absolute():
+            git_path = Path(self._repo_path) / git_path
+
+        def _directory_size() -> int:
+            total = 0
+            for root, _directories, files in os.walk(git_path, followlinks=False):
+                for filename in files:
+                    try:
+                        total += os.stat(
+                            os.path.join(root, filename), follow_symlinks=False
+                        ).st_size
+                    except OSError:
+                        continue
+            return total
+
+        return await asyncio.to_thread(_directory_size)
+
+    async def get_count_objects_stats(self) -> dict[str, int | str]:
+        """Parse ``git count-objects -vH`` into numeric and raw metrics."""
+        raw = await self._run_git("count-objects", "-vH", check=False)
+        stats: dict[str, int | str] = {}
+        size_pattern = re.compile(
+            r"^\s*([\d.]+)\s*(bytes?|[KMGTPE]i?B)?\s*$", re.IGNORECASE
+        )
+        units = {
+            "byte": 1,
+            "bytes": 1,
+            "kib": 1024,
+            "kb": 1024,
+            "mib": 1024**2,
+            "mb": 1024**2,
+            "gib": 1024**3,
+            "gb": 1024**3,
+            "tib": 1024**4,
+            "tb": 1024**4,
+            "pib": 1024**5,
+            "pb": 1024**5,
+            "eib": 1024**6,
+            "eb": 1024**6,
+        }
+
+        for line in raw.splitlines():
+            key, separator, value = line.partition(":")
+            if not separator:
+                continue
+            value = value.strip()
+            if key.startswith("size"):
+                match = size_pattern.fullmatch(value)
+                if match:
+                    amount = float(match.group(1))
+                    unit = (match.group(2) or "bytes").lower()
+                    stats[key] = int(amount * units.get(unit, 1))
+                    continue
+            try:
+                stats[key] = int(value)
+            except ValueError:
+                stats[key] = value
+        return stats
+
     async def _run_git(
         self,
         *args: str,

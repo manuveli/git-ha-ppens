@@ -20,6 +20,7 @@ from .backup_gitignore import (
     is_core_config_repository,
 )
 from .const import (
+    ATTR_AGGRESSIVE,
     ATTR_MESSAGE,
     AUTH_SSH,
     AUTH_TOKEN,
@@ -29,6 +30,8 @@ from .const import (
     CONF_AUTH_TOKEN,
     CONF_AUTH_USERNAME,
     CONF_AUTO_COMMIT,
+    CONF_AUTO_GC,
+    CONF_AUTO_GC_INTERVAL,
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
@@ -43,6 +46,8 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_SSH_KEY_PATH,
     CORE_BACKUP_GITIGNORE_ENTRIES,
+    DEFAULT_AUTO_GC,
+    DEFAULT_AUTO_GC_INTERVAL,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
@@ -57,6 +62,7 @@ from .const import (
     SERVICE_DIFF,
     SERVICE_DISCARD_CHANGES,
     SERVICE_FETCH,
+    SERVICE_GC,
     SERVICE_PULL,
     SERVICE_PUSH,
     SERVICE_SYNC,
@@ -93,6 +99,9 @@ SERVICE_COMMIT_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_MESSAGE): str,
     }
+)
+SERVICE_GC_SCHEMA = vol.Schema(
+    {vol.Optional(ATTR_AGGRESSIVE, default=False): bool}
 )
 
 BUTTON_ENTITY_ID_MIGRATION_NOTIFICATION_ID = (
@@ -440,6 +449,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         pre_deploy_check=pre_deploy_check,
         ai_commit_enabled=data.get(CONF_AI_COMMIT_MESSAGES, False),
         ai_agent_id=data.get(CONF_AI_AGENT_ID, ""),
+        auto_gc=data.get(CONF_AUTO_GC, DEFAULT_AUTO_GC),
+        auto_gc_interval=data.get(
+            CONF_AUTO_GC_INTERVAL, DEFAULT_AUTO_GC_INTERVAL
+        ),
     )
 
     # Create initial commit if repository has no commits yet
@@ -619,6 +632,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_SYNC,
                 SERVICE_DIFF,
                 SERVICE_DISCARD_CHANGES,
+                SERVICE_GC,
             ):
                 hass.services.async_remove(DOMAIN, service)
 
@@ -742,6 +756,25 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         except GitError as err:
             _LOGGER.error("Discard changes failed: %s", err)
 
+    async def async_handle_gc(call: ServiceCall) -> None:
+        """Run garbage collection while holding the repository lock."""
+        coordinator: GitHaPpensCoordinator | None = None
+        try:
+            git_manager, coordinator = _get_manager_and_coordinator(call)
+            aggressive = call.data.get(ATTR_AGGRESSIVE, False)
+            async with coordinator.git_lock:
+                result = await git_manager.garbage_collect(aggressive=aggressive)
+                await coordinator.async_refresh_repository_metrics()
+            _LOGGER.info(
+                "GC finished.\nBefore:\n%s\nAfter:\n%s",
+                result["before"],
+                result["after"],
+            )
+            await coordinator.async_request_refresh()
+        except GitError as err:
+            _LOGGER.error("Garbage collection failed: %s", err)
+            hass.bus.async_fire(EVENT_ERROR, {"operation": "gc", "error": str(err)})
+
     async def async_handle_sync(call: ServiceCall) -> None:
         """Handle the sync service call (commit + push)."""
         coordinator: GitHaPpensCoordinator | None = None
@@ -845,6 +878,9 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             DOMAIN,
             SERVICE_DISCARD_CHANGES,
             async_handle_discard_changes,
+        )
+        hass.services.async_register(
+            DOMAIN, SERVICE_GC, async_handle_gc, schema=SERVICE_GC_SCHEMA
         )
         hass.services.async_register(
             DOMAIN, SERVICE_SYNC, async_handle_sync, schema=SERVICE_COMMIT_SCHEMA

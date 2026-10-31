@@ -27,7 +27,9 @@
           "scan_interval": "Status-Abfrageintervall (Sekunden)",
           "ai_commit_messages": "KI für Commit-Nachrichten verwenden",
           "ai_agent_id": "Konversationsagent",
-          "fetch_interval": "Remote-Abfrageintervall (Sekunden)"
+          "fetch_interval": "Remote-Abfrageintervall (Sekunden)",
+          "auto_gc": "Automatische Git-Garbage-Collection aktivieren",
+          "auto_gc_interval": "Intervall der automatischen Garbage-Collection (Sekunden)"
         },
         "data_description": {
           "auto_commit": "Committet automatisch, wenn sich Konfigurationsdateien ändern.",
@@ -38,7 +40,9 @@
           "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h).",
           "ai_commit_messages": "Verwendet einen konfigurierten KI-Konversationsagenten, um beschreibende Commit-Nachrichten aus dem Git-Diff zu generieren.",
           "ai_agent_id": "Zu verwendender Konversationsagent. Leer lassen, um den Standard-Konversationsagenten von Home Assistant zu verwenden.",
-          "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600."
+          "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600.",
+          "auto_gc": "Git-Garbage-Collection regelmäßig ohne aggressiven Modus ausführen. Standardmäßig deaktiviert.",
+          "auto_gc_interval": "Zeit zwischen automatischen Läufen. Minimum 86400 (1 Tag), Maximum 2592000 (30 Tage)."
         }
       },
       "remote": {
@@ -137,6 +141,8 @@
           "fetch_interval": "Remote-Abfrageintervall (Sekunden)",
           "ai_commit_messages": "KI für Commit-Nachrichten verwenden",
           "ai_agent_id": "Konversationsagent",
+          "auto_gc": "Automatische Git-Garbage-Collection aktivieren",
+          "auto_gc_interval": "Intervall der automatischen Garbage-Collection (Sekunden)",
           "remote_url": "Remote-URL",
           "auth_method": "Authentifizierungsmethode",
           "auth_token": "Persönlicher Zugriffstoken",
@@ -153,6 +159,8 @@
           "commit_interval": "Wartezeit in Sekunden nach der letzten Änderung, bevor automatisch committet wird. Minimum 30, Maximum 86400 (24h).",
           "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h).",
           "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600.",
+          "auto_gc": "Git-Garbage-Collection regelmäßig ohne aggressiven Modus ausführen. Standardmäßig deaktiviert.",
+          "auto_gc_interval": "Zeit zwischen automatischen Läufen. Minimum 86400 (1 Tag), Maximum 2592000 (30 Tage).",
           "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
           "auth_method": "Authentifizierungsmethode für das Remote-Repository.",
           "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
@@ -224,6 +232,12 @@
       },
       "commits_ahead": {
         "name": "Commits voraus"
+      },
+      "repo_size": {
+        "name": "Repository-Größe"
+      },
+      "garbage_size": {
+        "name": "Git-Garbage-Größe"
       }
     },
     "binary_sensor": {
@@ -247,6 +261,10 @@
     }
   },
   "issues": {
+    "large_git_garbage": {
+      "title": "Große Menge unerreichbarer Git-Daten",
+      "description": "Das Repository enthält {garbage_size} GiB Git-Garbage. Führe den Service `git_ha_ppens.gc` aus, um unerreichbare Objekte zu bereinigen und das Repository zu optimieren."
+    },
     "stale_index_lock": {
       "title": "Automatische Commits sind durch eine Git-Index-Sperre blockiert",
       "description": "git-ha-ppens konnte die veraltete Git-Index-Sperre unter `{lock_path}` nicht sicher entfernen. Automatische Commits bleiben blockiert, sodass lokale Konfigurationsänderungen möglicherweise nicht versioniert oder gepusht werden.\n\n1. Stelle sicher, dass für dieses Repository kein Git-Vorgang mehr läuft.\n2. Entferne `{lock_path}` über ein Terminal oder einen Datei-Editor.\n3. Warte auf das nächste Auto-Commit-Intervall oder ändere erneut eine Konfigurationsdatei.\n\nDieser Repair-Hinweis verschwindet automatisch, sobald git-ha-ppens bestätigt, dass die Sperre entfernt wurde."
@@ -298,6 +316,16 @@
     "discard_changes": {
       "name": "Lokale Änderungen verwerfen",
       "description": "Verwirft dauerhaft gestagte und nicht gestagte Änderungen an getrackten Dateien. Ungetrackte Dateien bleiben erhalten."
+    },
+    "gc": {
+      "name": "Garbage-Collection",
+      "description": "Bereinigt unerreichbare Git-Objekte und optimiert das Repository.",
+      "fields": {
+        "aggressive": {
+          "name": "Aggressiv",
+          "description": "Verwendet --aggressive für eine gründlichere, aber langsamere Bereinigung."
+        }
+      }
     }
   }
 }

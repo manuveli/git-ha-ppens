@@ -10,12 +10,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .ai_commit import async_generate_ai_commit_message
 from .checks import async_run_pre_deploy_check, notify_check_failed
 from .const import (
+    DEFAULT_AUTO_GC,
+    DEFAULT_AUTO_GC_INTERVAL,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -26,6 +29,8 @@ from .const import (
     EVENT_PULL,
     EVENT_PUSH,
     EVENT_RESTORE,
+    GC_GARBAGE_WARN_BYTES,
+    REPAIR_LARGE_GIT_GARBAGE,
     STORAGE_KEY_PREFIX,
     STORAGE_LAST_FETCH_TIME,
     STORAGE_LAST_PULL_TIME,
@@ -78,6 +83,8 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         ai_commit_enabled: bool = False,
         ai_agent_id: str = "",
         auto_push: bool = False,
+        auto_gc: bool = DEFAULT_AUTO_GC,
+        auto_gc_interval: int = DEFAULT_AUTO_GC_INTERVAL,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -93,12 +100,18 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         )
         self._auto_pull = auto_pull
         self._auto_push = auto_push
+        self._auto_gc = auto_gc
+        self._auto_gc_interval = auto_gc_interval
         self._remote_configured = remote_configured
         self._fetch_interval = fetch_interval
         self._pre_deploy_check = pre_deploy_check
         self._ai_commit_enabled = ai_commit_enabled
         self._ai_agent_id = ai_agent_id
         self.git_lock = asyncio.Lock()
+        self._last_auto_gc_time = datetime.now(tz=timezone.utc)
+        self._metrics_update_count = 0
+        self._repo_size_bytes: int | None = None
+        self._count_objects_stats: dict[str, int | str] = {}
 
         self._last_fetch_time: datetime | None = None
         self._last_pull_time: datetime | None = None
@@ -132,6 +145,65 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     def entry_id(self) -> str:
         """Return the config entry ID owning this coordinator."""
         return self._entry_id
+
+    @property
+    def repo_size_bytes(self) -> int | None:
+        """Return the cached total Git metadata size."""
+        return self._repo_size_bytes
+
+    @property
+    def garbage_size_bytes(self) -> int | None:
+        """Return the cached Git garbage size."""
+        value = self._count_objects_stats.get("size-garbage", 0)
+        return value if isinstance(value, int) else 0
+
+    @property
+    def repo_size_attributes(self) -> dict[str, int]:
+        """Return pack and loose-object sizes for the repository sensor."""
+        return {
+            "pack_size": self._size_stat("size-pack"),
+            "loose_size": self._size_stat("size"),
+        }
+
+    @property
+    def garbage_size_attributes(self) -> dict[str, int]:
+        """Return the number of loose garbage objects."""
+        count = self._count_objects_stats.get("garbage", 0)
+        return {"garbage_count": count if isinstance(count, int) else 0}
+
+    def _size_stat(self, key: str) -> int:
+        """Read an integer size from cached object-count metrics."""
+        value = self._count_objects_stats.get(key, 0)
+        return value if isinstance(value, int) else 0
+
+    async def async_refresh_repository_metrics(self) -> None:
+        """Refresh repository size metrics and maintain the garbage repair."""
+        try:
+            self._repo_size_bytes = await self.git_manager.get_repo_size_bytes()
+            self._count_objects_stats = (
+                await self.git_manager.get_count_objects_stats()
+            )
+        except GitError as err:
+            _LOGGER.warning("Could not refresh repository size metrics: %s", err)
+            return
+
+        garbage_size = self.garbage_size_bytes or 0
+        issue_id = f"{REPAIR_LARGE_GIT_GARBAGE}_{self._entry_id}"
+        if garbage_size >= GC_GARBAGE_WARN_BYTES:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                is_persistent=True,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=REPAIR_LARGE_GIT_GARBAGE,
+                translation_placeholders={
+                    "garbage_size": str(garbage_size // (1024**3))
+                },
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     async def async_load_stored_timestamps(self) -> None:
         """Load persisted operation timestamps for this config entry."""
@@ -577,6 +649,12 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         if self._remote_configured:
             await self._maybe_fetch()
 
+        await self._maybe_auto_gc()
+        self._metrics_update_count += 1
+        if self._repo_size_bytes is None or self._metrics_update_count >= 20:
+            await self.async_refresh_repository_metrics()
+            self._metrics_update_count = 0
+
         try:
             status = await self.git_manager.get_status()
         except GitError as err:
@@ -714,6 +792,30 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             status,
             skip=auto_push_attempted,
         )
+
+    async def _maybe_auto_gc(self) -> None:
+        """Run scheduled non-aggressive GC when the repository lock is free."""
+        if not self._auto_gc:
+            return
+        now = datetime.now(tz=timezone.utc)
+        elapsed = (now - self._last_auto_gc_time).total_seconds()
+        if elapsed < self._auto_gc_interval:
+            return
+        if self.git_lock.locked():
+            _LOGGER.debug("Skipping auto-GC: another git operation in progress")
+            return
+
+        try:
+            async with self.git_lock:
+                await self.git_manager.garbage_collect()
+                await self.async_refresh_repository_metrics()
+        except GitError as err:
+            _LOGGER.warning("Auto-GC failed: %s", err)
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "auto_gc", "error": str(err)}
+            )
+        finally:
+            self._last_auto_gc_time = now
 
     async def _maybe_auto_push_committed_history(
         self,
