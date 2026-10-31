@@ -549,6 +549,12 @@ Start with **Settings → Devices & Services → git-ha-ppens → Diagnostics**
 and the Home Assistant logs. Diagnostics redact configured credentials and make
 it easier to identify repository, permission, and remote-status problems.
 
+If `.git` is unexpectedly large despite a small configuration, run the
+`git_ha_ppens.gc` service. Enable **Automatic Git garbage collection** in
+**Configure → General Settings** to schedule non-aggressive cleanup. The
+`repo_size` and `garbage_size` sensors show metadata and unreachable-object
+sizes; these metrics refresh about every ten minutes.
+
 <details>
 <summary><strong>❌ "Git is not installed"</strong></summary>
 

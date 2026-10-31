@@ -41,3 +41,15 @@ sync:
 diff:
   name: Diff
   description: Get the current git diff of uncommitted changes. Returns response data with the diff content and a status summary.
+
+gc:
+  name: Garbage Collection
+  description: Prune unreachable Git objects and optimize the repository (git prune + git gc).
+  fields:
+    aggressive:
+      name: Aggressive
+      description: Use --aggressive for a more thorough but slower collection.
+      required: false
+      default: false
+      selector:
+        boolean:

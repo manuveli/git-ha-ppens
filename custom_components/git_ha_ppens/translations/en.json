@@ -27,7 +27,9 @@
           "scan_interval": "Status polling interval (seconds)",
           "fetch_interval": "Remote fetch interval (seconds)",
           "ai_commit_messages": "Use AI for commit messages",
-          "ai_agent_id": "Conversation agent"
+          "ai_agent_id": "Conversation agent",
+          "auto_gc": "Enable automatic Git garbage collection",
+          "auto_gc_interval": "Automatic garbage collection interval (seconds)"
         },
         "data_description": {
           "auto_commit": "Automatically commit when configuration files change.",
@@ -38,7 +40,9 @@
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600.",
           "ai_commit_messages": "Use a configured AI conversation agent to generate descriptive commit messages from the git diff.",
-          "ai_agent_id": "Conversation agent to use. Leave empty to use Home Assistant's default conversation agent."
+          "ai_agent_id": "Conversation agent to use. Leave empty to use Home Assistant's default conversation agent.",
+          "auto_gc": "Run non-aggressive Git garbage collection periodically. Disabled by default.",
+          "auto_gc_interval": "Time between automatic runs. Minimum 86400 (1 day), maximum 2592000 (30 days)."
         }
       },
       "remote": {
@@ -133,7 +137,9 @@
           "auth_username": "Authentication username (token only)",
           "ssh_key_path": "SSH private key path",
           "ai_commit_messages": "Use AI for commit messages",
-          "ai_agent_id": "Conversation agent"
+          "ai_agent_id": "Conversation agent",
+          "auto_gc": "Enable automatic Git garbage collection",
+          "auto_gc_interval": "Automatic garbage collection interval (seconds)"
         },
         "data_description": {
           "git_user": "The name that will appear as the commit author.",
@@ -145,6 +151,8 @@
           "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600.",
+          "auto_gc": "Run non-aggressive Git garbage collection periodically. Disabled by default.",
+          "auto_gc_interval": "Time between automatic runs. Minimum 86400 (1 day), maximum 2592000 (30 days).",
           "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
           "auth_method": "How to authenticate with the remote.",
           "auth_token": "Personal access token for HTTPS authentication.",
@@ -216,6 +224,12 @@
       },
       "commits_ahead": {
         "name": "Commits Ahead"
+      },
+      "repo_size": {
+        "name": "Repository Size"
+      },
+      "garbage_size": {
+        "name": "Git Garbage Size"
       }
     },
     "binary_sensor": {
@@ -239,6 +253,10 @@
     }
   },
   "issues": {
+    "large_git_garbage": {
+      "title": "Large amount of unreachable Git data",
+      "description": "The repository contains {garbage_size} GiB of Git garbage. Run the `git_ha_ppens.gc` service to prune unreachable objects and optimize the repository."
+    },
     "stale_index_lock": {
       "title": "Automatic commits are blocked by a Git index lock",
       "description": "git-ha-ppens could not safely remove the stale Git index lock at `{lock_path}`. Automatic commits remain blocked, so local configuration changes may not be committed or pushed.\n\n1. Make sure no Git operation is currently running for this repository.\n2. Remove `{lock_path}` using a terminal or file editor.\n3. Wait for the next auto-commit interval or make another configuration change.\n\nThis repair will disappear automatically after git-ha-ppens confirms that the lock is gone."
@@ -290,6 +308,16 @@
     "discard_changes": {
       "name": "Discard Local Changes",
       "description": "Permanently discard staged and unstaged changes to tracked files. Untracked files are preserved."
+    },
+    "gc": {
+      "name": "Garbage Collection",
+      "description": "Prune unreachable Git objects and optimize the repository.",
+      "fields": {
+        "aggressive": {
+          "name": "Aggressive",
+          "description": "Use --aggressive for a more thorough but slower collection."
+        }
+      }
     }
   }
 }

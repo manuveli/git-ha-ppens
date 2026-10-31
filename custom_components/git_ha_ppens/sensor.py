@@ -12,6 +12,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfInformation
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -28,6 +29,7 @@ class GitHaPpensSensorDescription(SensorEntityDescription):
     value_fn: Callable[[GitStatus], str | int | datetime | None] | None = None
     coordinator_value_fn: Callable[[GitHaPpensCoordinator], str | int | datetime | None] | None = None
     extra_attrs_fn: Callable[[GitStatus], dict] | None = None
+    coordinator_extra_attrs_fn: Callable[[GitHaPpensCoordinator], dict] | None = None
 
 
 SENSOR_DESCRIPTIONS: tuple[GitHaPpensSensorDescription, ...] = (
@@ -115,6 +117,26 @@ SENSOR_DESCRIPTIONS: tuple[GitHaPpensSensorDescription, ...] = (
         native_unit_of_measurement="commits",
         value_fn=lambda s: max(s.ahead, 0),
     ),
+    GitHaPpensSensorDescription(
+        key="repo_size",
+        translation_key="repo_size",
+        icon="mdi:database",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_display_precision=1,
+        coordinator_value_fn=lambda c: c.repo_size_bytes,
+        coordinator_extra_attrs_fn=lambda c: c.repo_size_attributes,
+    ),
+    GitHaPpensSensorDescription(
+        key="garbage_size",
+        translation_key="garbage_size",
+        icon="mdi:delete-sweep-outline",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_display_precision=1,
+        coordinator_value_fn=lambda c: c.garbage_size_bytes,
+        coordinator_extra_attrs_fn=lambda c: c.garbage_size_attributes,
+    ),
 )
 
 
@@ -200,6 +222,8 @@ class GitHaPpensSensor(
     @property
     def extra_state_attributes(self) -> dict | None:
         """Return extra state attributes."""
+        if self.entity_description.coordinator_extra_attrs_fn is not None:
+            return self.entity_description.coordinator_extra_attrs_fn(self.coordinator)
         if (
             self.coordinator.data is None
             or self.entity_description.extra_attrs_fn is None
