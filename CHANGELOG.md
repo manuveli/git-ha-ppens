@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-17
+
+### Added
+- Add a `git_ha_ppens.gc` action that runs a standard, non-aggressive `git gc` to remove leftover temporary Git files older than two weeks, without rewriting history. Thanks to [@seebaer1976](https://github.com/seebaer1976) ([#93](https://github.com/manuveli/git-ha-ppens/issues/93))
+- Add optional scheduled garbage collection (`auto_gc`, every 1–30 days, disabled by default) to the general options ([#93](https://github.com/manuveli/git-ha-ppens/issues/93))
+- Add diagnostic `repo_size` and `garbage_size` sensors, a `git_ha_ppens_gc` event, and repository size details in diagnostics ([#93](https://github.com/manuveli/git-ha-ppens/issues/93))
+- Raise a repair when more than 1 GiB of leftover Git data accumulates ([#93](https://github.com/manuveli/git-ha-ppens/issues/93))
+
 ## [1.4.2] - 2026-11-17
 
 ### Added
@@ -270,7 +278,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `.gitignore` entries for common HA files
 - Automated release workflow for HACS
 
-[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.3.2...v1.4.0
