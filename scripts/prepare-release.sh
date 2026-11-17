@@ -94,11 +94,14 @@ content = re.sub(
     count=1
 )
 
-# Update [Unreleased] comparison link
+# Update [Unreleased] comparison link. Match whatever version it currently
+# points to (links use a "v" prefix), so a stale link is repaired as well.
 content = re.sub(
-    rf'\[Unreleased\]: .+/{re.escape(old_ver)}\.\.\.HEAD',
+    r'^\[Unreleased\]: .+\.\.\.HEAD$',
     f'[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v{new_ver}...HEAD',
-    content
+    content,
+    count=1,
+    flags=re.MULTILINE,
 )
 
 # Add new version comparison link after the [Unreleased] link
