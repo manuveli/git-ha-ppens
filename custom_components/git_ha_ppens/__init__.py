@@ -436,6 +436,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             remote_url = ""  # Prevent push attempts
 
+    if remote_url:
+        # A new repository must commit on the branch the remote already uses,
+        # otherwise the initial push creates a separate "main" branch (#92).
+        # Repositories with commits are left on their branch.
+        try:
+            await git_manager.align_unborn_branch_with_remote()
+        except GitError as err:
+            _LOGGER.warning(
+                "Could not apply the remote default branch: %s", err
+            )
+
     if not remote_url:
         # Without a usable remote no fetch, pull, or push will run that could
         # clear a rejected-credentials repair, so it would otherwise stay

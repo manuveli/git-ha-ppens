@@ -484,6 +484,74 @@ class GitManager:
                 await self._run_git("branch", "-M", "main", check=False)
                 _LOGGER.info("Renamed branch from %s to main", current_branch)
 
+    async def get_remote_default_branch(self) -> str:
+        """Return the branch that origin's HEAD points to.
+
+        Returns an empty string when the remote is unreachable, empty, or does
+        not advertise a symbolic HEAD. Callers must then keep their current
+        branch instead of guessing.
+        """
+        output = await self._run_git(
+            "ls-remote", "--symref", "origin", "HEAD", check=False
+        )
+        for line in output.splitlines():
+            # Format: "ref: refs/heads/<name>\tHEAD"
+            target, _, name = line.partition("\t")
+            if name.strip() != "HEAD" or not target.startswith("ref: "):
+                continue
+            ref = target[len("ref: "):].strip()
+            if not ref.startswith("refs/heads/"):
+                continue
+            branch = ref[len("refs/heads/"):]
+            # The name comes from the remote, so only accept what Git itself
+            # would accept as a local branch name.
+            if not branch or branch.startswith("-"):
+                return ""
+            checked = await self._run_git(
+                "check-ref-format", "--branch", branch, check=False
+            )
+            return branch if checked == branch else ""
+        return ""
+
+    async def align_unborn_branch_with_remote(self) -> str:
+        """Use the remote default branch for a repository without commits.
+
+        init_repo() names an unborn branch "main". When the configured remote
+        already uses another default branch (for example "master"), the
+        initial commit would otherwise create a second, unrelated "main"
+        branch on the remote (#92).
+
+        Only an unborn HEAD is changed. Repositories with history keep their
+        branch, so existing installations are never moved to another branch.
+
+        Returns:
+            The new branch name, or an empty string if nothing was changed.
+        """
+        if await self.has_commits():
+            return ""
+
+        remote_branch = await self.get_remote_default_branch()
+        if not remote_branch:
+            return ""
+
+        current_branch = await self._run_git(
+            "symbolic-ref", "--quiet", "--short", "HEAD", check=False
+        )
+        if current_branch == remote_branch:
+            return ""
+
+        # symbolic-ref only repoints the unborn HEAD. There is no commit, so
+        # no history or working tree file is touched.
+        await self._run_git(
+            "symbolic-ref", "HEAD", f"refs/heads/{remote_branch}"
+        )
+        _LOGGER.info(
+            "Using remote default branch %s instead of %s",
+            remote_branch,
+            current_branch or "unknown",
+        )
+        return remote_branch
+
     async def has_commits(self) -> bool:
         """Check if the repository has any commits."""
         try:

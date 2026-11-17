@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-17
+
+### Fixed
+- New repositories now use the default branch of the configured remote (for example `master`) instead of always creating `main`. Repositories that already have commits keep their current branch ([#92](https://github.com/manuveli/git-ha-ppens/issues/92))
+
 ## [1.5.1] - 2026-11-17
 
 ### Added
@@ -287,7 +292,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `.gitignore` entries for common HA files
 - Automated release workflow for HACS
 
-[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.1...v1.4.2
