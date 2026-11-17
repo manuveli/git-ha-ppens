@@ -230,6 +230,42 @@
     }
   },
   "issues": {
+    "remote_authentication_failed_token": {
+      "title": "El remoto de Git rechazó las credenciales",
+      "description": "git-ha-ppens no pudo autenticarse en el remoto de Git durante `{operation}`. Los cambios de configuración se siguen registrando localmente en commits, pero no se sincronizan.\n\nRespuesta del remoto: `{error}`\n\nEs muy probable que el token de acceso personal haya caducado, se haya revocado o no tenga los permisos necesarios. Envía esta reparación para introducir un token nuevo.",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Introducir un nuevo token de acceso",
+            "description": "Introduce un nuevo token de acceso personal para `{remote_url}`. Necesita acceso de lectura y escritura al contenido del repositorio (tokens clásicos: ámbito `repo`). Antes de guardarlo, el token se prueba con un push de prueba (dry run); no se envía nada.",
+            "data": {
+              "auth_token": "Token de acceso personal",
+              "auth_username": "Nombre de usuario de autenticación"
+            },
+            "data_description": {
+              "auth_username": "Usa `oauth2` para GitHub, salvo que tu proveedor requiera un nombre de usuario específico."
+            }
+          }
+        },
+        "error": {
+          "invalid_auth": "El remoto rechazó este token. Comprueba que sea válido y tenga acceso de escritura al repositorio.",
+          "cannot_connect": "No se pudo contactar con el remoto para verificar el token. Revisa los registros e inténtalo de nuevo.",
+          "token_required": "Se requiere un token de acceso personal."
+        },
+        "abort": {
+          "entry_removed": "La entrada de configuración de git-ha-ppens relacionada ya no existe.",
+          "not_token_auth": "Esta entrada ya no usa autenticación por token. Actualiza las credenciales en las opciones de la integración.",
+          "no_remote": "No hay ninguna URL remota configurada para esta entrada."
+        },
+        "create_entry": {
+          "default": "El nuevo token se verificó y se guardó. git-ha-ppens se está recargando y reanudará la sincronización."
+        }
+      }
+    },
+    "remote_authentication_failed": {
+      "title": "El remoto de Git rechazó las credenciales",
+      "description": "git-ha-ppens no pudo autenticarse en el remoto de Git durante `{operation}`. Los cambios de configuración se siguen registrando localmente en commits, pero no se sincronizan.\n\nRespuesta del remoto: `{error}`\n\nComprueba las credenciales en **Ajustes → Dispositivos y servicios → git-ha-ppens → Configurar**. Con SSH, asegúrate de que la clave exista y esté autorizada para el repositorio. Esta reparación desaparecerá tras la siguiente sincronización correcta."
+    },
     "stale_index_lock": {
       "title": "Los commits automáticos están bloqueados por un bloqueo del índice de Git",
       "description": "git-ha-ppens no pudo eliminar de forma segura el bloqueo obsoleto del índice de Git en `{lock_path}`. Los commits automáticos siguen bloqueados, por lo que los cambios locales de configuración podrían no registrarse en un commit ni enviarse.\n\n1. Asegúrate de que no haya ninguna operación de Git en curso para este repositorio.\n2. Elimina `{lock_path}` mediante un terminal o editor de archivos.\n3. Espera al siguiente intervalo de auto-commit o realiza otro cambio de configuración.\n\nEsta reparación desaparecerá automáticamente cuando git-ha-ppens confirme que el bloqueo ya no existe."

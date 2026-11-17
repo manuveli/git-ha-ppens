@@ -74,6 +74,8 @@ EVENT_RESTORE: Final = f"{DOMAIN}_restore"
 # Repairs
 REPAIR_STALE_INDEX_LOCK: Final = "stale_index_lock"
 REPAIR_UNSAFE_REPOSITORY_LAYOUT: Final = "unsafe_repository_layout"
+REPAIR_REMOTE_AUTHENTICATION: Final = "remote_authentication_failed"
+REPAIR_REMOTE_AUTHENTICATION_TOKEN: Final = "remote_authentication_failed_token"
 
 
 def stale_index_lock_issue_id(entry_id: str) -> str:
@@ -84,6 +86,11 @@ def stale_index_lock_issue_id(entry_id: str) -> str:
 def unsafe_repository_layout_issue_id(entry_id: str) -> str:
     """Return the entry-specific issue ID for an unsafe repository layout."""
     return f"{REPAIR_UNSAFE_REPOSITORY_LAYOUT}_{entry_id}"
+
+
+def remote_authentication_issue_id(entry_id: str) -> str:
+    """Return the entry-specific issue ID for rejected remote credentials."""
+    return f"{REPAIR_REMOTE_AUTHENTICATION}_{entry_id}"
 
 
 # Sensor keys

@@ -45,6 +45,10 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
+from .remote_auth import (
+    create_remote_authentication_issue_from_error,
+    delete_remote_authentication_issue,
+)
 from .repository_layout import (
     async_ensure_repository_layout_safe,
     create_repository_layout_issue_from_error,
@@ -174,6 +178,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         """Record that a push just happened."""
         self._last_push_time = datetime.now(tz=timezone.utc)
         self._last_auto_push_failure_time = None
+        delete_remote_authentication_issue(self.hass, self._entry_id)
         await self._async_save_timestamps()
 
     def record_auto_push_failure(self) -> None:
@@ -183,6 +188,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
     async def async_record_pull_time(self) -> None:
         """Record that a pull just happened."""
         self._last_pull_time = datetime.now(tz=timezone.utc)
+        delete_remote_authentication_issue(
+            self.hass, self._entry_id, write_succeeded=False
+        )
         await self._async_save_timestamps()
 
     def _parse_stored_timestamp(
@@ -305,6 +313,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             create_repository_layout_issue_from_error(
                 self.hass, self._entry_id, err
             )
+            create_remote_authentication_issue_from_error(
+                self.hass, self._entry_id, "push", err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "push", "error": str(err)}
             )
@@ -371,6 +382,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             create_repository_layout_issue_from_error(
                 self.hass, self._entry_id, err
             )
+            create_remote_authentication_issue_from_error(
+                self.hass, self._entry_id, "push", err
+            )
             if isinstance(err, IndexLockError) and err.requires_repair:
                 create_stale_index_lock_issue(
                     self.hass,
@@ -408,6 +422,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             create_repository_layout_issue_from_error(
                 self.hass, self._entry_id, err
             )
+            create_remote_authentication_issue_from_error(
+                self.hass, self._entry_id, "pull", err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "pull", "error": str(err)}
             )
@@ -435,11 +452,17 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 await self.git_manager.fetch()
                 await self.async_record_fetch_time()
         except GitError as err:
+            create_remote_authentication_issue_from_error(
+                self.hass, self._entry_id, "fetch", err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "fetch", "error": str(err)}
             )
             raise
 
+        delete_remote_authentication_issue(
+            self.hass, self._entry_id, write_succeeded=False
+        )
         self.hass.bus.async_fire(EVENT_FETCH, {"auto": False})
         _LOGGER.info("Fetched from remote")
         await self.async_request_refresh()
@@ -509,6 +532,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                         self.record_auto_push_failure()
                         create_repository_layout_issue_from_error(
                             self.hass, self._entry_id, err
+                        )
+                        create_remote_authentication_issue_from_error(
+                            self.hass, self._entry_id, "restore_push", err
                         )
                         push_error = str(err)
         except RestoreValidationError as err:
@@ -659,6 +685,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                             create_repository_layout_issue_from_error(
                                 self.hass, self._entry_id, err
                             )
+                            create_remote_authentication_issue_from_error(
+                                self.hass, self._entry_id, "auto_push", err
+                            )
                             _LOGGER.warning(
                                 "Auto-push after divergent pull failed: %s",
                                 err,
@@ -703,6 +732,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 except GitError as err:
                     create_repository_layout_issue_from_error(
                         self.hass, self._entry_id, err
+                    )
+                    create_remote_authentication_issue_from_error(
+                        self.hass, self._entry_id, "auto_pull", err
                     )
                     _LOGGER.warning("Auto-pull failed: %s", err)
                     self.hass.bus.async_fire(
@@ -792,6 +824,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 create_repository_layout_issue_from_error(
                     self.hass, self._entry_id, err
                 )
+                create_remote_authentication_issue_from_error(
+                    self.hass, self._entry_id, "auto_push", err
+                )
                 _LOGGER.warning("Auto-push of committed history failed: %s", err)
                 self.hass.bus.async_fire(
                     EVENT_ERROR,
@@ -829,12 +864,18 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             try:
                 await self.git_manager.fetch()
                 await self.async_record_fetch_time()
+                delete_remote_authentication_issue(
+                    self.hass, self._entry_id, write_succeeded=False
+                )
                 self.hass.bus.async_fire(
                     EVENT_FETCH,
                     {"auto": True},
                 )
                 _LOGGER.debug("Auto-fetch completed")
             except GitError as err:
+                create_remote_authentication_issue_from_error(
+                    self.hass, self._entry_id, "auto_fetch", err
+                )
                 _LOGGER.warning("Auto-fetch failed: %s", err)
                 # Record time even on failure to avoid hammering a broken remote
                 await self.async_record_fetch_time()

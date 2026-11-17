@@ -239,6 +239,42 @@
     }
   },
   "issues": {
+    "remote_authentication_failed_token": {
+      "title": "Git remote rejected the credentials",
+      "description": "git-ha-ppens could not authenticate with the Git remote during `{operation}`. Configuration changes are still committed locally but are not synchronized.\n\nRemote response: `{error}`\n\nThe personal access token has most likely expired, been revoked, or lacks the required permissions. Submit this repair to enter a new token.",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Enter a new access token",
+            "description": "Enter a new personal access token for `{remote_url}`. It needs read and write access to the repository contents (classic tokens: `repo` scope). The token is tested with a dry-run push before it is saved; nothing is pushed.",
+            "data": {
+              "auth_token": "Personal access token",
+              "auth_username": "Authentication username"
+            },
+            "data_description": {
+              "auth_username": "Use `oauth2` for GitHub unless your host requires a specific username."
+            }
+          }
+        },
+        "error": {
+          "invalid_auth": "The remote rejected this token. Check that it is valid and has write access to the repository.",
+          "cannot_connect": "The remote could not be reached to verify the token. Check the logs and try again.",
+          "token_required": "A personal access token is required."
+        },
+        "abort": {
+          "entry_removed": "The related git-ha-ppens configuration entry no longer exists.",
+          "not_token_auth": "This entry no longer uses token authentication. Update the credentials in the integration options instead.",
+          "no_remote": "No remote URL is configured for this entry."
+        },
+        "create_entry": {
+          "default": "The new token was verified and saved. git-ha-ppens is reloading and will resume synchronization."
+        }
+      }
+    },
+    "remote_authentication_failed": {
+      "title": "Git remote rejected the credentials",
+      "description": "git-ha-ppens could not authenticate with the Git remote during `{operation}`. Configuration changes are still committed locally but are not synchronized.\n\nRemote response: `{error}`\n\nCheck the credentials under **Settings → Devices & services → git-ha-ppens → Configure**. For SSH, make sure the key exists and is authorized for the repository. This repair disappears after the next successful synchronization."
+    },
     "stale_index_lock": {
       "title": "Automatic commits are blocked by a Git index lock",
       "description": "git-ha-ppens could not safely remove the stale Git index lock at `{lock_path}`. Automatic commits remain blocked, so local configuration changes may not be committed or pushed.\n\n1. Make sure no Git operation is currently running for this repository.\n2. Remove `{lock_path}` using a terminal or file editor.\n3. Wait for the next auto-commit interval or make another configuration change.\n\nThis repair will disappear automatically after git-ha-ppens confirms that the lock is gone."

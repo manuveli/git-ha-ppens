@@ -247,6 +247,42 @@
     }
   },
   "issues": {
+    "remote_authentication_failed_token": {
+      "title": "Git-Remote hat die Zugangsdaten abgelehnt",
+      "description": "git-ha-ppens konnte sich bei `{operation}` nicht am Git-Remote anmelden. Konfigurationsänderungen werden weiterhin lokal committet, aber nicht synchronisiert.\n\nAntwort des Remotes: `{error}`\n\nDas Personal Access Token ist vermutlich abgelaufen, widerrufen oder hat nicht die nötigen Berechtigungen. Sende diese Reparatur ab, um ein neues Token einzugeben.",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Neues Zugriffstoken eingeben",
+            "description": "Gib ein neues Personal Access Token für `{remote_url}` ein. Es benötigt Lese- und Schreibzugriff auf die Repository-Inhalte (klassische Tokens: Scope `repo`). Vor dem Speichern wird das Token mit einem Push-Probelauf geprüft. Dabei wird nichts übertragen.",
+            "data": {
+              "auth_token": "Personal Access Token",
+              "auth_username": "Benutzername für die Anmeldung"
+            },
+            "data_description": {
+              "auth_username": "Für GitHub `oauth2` verwenden, sofern dein Anbieter keinen bestimmten Benutzernamen verlangt."
+            }
+          }
+        },
+        "error": {
+          "invalid_auth": "Das Remote hat dieses Token abgelehnt. Prüfe, ob es gültig ist und Schreibzugriff auf das Repository hat.",
+          "cannot_connect": "Das Remote war zur Prüfung des Tokens nicht erreichbar. Prüfe die Logs und versuche es erneut.",
+          "token_required": "Ein Personal Access Token ist erforderlich."
+        },
+        "abort": {
+          "entry_removed": "Der zugehörige git-ha-ppens-Konfigurationseintrag existiert nicht mehr.",
+          "not_token_auth": "Dieser Eintrag nutzt keine Token-Anmeldung mehr. Passe die Zugangsdaten stattdessen in den Optionen der Integration an.",
+          "no_remote": "Für diesen Eintrag ist keine Remote-URL konfiguriert."
+        },
+        "create_entry": {
+          "default": "Das neue Token wurde geprüft und gespeichert. git-ha-ppens wird neu geladen und setzt die Synchronisierung fort."
+        }
+      }
+    },
+    "remote_authentication_failed": {
+      "title": "Git-Remote hat die Zugangsdaten abgelehnt",
+      "description": "git-ha-ppens konnte sich bei `{operation}` nicht am Git-Remote anmelden. Konfigurationsänderungen werden weiterhin lokal committet, aber nicht synchronisiert.\n\nAntwort des Remotes: `{error}`\n\nPrüfe die Zugangsdaten unter **Einstellungen → Geräte & Dienste → git-ha-ppens → Konfigurieren**. Bei SSH muss der Schlüssel vorhanden und für das Repository freigegeben sein. Dieser Hinweis verschwindet nach der nächsten erfolgreichen Synchronisierung."
+    },
     "stale_index_lock": {
       "title": "Automatische Commits sind durch eine Git-Index-Sperre blockiert",
       "description": "git-ha-ppens konnte die veraltete Git-Index-Sperre unter `{lock_path}` nicht sicher entfernen. Automatische Commits bleiben blockiert, sodass lokale Konfigurationsänderungen möglicherweise nicht versioniert oder gepusht werden.\n\n1. Stelle sicher, dass für dieses Repository kein Git-Vorgang mehr läuft.\n2. Entferne `{lock_path}` über ein Terminal oder einen Datei-Editor.\n3. Warte auf das nächste Auto-Commit-Intervall oder ändere erneut eine Konfigurationsdatei.\n\nDieser Repair-Hinweis verschwindet automatisch, sobald git-ha-ppens bestätigt, dass die Sperre entfernt wurde."

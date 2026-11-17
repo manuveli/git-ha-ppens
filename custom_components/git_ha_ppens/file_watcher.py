@@ -20,6 +20,7 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
+from .remote_auth import create_remote_authentication_issue_from_error
 from .repository_layout import (
     async_ensure_repository_layout_safe,
     create_repository_layout_issue_from_error,
@@ -349,6 +350,9 @@ class GitFileWatcher:
                         self._coordinator.record_auto_push_failure()
                         create_repository_layout_issue_from_error(
                             self._hass, self._entry_id, push_err
+                        )
+                        create_remote_authentication_issue_from_error(
+                            self._hass, self._entry_id, "auto_push", push_err
                         )
                         _LOGGER.error("Auto-push failed: %s", push_err)
                         self._hass.bus.async_fire(

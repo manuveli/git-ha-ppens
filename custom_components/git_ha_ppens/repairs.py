@@ -9,15 +9,28 @@ from typing import Any, cast
 import voluptuous as vol
 from homeassistant.components.repairs import RepairsFlow, RepairsFlowResult
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .const import (
+    AUTH_TOKEN,
+    CONF_AUTH_METHOD,
+    CONF_AUTH_TOKEN,
+    CONF_AUTH_USERNAME,
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
+    CONF_REMOTE_URL,
     CONF_REPO_PATH,
+    DEFAULT_TOKEN_AUTH_USERNAME,
     DOMAIN,
+    REPAIR_REMOTE_AUTHENTICATION,
     REPAIR_UNSAFE_REPOSITORY_LAYOUT,
 )
-from .git_manager import GitError, GitManager
+from .git_manager import GitError, GitManager, RemoteAuthenticationError
+from .remote_auth import delete_remote_authentication_issue
 from .repository_layout import delete_unsafe_repository_layout_issue
 from .repository_migration import (
     RepositoryMigrationAssessment,
@@ -225,6 +238,106 @@ class UnsafeRepositoryLayoutRepair(RepairsFlow):
         )
 
 
+class RemoteAuthenticationRepair(RepairsFlow):
+    """Let the user replace a rejected personal access token."""
+
+    def __init__(
+        self,
+        issue_id: str,
+        data: dict[str, str | int | float | None] | None,
+    ) -> None:
+        """Initialize the repair flow."""
+        super().__init__()
+        self.issue_id = issue_id
+        self.data = data
+
+    @property
+    def entry_id(self) -> str:
+        """Return the affected config entry ID."""
+        if isinstance(self.data, dict) and isinstance(
+            self.data.get("entry_id"), str
+        ):
+            return cast(str, self.data["entry_id"])
+        prefix = f"{REPAIR_REMOTE_AUTHENTICATION}_"
+        return self.issue_id.removeprefix(prefix)
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> RepairsFlowResult:
+        """Ask for a new token, verify it against the remote, then store it."""
+        entry = self.hass.config_entries.async_get_entry(self.entry_id)
+        if entry is None:
+            return self.async_abort(reason="entry_removed")
+        if entry.data.get(CONF_AUTH_METHOD) != AUTH_TOKEN:
+            return self.async_abort(reason="not_token_auth")
+        remote_url = entry.data.get(CONF_REMOTE_URL, "")
+        if not remote_url:
+            return self.async_abort(reason="no_remote")
+
+        current_username = entry.data.get(
+            CONF_AUTH_USERNAME, DEFAULT_TOKEN_AUTH_USERNAME
+        )
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            token = user_input.get(CONF_AUTH_TOKEN, "").strip()
+            username = (
+                user_input.get(CONF_AUTH_USERNAME, "").strip()
+                or DEFAULT_TOKEN_AUTH_USERNAME
+            )
+            manager = GitManager(
+                entry.data[CONF_REPO_PATH],
+                entry.data.get(CONF_GIT_USER, ""),
+                entry.data.get(CONF_GIT_EMAIL, ""),
+            )
+            if not token:
+                errors[CONF_AUTH_TOKEN] = "token_required"
+            else:
+                try:
+                    await manager.verify_token_auth(
+                        remote_url, token, username
+                    )
+                except RemoteAuthenticationError:
+                    errors["base"] = "invalid_auth"
+                except GitError as err:
+                    _LOGGER.warning(
+                        "Could not verify the new access token: %s", err
+                    )
+                    errors["base"] = "cannot_connect"
+
+            if not errors:
+                delete_remote_authentication_issue(self.hass, self.entry_id)
+                # The entry's update listener reloads the integration, which
+                # rewrites the remote URL with the new credentials.
+                self.hass.config_entries.async_update_entry(
+                    entry,
+                    data={
+                        **entry.data,
+                        CONF_AUTH_TOKEN: token,
+                        CONF_AUTH_USERNAME: username,
+                    },
+                )
+                return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_AUTH_TOKEN): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                    vol.Required(
+                        CONF_AUTH_USERNAME, default=current_username
+                    ): str,
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "remote_url": GitManager._redact_url(remote_url),
+            },
+        )
+
+
 async def async_create_fix_flow(
     hass: HomeAssistant,
     issue_id: str,
@@ -235,4 +348,6 @@ async def async_create_fix_flow(
     prefix = f"{REPAIR_UNSAFE_REPOSITORY_LAYOUT}_"
     if issue_id.startswith(prefix):
         return UnsafeRepositoryLayoutRepair(issue_id, data)
+    if issue_id.startswith(f"{REPAIR_REMOTE_AUTHENTICATION}_"):
+        return RemoteAuthenticationRepair(issue_id, data)
     raise ValueError(f"Unknown repair issue: {issue_id}")

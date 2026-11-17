@@ -587,6 +587,7 @@ your Home Assistant version and diagnostics when reporting the problem.
 <details>
 <summary><strong>❌ Push fails with "permission denied", "401", or "403"</strong></summary>
 
+- When the remote rejects the credentials, git-ha-ppens raises a repair under **Settings → System → Repairs**. For token authentication you can enter and verify a new token directly in that repair; it disappears automatically after the next successful synchronization
 - Check that the remote URL is correct and the repository exists
 - Ensure the token or access key can read and write repository contents
 - For GitHub classic tokens, this normally means the `repo` scope; fine-grained tokens must have access to the target repository and Contents read/write permission
