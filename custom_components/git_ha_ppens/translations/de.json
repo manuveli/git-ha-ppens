@@ -135,6 +135,8 @@
           "commit_interval": "Auto-Commit-Verzögerungsintervall (Sekunden)",
           "scan_interval": "Status-Abfrageintervall (Sekunden)",
           "fetch_interval": "Remote-Abfrageintervall (Sekunden)",
+          "auto_gc": "Automatische Git-Garbage-Collection",
+          "auto_gc_interval_days": "Intervall der Garbage-Collection (Tage)",
           "ai_commit_messages": "KI für Commit-Nachrichten verwenden",
           "ai_agent_id": "Konversationsagent",
           "remote_url": "Remote-URL",
@@ -153,6 +155,8 @@
           "commit_interval": "Wartezeit in Sekunden nach der letzten Änderung, bevor automatisch committet wird. Minimum 30, Maximum 86400 (24h).",
           "scan_interval": "Wie oft der Git-Status auf Updates überprüft wird. Minimum 10, Maximum 3600 (1h).",
           "fetch_interval": "Wie oft vom Remote abgefragt wird, um nach neuen Commits zu suchen. Minimum 60, Maximum 3600.",
+          "auto_gc": "Führt regelmäßig ein normales `git gc` aus, um übrig gebliebene temporäre Dateien abgebrochener Git-Vorgänge zu entfernen. Es werden nur Daten entfernt, die älter als zwei Wochen sind, und die Historie wird nie umgeschrieben.",
+          "auto_gc_interval_days": "Tage zwischen zwei automatischen Läufen. Minimum 1, Maximum 30.",
           "remote_url": "Die Git-Remote-URL (z.B. https://github.com/user/repo.git oder git@github.com:user/repo.git).",
           "auth_method": "Authentifizierungsmethode für das Remote-Repository.",
           "auth_token": "Persönlicher Zugriffstoken für HTTPS-Authentifizierung.",
@@ -224,6 +228,12 @@
       },
       "commits_ahead": {
         "name": "Commits voraus"
+      },
+      "repo_size": {
+        "name": "Repository-Größe"
+      },
+      "garbage_size": {
+        "name": "Git-Garbage-Größe"
       }
     },
     "binary_sensor": {
@@ -328,12 +338,20 @@
           "manual_fix_complete": "Die Repository-Struktur ist wieder sicher. git-ha-ppens wird neu geladen. Prüfe, ob die erwarteten ESPHome-Dateien das Remote erreichen, bevor du dein manuelles Backup entfernst."
         }
       }
+    },
+    "large_git_garbage": {
+      "title": "Git-Repository enthält viele übrig gebliebene Daten",
+      "description": "Das Git-Verzeichnis dieses Repositorys enthält {garbage_size} GiB übrig gebliebene temporäre Dateien abgebrochener Git-Vorgänge. Sie gehören nicht zur Historie deiner Konfiguration und belegen nur Speicherplatz.\n\nFühre die Aktion `git_ha_ppens.gc` aus oder aktiviere die **Automatische Git-Garbage-Collection** unter **Einstellungen → Geräte & Dienste → git-ha-ppens → Konfigurieren**. Git entfernt nur Reste, die älter als zwei Wochen sind, weil neuere Dateien noch zu einem laufenden Git-Vorgang gehören können. Dieser Hinweis verschwindet, sobald weniger als 1 GiB übrig gebliebene Daten vorhanden sind."
     }
   },
   "services": {
     "discard_changes": {
       "name": "Lokale Änderungen verwerfen",
       "description": "Verwirft dauerhaft gestagte und nicht gestagte Änderungen an getrackten Dateien. Ungetrackte Dateien bleiben erhalten."
+    },
+    "gc": {
+      "name": "Garbage-Collection",
+      "description": "Entfernt übrig gebliebene temporäre Git-Dateien, die älter als zwei Wochen sind, und optimiert das Repository. Die Historie wird nie umgeschrieben."
     }
   }
 }

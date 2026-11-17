@@ -41,3 +41,7 @@ sync:
 diff:
   name: Diff
   description: Get the current git diff of uncommitted changes. Returns response data with the diff content and a status summary.
+
+gc:
+  name: Garbage Collection
+  description: Remove leftover temporary Git files older than two weeks and optimize the repository. History is never rewritten.

@@ -115,6 +115,8 @@
           "commit_interval": "Auto-commit bekleme süresi (saniye)",
           "scan_interval": "Durum sorgulama aralığı (saniye)",
           "fetch_interval": "Uzak getirme aralığı (saniye)",
+          "auto_gc": "Otomatik Git çöp toplama",
+          "auto_gc_interval_days": "Çöp toplama aralığı (gün)",
           "remote_url": "Remote URL",
           "auth_method": "Kimlik doğrulama yöntemi",
           "auth_token": "Kişisel erişim token'ı",
@@ -133,6 +135,8 @@
           "commit_interval": "Son değişiklikten sonra otomatik commit atmadan önce beklenecek saniye sayısı. Minimum 30, maksimum 86400 (24s).",
           "scan_interval": "Sensör güncellemeleri için git durumunun ne sıklıkta sorgulanacağı. Minimum 10, maksimum 3600 (1s).",
           "fetch_interval": "Yeni commit'leri kontrol etmek için uzaktan ne sıklıkta getirileceği. Minimum 60, maksimum 3600.",
+          "auto_gc": "Yarıda kalan Git işlemlerinden arta kalan geçici dosyaları kaldırmak için düzenli olarak standart bir `git gc` çalıştırır. Yalnızca iki haftadan eski veriler kaldırılır ve geçmiş asla yeniden yazılmaz.",
+          "auto_gc_interval_days": "Otomatik çalıştırmalar arasındaki gün sayısı. En az 1, en fazla 30.",
           "remote_url": "Git remote URL'si (örn. https://github.com/user/repo.git veya git@github.com:user/repo.git).",
           "auth_method": "Remote ile kimlik doğrulama yöntemi.",
           "auth_token": "HTTPS kimlik doğrulaması için kişisel erişim token'ı.",
@@ -204,6 +208,12 @@
       },
       "commits_ahead": {
         "name": "İlerideki commitler"
+      },
+      "repo_size": {
+        "name": "Depo boyutu"
+      },
+      "garbage_size": {
+        "name": "Git çöp boyutu"
       }
     },
     "binary_sensor": {
@@ -308,12 +318,20 @@
           "manual_fix_complete": "Depo yapısı yeniden güvenli ve git-ha-ppens yeniden yüklenecek. Elle alınan yedeği silmeden önce uzak depoyu doğrulayın."
         }
       }
+    },
+    "large_git_garbage": {
+      "title": "Git deposu çok fazla artık veri içeriyor",
+      "description": "Bu deponun Git dizini, yarıda kalan Git işlemlerinden arta kalan {garbage_size} GiB geçici dosya içeriyor. Bunlar yapılandırma geçmişinizin parçası değildir ve yalnızca disk alanı kaplar.\n\n`git_ha_ppens.gc` eylemini çalıştırın veya **Ayarlar → Cihazlar ve hizmetler → git-ha-ppens → Yapılandır** altında **Otomatik Git çöp toplama** seçeneğini etkinleştirin. Git yalnızca iki haftadan eski artıkları kaldırır, çünkü daha yeni dosyalar hâlâ çalışan bir Git işlemine ait olabilir. 1 GiB'den az artık veri kaldığında bu onarım kaybolur."
     }
   },
   "services": {
     "discard_changes": {
       "name": "Yerel değişiklikleri at",
       "description": "İzlenen dosyalardaki hazırlanmış ve hazırlanmamış değişiklikleri kalıcı olarak atar. İzlenmeyen dosyalar korunur."
+    },
+    "gc": {
+      "name": "Çöp toplama",
+      "description": "İki haftadan eski artık geçici Git dosyalarını kaldırır ve depoyu optimize eder. Geçmiş asla yeniden yazılmaz."
     }
   }
 }

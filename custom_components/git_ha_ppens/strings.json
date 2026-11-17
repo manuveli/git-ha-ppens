@@ -141,7 +141,9 @@
           "ssh_key_path": "SSH private key path",
           "ai_commit_messages": "Use AI for commit messages",
           "ai_agent_id": "Conversation agent",
-          "fetch_interval": "Remote fetch interval (seconds)"
+          "fetch_interval": "Remote fetch interval (seconds)",
+          "auto_gc": "Automatic Git garbage collection",
+          "auto_gc_interval_days": "Garbage collection interval (days)"
         },
         "data_description": {
           "git_user": "The name that will appear as the commit author.",
@@ -153,6 +155,8 @@
           "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600.",
+          "auto_gc": "Periodically run a standard `git gc` to remove leftover temporary files from interrupted Git operations. Only data older than two weeks is removed, and history is never rewritten.",
+          "auto_gc_interval_days": "Days between automatic garbage collection runs. Minimum 1, maximum 30.",
           "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
           "auth_method": "How to authenticate with the remote.",
           "auth_token": "Personal access token for HTTPS authentication.",
@@ -224,6 +228,12 @@
       },
       "commits_ahead": {
         "name": "Commits Ahead"
+      },
+      "repo_size": {
+        "name": "Repository Size"
+      },
+      "garbage_size": {
+        "name": "Git Garbage Size"
       }
     },
     "binary_sensor": {
@@ -328,12 +338,20 @@
           "manual_fix_complete": "The repository layout is safe again. git-ha-ppens has scheduled a reload. Verify that the expected ESPHome files reach the remote before removing your manual backup."
         }
       }
+    },
+    "large_git_garbage": {
+      "title": "Git repository contains large leftover data",
+      "description": "The Git directory of this repository contains {garbage_size} GiB of leftover temporary files from interrupted Git operations. They are not part of your configuration history and only use disk space.\n\nRun the `git_ha_ppens.gc` action, or enable **Automatic Git garbage collection** under **Settings → Devices & services → git-ha-ppens → Configure**. Git only removes leftovers older than two weeks, because newer files may still belong to a running Git operation. This repair disappears once less than 1 GiB of leftover data remains."
     }
   },
   "services": {
     "discard_changes": {
       "name": "Discard Local Changes",
       "description": "Permanently discard staged and unstaged changes to tracked files. Untracked files are preserved."
+    },
+    "gc": {
+      "name": "Garbage Collection",
+      "description": "Remove leftover temporary Git files older than two weeks and optimize the repository. History is never rewritten."
     }
   }
 }

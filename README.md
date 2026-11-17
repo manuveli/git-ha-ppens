@@ -96,7 +96,7 @@
 - ✅ **Pre-deploy check** *(optional)* — validates incoming remote changes after pulls or push-fallback merges and **automatically rolls them back** if the check fails
 
 ### 🔧 Manual Control
-- **7 services** callable from automations, scripts, or Developer Tools:
+- **8 services** callable from automations, scripts, or Developer Tools:
   - `git_ha_ppens.commit` — create a commit with an optional custom message
   - `git_ha_ppens.push` — push commits to the configured remote
   - `git_ha_ppens.pull` — pull from remote (auto-backs up uncommitted changes first)
@@ -104,6 +104,7 @@
   - `git_ha_ppens.sync` — commit + push in one step
   - `git_ha_ppens.diff` — get the current diff of uncommitted changes
   - `git_ha_ppens.discard_changes` — discard tracked local changes
+  - `git_ha_ppens.gc` — safely clean up leftover Git data and optimize the repository
 - **Push, Pull, and Fetch buttons** when a remote is configured, plus an optional disabled-by-default **Discard Local Changes** button
 - **Native rollback** from the configuration UI — select a historical commit, preview the changes, validate the configuration and restore it
 
@@ -119,8 +120,9 @@
 - **HTTPS** with personal access token or **SSH key** authentication
 
 ### 📊 Visibility & Monitoring
-- **10 sensors** + **1 binary sensor** for real-time git status
-- **Events** for commit, push, pull, fetch, errors, and secret detection
+- **12 sensors** + **1 binary sensor** for real-time git status and repository size
+- **Events** for commit, push, pull, fetch, garbage collection, errors, and secret detection
+- 🧹 **Repository maintenance**: a repair warns about large leftover Git data, with optional scheduled `git gc`
 - Build dashboards, notifications, and automations around your config history
 
 ### 🩺 Diagnostics
@@ -216,6 +218,26 @@ setups. Bitbucket repository, project, or workspace access tokens commonly use
 `x-token-auth`; Bitbucket API tokens can use `x-bitbucket-api-token-auth` or the
 account's Bitbucket username. The setting is ignored for SSH and unauthenticated
 remotes.
+
+### 🧹 Repository maintenance *(General Settings only)*
+
+Interrupted Git operations (for example a Home Assistant restart while a large
+file is being staged) can leave temporary files in `.git` that Git never
+removes on its own. git-ha-ppens measures the Git directory every ten minutes
+and raises a repair when more than 1 GiB of such leftover data has accumulated.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `auto_gc` | Periodically run a standard `git gc` | `false` |
+| `auto_gc_interval_days` | Days between automatic garbage collection runs (1–30) | `7` |
+
+Garbage collection always uses Git's standard, non-aggressive `git gc`. Only
+leftovers and unreachable objects older than two weeks (Git's default
+`gc.pruneExpire`) are removed, because newer files may still belong to a Git
+operation that is running at the same time, for example from an editor add-on.
+History is never rewritten. Scheduled runs skip a cycle while another
+git-ha-ppens operation is active and never delay the status updates. The first
+run on a large repository can take several minutes and use noticeable CPU.
 
 > 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, and **Restore configuration**.
 
@@ -325,6 +347,7 @@ a change after auto-commit has already created a commit.
 | `git_ha_ppens.discard_changes` | Permanently discard staged and unstaged changes to tracked files; untracked files are preserved | — |
 | `git_ha_ppens.sync` | Commit + push in one step | `message` *(optional)* — custom commit message |
 | `git_ha_ppens.diff` | Get the current diff of uncommitted changes | — *(returns response data)* |
+| `git_ha_ppens.gc` | Run a standard `git gc`: remove leftover Git data older than two weeks and optimize the repository without rewriting history | — |
 
 ### Example: Call sync from an automation
 
@@ -363,6 +386,8 @@ action:
 | `sensor.git_ha_ppens_last_fetch_time` | Timestamp of last successful fetch | — |
 | `sensor.git_ha_ppens_last_pull_time` | Timestamp of last successful pull | — |
 | `sensor.git_ha_ppens_last_push_time` | Timestamp of last successful push | — |
+| `sensor.git_ha_ppens_repo_size` | Total size of the `.git` directory *(diagnostic, refreshed every 10 minutes)* | `pack_size`, `pack_count`, `loose_size`, `loose_object_count` |
+| `sensor.git_ha_ppens_garbage_size` | Size of leftover temporary Git files *(diagnostic, refreshed every 10 minutes)* | `garbage_file_count`, `last_gc_time`, `auto_gc` |
 
 ### Binary Sensors
 
@@ -384,6 +409,7 @@ Use these events as automation triggers to build notifications, dashboards, or r
 | `git_ha_ppens_fetch` | A fetch completes | — |
 | `git_ha_ppens_check_failed` | A pull or historical restore was blocked and rolled back by the configuration check | `errors`, `auto` |
 | `git_ha_ppens_restore` | A historical snapshot was restored as a new commit | `target_hash`, `target_message`, `restore_hash`, `commits_restored`, `changed_files`, `pushed`, `auto` |
+| `git_ha_ppens_gc` | A garbage collection finished | `git_dir_size_before`, `git_dir_size_after`, `garbage_size_before`, `garbage_size_after`, `freed_bytes` *(all in bytes)*, `auto` |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
 | `git_ha_ppens_secret_detected` | Potential secrets are found in staged or modified files during the load-time scan | `findings`, `count` |
 
@@ -775,6 +801,29 @@ Ignored files are not part of the restore and remain untouched.
 - Ensure `secrets.yaml` is listed in `.gitignore` (it is by default)
 - The warning is best-effort, runs when the integration loads, and does not block commits or pushes
 - If a credential has already been pushed, revoke or rotate it immediately. Adding the file to `.gitignore` does not remove the credential from existing Git history
+</details>
+
+<details>
+<summary><strong>❌ The <code>.git</code> directory is much larger than expected</strong></summary>
+
+Compare `sensor.git_ha_ppens_repo_size` with `sensor.git_ha_ppens_garbage_size`
+(both are diagnostic entities on the git-ha-ppens device). A large garbage size
+means leftover temporary files from interrupted Git operations, not real
+configuration history.
+
+1. Run the `git_ha_ppens.gc` action from **Developer Tools → Actions**, or
+   enable **Automatic Git garbage collection** under **Configure → General
+   Settings**.
+2. Git only removes leftovers older than two weeks. Newer leftovers stay until
+   a later run, because they may still belong to a running Git operation.
+3. If the garbage keeps growing, check which large files are being changed
+   (for example databases or backup archives) and make sure they are listed in
+   `.gitignore`.
+
+git-ha-ppens never runs `git gc --prune=now` or `--aggressive`, and never
+rewrites history. If a large pack size (not garbage) comes from big files that
+were committed in the past, only a manual history rewrite can shrink it, which
+git-ha-ppens deliberately does not do.
 </details>
 
 ---

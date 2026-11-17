@@ -25,6 +25,8 @@ CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_AI_COMMIT_MESSAGES: Final = "ai_commit_messages"
 CONF_AI_AGENT_ID: Final = "ai_agent_id"
 CONF_FETCH_INTERVAL: Final = "fetch_interval"
+CONF_AUTO_GC: Final = "auto_gc"
+CONF_AUTO_GC_INTERVAL_DAYS: Final = "auto_gc_interval_days"
 CONF_GITIGNORE_CONTENT: Final = "gitignore_content"
 CONF_GITIGNORE_CUSTOM: Final = "gitignore_custom"
 CONF_GITIGNORE_INITIALIZED: Final = "gitignore_initialized"
@@ -44,11 +46,19 @@ DEFAULT_REPO_PATH: Final = "/config"
 DEFAULT_COMMIT_INTERVAL: Final = 300  # seconds (5 minutes)
 DEFAULT_SCAN_INTERVAL: Final = 30  # seconds
 DEFAULT_FETCH_INTERVAL: Final = 300  # seconds (5 minutes)
+DEFAULT_AUTO_GC: Final = False
+DEFAULT_AUTO_GC_INTERVAL_DAYS: Final = 7  # days
+AUTO_GC_INTERVAL_MIN_DAYS: Final = 1
+AUTO_GC_INTERVAL_MAX_DAYS: Final = 30
 DEFAULT_BRANCH: Final = "main"
 DEFAULT_TOKEN_AUTH_USERNAME: Final = "oauth2"
 DEFAULT_AI_DIFF_MAX_CHARS: Final = 8000
 DEFAULT_AI_STATUS_MAX_CHARS: Final = 2000
 DEFAULT_PRE_DEPLOY_CHECK: Final = False
+# Leftover temporary Git files above this size raise a repair issue.
+GC_GARBAGE_WARN_BYTES: Final = 1024**3  # 1 GiB
+# How often repository size metrics are refreshed and auto-GC is considered.
+REPOSITORY_MAINTENANCE_INTERVAL: Final = 600  # seconds (10 minutes)
 RESTORE_HISTORY_LIMIT: Final = 20
 RESTORE_PREVIEW_COMMIT_LIMIT: Final = 20
 RESTORE_PREVIEW_FILE_LIMIT: Final = 50
@@ -60,6 +70,7 @@ STORAGE_KEY_PREFIX: Final = f"{DOMAIN}.runtime_state"
 STORAGE_LAST_FETCH_TIME: Final = "last_fetch_time"
 STORAGE_LAST_PULL_TIME: Final = "last_pull_time"
 STORAGE_LAST_PUSH_TIME: Final = "last_push_time"
+STORAGE_LAST_GC_TIME: Final = "last_gc_time"
 
 # Events
 EVENT_COMMIT: Final = f"{DOMAIN}_commit"
@@ -70,12 +81,14 @@ EVENT_FETCH: Final = f"{DOMAIN}_fetch"
 EVENT_SECRET_DETECTED: Final = f"{DOMAIN}_secret_detected"
 EVENT_CHECK_FAILED: Final = f"{DOMAIN}_check_failed"
 EVENT_RESTORE: Final = f"{DOMAIN}_restore"
+EVENT_GC: Final = f"{DOMAIN}_gc"
 
 # Repairs
 REPAIR_STALE_INDEX_LOCK: Final = "stale_index_lock"
 REPAIR_UNSAFE_REPOSITORY_LAYOUT: Final = "unsafe_repository_layout"
 REPAIR_REMOTE_AUTHENTICATION: Final = "remote_authentication_failed"
 REPAIR_REMOTE_AUTHENTICATION_TOKEN: Final = "remote_authentication_failed_token"
+REPAIR_LARGE_GIT_GARBAGE: Final = "large_git_garbage"
 
 
 def stale_index_lock_issue_id(entry_id: str) -> str:
@@ -93,12 +106,19 @@ def remote_authentication_issue_id(entry_id: str) -> str:
     return f"{REPAIR_REMOTE_AUTHENTICATION}_{entry_id}"
 
 
+def large_git_garbage_issue_id(entry_id: str) -> str:
+    """Return the entry-specific issue ID for large leftover Git data."""
+    return f"{REPAIR_LARGE_GIT_GARBAGE}_{entry_id}"
+
+
 # Sensor keys
 SENSOR_LAST_COMMIT: Final = "last_commit"
 SENSOR_LAST_COMMIT_TIME: Final = "last_commit_time"
 SENSOR_UNCOMMITTED_CHANGES: Final = "uncommitted_changes"
 SENSOR_BRANCH: Final = "branch"
 SENSOR_REMOTE_STATUS: Final = "remote_status"
+SENSOR_REPO_SIZE: Final = "repo_size"
+SENSOR_GARBAGE_SIZE: Final = "garbage_size"
 
 # Binary sensor keys
 BINARY_SENSOR_DIRTY: Final = "dirty"
@@ -111,6 +131,7 @@ SERVICE_SYNC: Final = "sync"
 SERVICE_FETCH: Final = "fetch"
 SERVICE_DIFF: Final = "diff"
 SERVICE_DISCARD_CHANGES: Final = "discard_changes"
+SERVICE_GC: Final = "gc"
 
 # Service parameters
 ATTR_MESSAGE: Final = "message"
@@ -128,6 +149,8 @@ SENSOR_ENTITY_IDS: Final = {
     "last_push_time": f"sensor.{DOMAIN}_last_push_time",
     "commits_behind": f"sensor.{DOMAIN}_commits_behind",
     "commits_ahead": f"sensor.{DOMAIN}_commits_ahead",
+    SENSOR_REPO_SIZE: f"sensor.{DOMAIN}_{SENSOR_REPO_SIZE}",
+    SENSOR_GARBAGE_SIZE: f"sensor.{DOMAIN}_{SENSOR_GARBAGE_SIZE}",
 }
 BINARY_SENSOR_ENTITY_IDS: Final = {
     "dirty": f"binary_sensor.{DOMAIN}_dirty",

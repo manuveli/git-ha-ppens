@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 from typing import Any
 
@@ -122,6 +123,24 @@ async def async_get_config_entry_diagnostics(
             ]
         except Exception:  # noqa: BLE001
             diagnostics["recent_commits"] = []
+
+        # Repository size and garbage collection state. Measured fresh with
+        # read-only commands so diagnostics also work while the entry is not
+        # loaded.
+        coordinator = entry_data.get("coordinator")
+        try:
+            metrics = await git_manager.get_repository_metrics()
+            diagnostics["repository_size"] = dataclasses.asdict(metrics)
+        except Exception:  # noqa: BLE001
+            diagnostics["repository_size"] = {"error": "Failed to measure"}
+        if coordinator is not None:
+            last_gc_time = coordinator.last_gc_time
+            diagnostics["repository_size"]["auto_gc"] = (
+                coordinator.auto_gc_enabled
+            )
+            diagnostics["repository_size"]["last_gc_time"] = (
+                last_gc_time.isoformat() if last_gc_time else None
+            )
 
     # File watcher status
     if file_watcher is not None:

@@ -120,6 +120,73 @@ class RestoreResult:
 
 
 @dataclass(frozen=True)
+class RepositoryMetrics:
+    """On-disk size metrics of a repository's Git directory (all sizes in bytes)."""
+
+    git_dir_size: int
+    loose_objects: int
+    loose_size: int
+    packs: int
+    pack_size: int
+    garbage_files: int
+    garbage_size: int
+
+
+@dataclass(frozen=True)
+class GarbageCollectionResult:
+    """Repository metrics before and after a garbage collection run."""
+
+    before: RepositoryMetrics
+    after: RepositoryMetrics
+
+    @property
+    def freed_bytes(self) -> int:
+        """Return how much the Git directory shrank, never negative."""
+        return max(self.before.git_dir_size - self.after.git_dir_size, 0)
+
+
+def parse_count_objects(output: str) -> dict[str, int]:
+    """Parse ``git count-objects -v`` output into integer values.
+
+    Git reports ``size``, ``size-pack`` and ``size-garbage`` in KiB; they are
+    converted to bytes. Lines that are not ``key: integer`` pairs are ignored
+    so unexpected output from future Git versions cannot break the metrics.
+    """
+    stats: dict[str, int] = {}
+    for line in output.splitlines():
+        key, separator, value = line.partition(":")
+        if not separator:
+            continue
+        key = key.strip()
+        try:
+            number = int(value.strip())
+        except ValueError:
+            continue
+        if number < 0:
+            continue
+        stats[key] = number * 1024 if key.startswith("size") else number
+    return stats
+
+
+def _directory_size(path: Path) -> int:
+    """Return the apparent size of all files below a directory.
+
+    Symlinks are neither followed nor counted, and files that disappear while
+    walking (for example temporary files of a running Git command) are skipped.
+    """
+    total = 0
+    for root, _directories, files in os.walk(path, followlinks=False):
+        for filename in files:
+            try:
+                file_stat = os.lstat(os.path.join(root, filename))
+            except OSError:
+                continue
+            if stat.S_ISREG(file_stat.st_mode):
+                total += file_stat.st_size
+    return total
+
+
+@dataclass(frozen=True)
 class _IndexLockState:
     """Describe the index lock without following symbolic links."""
 
@@ -239,6 +306,48 @@ class GitManager:
     def repo_path(self) -> str:
         """Return the repository path."""
         return self._repo_path
+
+    async def get_repository_metrics(self) -> RepositoryMetrics:
+        """Return on-disk size metrics for the repository's Git directory.
+
+        Only read-only Git commands are used, so this is safe to call while
+        another Git operation is running.
+        """
+        stats = parse_count_objects(await self._run_git("count-objects", "-v"))
+        git_dir = Path(await self._run_git("rev-parse", "--absolute-git-dir"))
+        git_dir_size = await asyncio.to_thread(_directory_size, git_dir)
+        return RepositoryMetrics(
+            git_dir_size=git_dir_size,
+            loose_objects=stats.get("count", 0),
+            loose_size=stats.get("size", 0),
+            packs=stats.get("packs", 0),
+            pack_size=stats.get("size-pack", 0),
+            garbage_files=stats.get("garbage", 0),
+            garbage_size=stats.get("size-garbage", 0),
+        )
+
+    async def garbage_collect(self) -> GarbageCollectionResult:
+        """Run a standard, non-aggressive ``git gc``.
+
+        Git's default expiry (``gc.pruneExpire``, two weeks) is deliberately
+        kept: leftover temporary files and unreachable objects are only removed
+        once they are old enough that no concurrent Git process can still be
+        using them. Forcing ``--prune=now`` could corrupt the repository while
+        an editor add-on or another tool writes to it, and ``--aggressive``
+        only spends CPU and memory on delta compression without removing any
+        leftovers. History is never rewritten.
+
+        The caller must hold the integration's git lock.
+        """
+        before = await self.get_repository_metrics()
+        _LOGGER.info("Starting Git garbage collection in %s", self._repo_path)
+        await self._run_git("gc", "--quiet")
+        after = await self.get_repository_metrics()
+        _LOGGER.info(
+            "Git garbage collection finished: %d bytes freed",
+            max(before.git_dir_size - after.git_dir_size, 0),
+        )
+        return GarbageCollectionResult(before=before, after=after)
 
     async def _run_git(
         self,
