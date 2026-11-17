@@ -63,8 +63,9 @@
     "error": {
       "path_not_found": "Der angegebene Pfad existiert nicht.",
       "git_not_installed": "Git ist nicht installiert oder wurde im PATH nicht gefunden.",
-      "invalid_remote_url": "Ungültige Remote-URL. Muss mit https://, git@ oder ssh:// beginnen.",
-      "token_requires_https": "Token-Authentifizierung erfordert eine HTTPS-Remote-URL.",
+      "invalid_remote_url": "Ungültige Remote-URL. Muss mit https://, git@ oder ssh:// beginnen (http:// ist für Hosts im lokalen Netzwerk erlaubt).",
+      "http_requires_local_host": "Unverschlüsselte http://-Remotes sind nur für Hosts im lokalen Netzwerk erlaubt (private IP-Adresse, localhost oder ein Name auf .local, .lan, .home.arpa oder .internal). Verwende für andere Hosts https:// oder SSH.",
+      "token_requires_https": "Token-Authentifizierung erfordert eine https://-Remote-URL (oder http:// für einen Host im lokalen Netzwerk).",
       "token_required": "Für die Token-Authentifizierung ist ein persönlicher Zugriffstoken erforderlich.",
       "auth_username_required": "Für die Token-Authentifizierung ist ein Authentifizierungs-Benutzername erforderlich.",
       "ssh_key_not_found": "Die angegebene SSH-Schlüsseldatei existiert nicht."
@@ -176,8 +177,9 @@
       }
     },
     "error": {
-      "invalid_remote_url": "Ungültige Remote-URL. Muss mit https://, git@ oder ssh:// beginnen.",
-      "token_requires_https": "Token-Authentifizierung erfordert eine HTTPS-Remote-URL.",
+      "invalid_remote_url": "Ungültige Remote-URL. Muss mit https://, git@ oder ssh:// beginnen (http:// ist für Hosts im lokalen Netzwerk erlaubt).",
+      "http_requires_local_host": "Unverschlüsselte http://-Remotes sind nur für Hosts im lokalen Netzwerk erlaubt (private IP-Adresse, localhost oder ein Name auf .local, .lan, .home.arpa oder .internal). Verwende für andere Hosts https:// oder SSH.",
+      "token_requires_https": "Token-Authentifizierung erfordert eine https://-Remote-URL (oder http:// für einen Host im lokalen Netzwerk).",
       "token_required": "Für die Token-Authentifizierung ist ein persönlicher Zugriffstoken erforderlich.",
       "auth_username_required": "Für die Token-Authentifizierung ist ein Authentifizierungs-Benutzername erforderlich.",
       "ssh_key_not_found": "Die angegebene SSH-Schlüsseldatei existiert nicht.",

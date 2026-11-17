@@ -207,10 +207,10 @@ effect when a remote is configured.
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `remote_url` | Git remote URL (HTTPS or SSH) | *(empty)* |
+| `remote_url` | Git remote URL (HTTPS or SSH; plain HTTP for local network hosts) | *(empty)* |
 | `auth_method` | `none` / `token` / `ssh` | `none` |
-| `auth_token` | Personal access token (for HTTPS) | *(empty)* |
-| `auth_username` | Username paired with the HTTPS token | `oauth2` |
+| `auth_token` | Personal access token (for HTTPS or local HTTP) | *(empty)* |
+| `auth_username` | Username paired with the token | `oauth2` |
 | `ssh_key_path` | Path to SSH private key file | *(empty)* |
 
 The `oauth2` authentication username preserves existing GitHub and GitLab
@@ -218,6 +218,31 @@ setups. Bitbucket repository, project, or workspace access tokens commonly use
 `x-token-auth`; Bitbucket API tokens can use `x-bitbucket-api-token-auth` or the
 account's Bitbucket username. The setting is ignored for SSH and unauthenticated
 remotes.
+
+#### Self-hosted Git servers (Gitea, Forgejo, GitLab, …)
+
+Self-hosted servers work like any other remote; host names and IP addresses
+are both supported. Copy the clone URL your server shows for the repository:
+
+| Setup | Example `remote_url` |
+|-------|----------------------|
+| HTTPS with token | `https://git.example.com/user/homeassistant.git` |
+| SSH (default port) | `git@192.168.1.10:user/homeassistant.git` |
+| SSH (custom port) | `ssh://git@192.168.1.10:2222/user/homeassistant.git` |
+| Plain HTTP in the local network | `http://192.168.1.10:3000/user/homeassistant.git` |
+
+Plain, unencrypted `http://` remotes are accepted only for hosts inside your
+local network: private, loopback, link-local, and CGNAT/Tailscale
+(`100.64.0.0/10`) IP addresses, `localhost`, single-label names such as a
+Docker service name (`http://gitea:3000/…`), and names ending in `.local`,
+`.lan`, `.home.arpa`, or `.internal`. Other hosts must use HTTPS or SSH, so a
+token is never sent over the internet in plain text. Keep in mind that even in
+the local network, HTTP transmits the token and your configuration
+unencrypted; HTTPS (for example with a Let's Encrypt certificate obtained via
+the DNS-01 challenge, which needs no public exposure) or SSH is preferable.
+
+HTTPS remotes need a certificate that Git trusts. Self-signed certificates are
+not supported; use SSH or HTTP in the local network for such servers instead.
 
 ### 🧹 Repository maintenance *(General Settings only)*
 

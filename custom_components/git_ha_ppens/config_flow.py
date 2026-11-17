@@ -63,6 +63,7 @@ from .const import (
     RESTORE_HISTORY_LIMIT,
     RESTORE_PREVIEW_COMMIT_LIMIT,
     RESTORE_PREVIEW_FILE_LIMIT,
+    is_local_http_remote_url,
 )
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import (
@@ -88,12 +89,18 @@ def _validate_remote_settings(user_input: dict[str, Any]) -> dict[str, str]:
     if not remote_url:
         return errors
 
-    if not remote_url.startswith(("https://", "git@", "ssh://")):
+    if remote_url.startswith("http://"):
+        # Plain HTTP exposes tokens and configuration contents, so it is only
+        # accepted for self-hosted servers inside the local network (#91).
+        if not is_local_http_remote_url(remote_url):
+            errors["base"] = "http_requires_local_host"
+            return errors
+    elif not remote_url.startswith(("https://", "git@", "ssh://")):
         errors["base"] = "invalid_remote_url"
         return errors
 
     if auth_method == AUTH_TOKEN:
-        if not remote_url.startswith("https://"):
+        if not remote_url.startswith(("https://", "http://")):
             errors["base"] = "token_requires_https"
         elif not user_input.get(CONF_AUTH_TOKEN, "").strip():
             errors["base"] = "token_required"

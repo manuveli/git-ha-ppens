@@ -19,6 +19,7 @@ from .const import (
     DEFAULT_GITIGNORE_ENTRIES,
     DEFAULT_TOKEN_AUTH_USERNAME,
     SECRET_PATTERNS,
+    is_local_http_remote_url,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -1990,7 +1991,12 @@ class GitManager:
         token: str,
         username: str = DEFAULT_TOKEN_AUTH_USERNAME,
     ) -> str:
-        """Return an HTTPS remote URL with the token embedded as userinfo."""
+        """Return an HTTPS remote URL with the token embedded as userinfo.
+
+        Plain HTTP is accepted only for local network hosts, mirroring the
+        config-flow validation, so a token is never embedded into an
+        unencrypted URL that points to the internet.
+        """
         username = username.strip()
         token = token.strip()
         if not username:
@@ -1999,8 +2005,15 @@ class GitManager:
             raise GitError("Authentication token cannot be empty")
 
         parsed = urlsplit(url)
-        if parsed.scheme.lower() != "https" or not parsed.netloc:
-            raise GitError("Token authentication requires a valid HTTPS remote URL")
+        scheme = parsed.scheme.lower()
+        scheme_allowed = scheme == "https" or (
+            scheme == "http" and is_local_http_remote_url(url)
+        )
+        if not scheme_allowed or not parsed.netloc:
+            raise GitError(
+                "Token authentication requires a valid HTTPS remote URL "
+                "(HTTP is only allowed for local network hosts)"
+            )
 
         # Token settings are authoritative, so replace any existing URL userinfo.
         remote_host = parsed.netloc.rsplit("@", 1)[-1]

@@ -63,8 +63,9 @@
     "error": {
       "path_not_found": "Belirtilen yol mevcut değil.",
       "git_not_installed": "Git yüklü değil veya PATH içinde bulunamadı.",
-      "invalid_remote_url": "Geçersiz remote URL. https://, git@ veya ssh:// ile başlamalı.",
-      "token_requires_https": "Token kimlik doğrulaması için HTTPS remote URL gereklidir.",
+      "invalid_remote_url": "Geçersiz remote URL. https://, git@ veya ssh:// ile başlamalı (yerel ağdaki hostlar için http:// kullanılabilir).",
+      "http_requires_local_host": "Şifrelenmemiş http:// remote'lara yalnızca yerel ağdaki hostlar için izin verilir (özel IP adresi, localhost veya .local, .lan, .home.arpa ya da .internal adı). Diğer hostlar için https:// veya SSH kullanın.",
+      "token_requires_https": "Token kimlik doğrulaması için https:// remote URL gereklidir (yerel ağdaki bir host için http://).",
       "token_required": "Token kimlik doğrulaması için kişisel erişim token'ı gereklidir.",
       "auth_username_required": "Token kimlik doğrulaması için bir kimlik doğrulama kullanıcı adı gereklidir.",
       "ssh_key_not_found": "Belirtilen SSH anahtar dosyası mevcut değil."
@@ -156,8 +157,9 @@
       }
     },
     "error": {
-      "invalid_remote_url": "Geçersiz remote URL. https://, git@ veya ssh:// ile başlamalı.",
-      "token_requires_https": "Token kimlik doğrulaması için HTTPS remote URL gereklidir.",
+      "invalid_remote_url": "Geçersiz remote URL. https://, git@ veya ssh:// ile başlamalı (yerel ağdaki hostlar için http:// kullanılabilir).",
+      "http_requires_local_host": "Şifrelenmemiş http:// remote'lara yalnızca yerel ağdaki hostlar için izin verilir (özel IP adresi, localhost veya .local, .lan, .home.arpa ya da .internal adı). Diğer hostlar için https:// veya SSH kullanın.",
+      "token_requires_https": "Token kimlik doğrulaması için https:// remote URL gereklidir (yerel ağdaki bir host için http://).",
       "token_required": "Token kimlik doğrulaması için kişisel erişim token'ı gereklidir.",
       "auth_username_required": "Token kimlik doğrulaması için bir kimlik doğrulama kullanıcı adı gereklidir.",
       "ssh_key_not_found": "Belirtilen SSH anahtar dosyası mevcut değil.",

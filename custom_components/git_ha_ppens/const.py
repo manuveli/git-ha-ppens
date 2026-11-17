@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from typing import Final
+from urllib.parse import urlsplit
 
 DOMAIN: Final = "git_ha_ppens"
 PLATFORMS: Final = ["sensor", "binary_sensor", "button"]
@@ -40,6 +42,28 @@ CONF_RESTORE_PUSH: Final = "restore_push"
 AUTH_NONE: Final = "none"
 AUTH_TOKEN: Final = "token"
 AUTH_SSH: Final = "ssh"
+
+# Unencrypted http:// remotes are accepted only for hosts that are reachable
+# solely inside a local or overlay network. Everything else must use HTTPS or
+# SSH so that tokens and configuration contents never cross the internet in
+# plain text.
+LOCAL_HTTP_HOST_SUFFIXES: Final = (".local", ".lan", ".home.arpa", ".internal")
+# Explicit list instead of ipaddress.is_private: its meaning differs between
+# Python versions and it also covers non-local special-purpose ranges.
+LOCAL_HTTP_NETWORKS: Final = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "10.0.0.0/8",  # RFC 1918 private
+        "172.16.0.0/12",  # RFC 1918 private
+        "192.168.0.0/16",  # RFC 1918 private
+        "127.0.0.0/8",  # loopback
+        "169.254.0.0/16",  # link-local
+        "100.64.0.0/10",  # RFC 6598 shared (CGNAT, Tailscale)
+        "::1/128",  # loopback
+        "fc00::/7",  # unique local addresses
+        "fe80::/10",  # link-local
+    )
+)
 
 # Defaults
 DEFAULT_REPO_PATH: Final = "/config"
@@ -109,6 +133,58 @@ def remote_authentication_issue_id(entry_id: str) -> str:
 def large_git_garbage_issue_id(entry_id: str) -> str:
     """Return the entry-specific issue ID for large leftover Git data."""
     return f"{REPAIR_LARGE_GIT_GARBAGE}_{entry_id}"
+
+
+def is_local_network_host(host: str) -> bool:
+    """Return whether a remote host is only reachable inside a local network.
+
+    Accepted are private, loopback, link-local and shared (CGNAT/Tailscale)
+    IP addresses, ``localhost``, single-label names such as Docker service
+    names, and names under suffixes reserved or conventionally used for local
+    networks. This is a guard against accidentally sending credentials over
+    the internet in plain text, not a network reachability check.
+    """
+    host = host.strip().rstrip(".").casefold()
+    if not host:
+        return False
+
+    try:
+        # Drop an IPv6 zone index such as "fe80::1%eth0" before parsing.
+        address = ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        address = None
+
+    if address is not None:
+        if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+            address = address.ipv4_mapped
+        return any(
+            address.version == network.version and address in network
+            for network in LOCAL_HTTP_NETWORKS
+        )
+
+    if "." not in host:
+        # Git resolves purely numeric single labels as IPv4 addresses
+        # ("134744072" is 8.8.8.8), so they cannot count as local names.
+        return host == "localhost" or not re.fullmatch(
+            r"0x[0-9a-f]+|[0-9]+", host
+        )
+
+    return host.endswith(LOCAL_HTTP_HOST_SUFFIXES)
+
+
+def is_local_http_remote_url(url: str) -> bool:
+    """Return whether a URL is an http:// remote on a local network host."""
+    try:
+        parsed = urlsplit(url.strip())
+        host = parsed.hostname
+    except ValueError:
+        return False
+
+    return (
+        parsed.scheme.lower() == "http"
+        and host is not None
+        and is_local_network_host(host)
+    )
 
 
 # Sensor keys

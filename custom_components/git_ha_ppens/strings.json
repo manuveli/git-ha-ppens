@@ -63,8 +63,9 @@
     "error": {
       "path_not_found": "The specified path does not exist.",
       "git_not_installed": "Git is not installed or not found in PATH.",
-      "invalid_remote_url": "Invalid remote URL. Must start with https://, git@, or ssh://.",
-      "token_requires_https": "Token authentication requires an HTTPS remote URL.",
+      "invalid_remote_url": "Invalid remote URL. Must start with https://, git@, or ssh:// (http:// is allowed for local network hosts).",
+      "http_requires_local_host": "Unencrypted http:// remotes are only allowed for local network hosts (private IP address, localhost, or a .local, .lan, .home.arpa, or .internal name). Use https:// or SSH for other hosts.",
+      "token_requires_https": "Token authentication requires an https:// remote URL (or http:// for a local network host).",
       "token_required": "A personal access token is required for token authentication.",
       "auth_username_required": "An authentication username is required for token authentication.",
       "ssh_key_not_found": "The specified SSH key file does not exist."
@@ -176,8 +177,9 @@
       }
     },
     "error": {
-      "invalid_remote_url": "Invalid remote URL. Must start with https://, git@, or ssh://.",
-      "token_requires_https": "Token authentication requires an HTTPS remote URL.",
+      "invalid_remote_url": "Invalid remote URL. Must start with https://, git@, or ssh:// (http:// is allowed for local network hosts).",
+      "http_requires_local_host": "Unencrypted http:// remotes are only allowed for local network hosts (private IP address, localhost, or a .local, .lan, .home.arpa, or .internal name). Use https:// or SSH for other hosts.",
+      "token_requires_https": "Token authentication requires an https:// remote URL (or http:// for a local network host).",
       "token_required": "A personal access token is required for token authentication.",
       "auth_username_required": "An authentication username is required for token authentication.",
       "ssh_key_not_found": "The specified SSH key file does not exist.",

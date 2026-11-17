@@ -63,8 +63,9 @@
     "error": {
       "path_not_found": "निर्दिष्ट पथ मौजूद नहीं है।",
       "git_not_installed": "Git स्थापित नहीं है या PATH में नहीं मिला।",
-      "invalid_remote_url": "अमान्य remote URL। यह https://, git@ या ssh:// से शुरू होना चाहिए।",
-      "token_requires_https": "Token प्रमाणीकरण के लिए HTTPS remote URL आवश्यक है।",
+      "invalid_remote_url": "अमान्य remote URL। यह https://, git@ या ssh:// से शुरू होना चाहिए (लोकल नेटवर्क के hosts के लिए http:// की अनुमति है)।",
+      "http_requires_local_host": "बिना एन्क्रिप्शन वाले http:// remotes केवल लोकल नेटवर्क के hosts के लिए अनुमत हैं (private IP address, localhost या .local, .lan, .home.arpa या .internal नाम)। अन्य hosts के लिए https:// या SSH का उपयोग करें।",
+      "token_requires_https": "Token प्रमाणीकरण के लिए https:// remote URL आवश्यक है (या लोकल नेटवर्क host के लिए http://)।",
       "token_required": "Token प्रमाणीकरण के लिए एक व्यक्तिगत एक्सेस token आवश्यक है।",
       "auth_username_required": "Token प्रमाणीकरण के लिए प्रमाणीकरण उपयोगकर्ता नाम आवश्यक है।",
       "ssh_key_not_found": "निर्दिष्ट SSH कुंजी फ़ाइल मौजूद नहीं है।"
@@ -156,8 +157,9 @@
       }
     },
     "error": {
-      "invalid_remote_url": "अमान्य remote URL। यह https://, git@ या ssh:// से शुरू होना चाहिए।",
-      "token_requires_https": "Token प्रमाणीकरण के लिए HTTPS remote URL आवश्यक है।",
+      "invalid_remote_url": "अमान्य remote URL। यह https://, git@ या ssh:// से शुरू होना चाहिए (लोकल नेटवर्क के hosts के लिए http:// की अनुमति है)।",
+      "http_requires_local_host": "बिना एन्क्रिप्शन वाले http:// remotes केवल लोकल नेटवर्क के hosts के लिए अनुमत हैं (private IP address, localhost या .local, .lan, .home.arpa या .internal नाम)। अन्य hosts के लिए https:// या SSH का उपयोग करें।",
+      "token_requires_https": "Token प्रमाणीकरण के लिए https:// remote URL आवश्यक है (या लोकल नेटवर्क host के लिए http://)।",
       "token_required": "Token प्रमाणीकरण के लिए एक व्यक्तिगत एक्सेस token आवश्यक है।",
       "auth_username_required": "Token प्रमाणीकरण के लिए प्रमाणीकरण उपयोगकर्ता नाम आवश्यक है।",
       "ssh_key_not_found": "निर्दिष्ट SSH कुंजी फ़ाइल मौजूद नहीं है।",

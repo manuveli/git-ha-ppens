@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-17
+
+### Added
+- Plain `http://` remotes are now accepted for self-hosted Git servers in the local network (private, loopback, link-local and CGNAT/Tailscale IP addresses, `localhost`, single-label names, and `.local`/`.lan`/`.home.arpa`/`.internal` names), including token authentication ([#91](https://github.com/manuveli/git-ha-ppens/issues/91))
+
+### Changed
+- `http://` remotes pointing to other hosts are rejected with a dedicated error so tokens are never sent over the internet unencrypted ([#91](https://github.com/manuveli/git-ha-ppens/issues/91))
+- Documented setup examples for self-hosted Git servers such as Gitea and Forgejo ([#91](https://github.com/manuveli/git-ha-ppens/issues/91))
+
 ## [1.5.0] - 2026-11-17
 
 ### Added
@@ -278,7 +287,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `.gitignore` entries for common HA files
 - Automated release workflow for HACS
 
-[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.0...v1.4.1

@@ -63,8 +63,9 @@
     "error": {
       "path_not_found": "Il percorso specificato non esiste.",
       "git_not_installed": "Git non è installato o non è stato trovato nel PATH.",
-      "invalid_remote_url": "URL remoto non valido. Deve iniziare con https://, git@ o ssh://.",
-      "token_requires_https": "L'autenticazione tramite token richiede un URL remoto HTTPS.",
+      "invalid_remote_url": "URL remoto non valido. Deve iniziare con https://, git@ o ssh:// (http:// è consentito per gli host della rete locale).",
+      "http_requires_local_host": "I remote http:// non cifrati sono consentiti solo per gli host della rete locale (indirizzo IP privato, localhost o un nome .local, .lan, .home.arpa o .internal). Usa https:// o SSH per gli altri host.",
+      "token_requires_https": "L'autenticazione tramite token richiede un URL remoto https:// (o http:// per un host della rete locale).",
       "token_required": "Per l'autenticazione tramite token è necessario un token di accesso personale.",
       "auth_username_required": "Per l'autenticazione tramite token è necessario un nome utente di autenticazione.",
       "ssh_key_not_found": "Il file della chiave SSH specificato non esiste."
@@ -156,8 +157,9 @@
       }
     },
     "error": {
-      "invalid_remote_url": "URL remoto non valido. Deve iniziare con https://, git@ o ssh://.",
-      "token_requires_https": "L'autenticazione tramite token richiede un URL remoto HTTPS.",
+      "invalid_remote_url": "URL remoto non valido. Deve iniziare con https://, git@ o ssh:// (http:// è consentito per gli host della rete locale).",
+      "http_requires_local_host": "I remote http:// non cifrati sono consentiti solo per gli host della rete locale (indirizzo IP privato, localhost o un nome .local, .lan, .home.arpa o .internal). Usa https:// o SSH per gli altri host.",
+      "token_requires_https": "L'autenticazione tramite token richiede un URL remoto https:// (o http:// per un host della rete locale).",
       "token_required": "Per l'autenticazione tramite token è necessario un token di accesso personale.",
       "auth_username_required": "Per l'autenticazione tramite token è necessario un nome utente di autenticazione.",
       "ssh_key_not_found": "Il file della chiave SSH specificato non esiste.",
