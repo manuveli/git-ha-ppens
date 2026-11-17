@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-17
+
+### Added
+- Raise a Home Assistant repair when the Git remote rejects the configured credentials (for example an expired or revoked access token) during fetch, pull, or push. Token setups can enter and verify a new token directly in the repair; it clears itself after the next successful synchronization. Thanks to [@olli-dot-dev](https://github.com/olli-dot-dev) ([#90](https://github.com/manuveli/git-ha-ppens/issues/90))
+
 ## [1.4.1] - 2026-09-20
 
 ### Fixed
@@ -266,6 +271,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated release workflow for HACS
 
 [Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.0.0...HEAD
+[1.4.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.3.1...v1.3.2

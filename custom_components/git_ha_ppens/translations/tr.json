@@ -227,6 +227,42 @@
     }
   },
   "issues": {
+    "remote_authentication_failed_token": {
+      "title": "Git remote kimlik bilgilerini reddetti",
+      "description": "git-ha-ppens, `{operation}` sırasında Git remote üzerinde kimlik doğrulaması yapamadı. Yapılandırma değişiklikleri yerel olarak commit edilmeye devam eder ancak senkronize edilmez.\n\nRemote yanıtı: `{error}`\n\nKişisel erişim token'ının süresi büyük olasılıkla dolmuş, iptal edilmiş veya gerekli izinlere sahip değil. Yeni bir token girmek için bu onarımı gönderin.",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Yeni erişim token'ı girin",
+            "description": "`{remote_url}` için yeni bir kişisel erişim token'ı girin. Token'ın depo içeriğine okuma ve yazma erişimi olmalıdır (klasik token'lar: `repo` kapsamı). Token kaydedilmeden önce deneme amaçlı bir push (dry run) ile test edilir; hiçbir şey gönderilmez.",
+            "data": {
+              "auth_token": "Kişisel erişim token'ı",
+              "auth_username": "Kimlik doğrulama kullanıcı adı"
+            },
+            "data_description": {
+              "auth_username": "Sağlayıcınız belirli bir kullanıcı adı gerektirmiyorsa GitHub için `oauth2` kullanın."
+            }
+          }
+        },
+        "error": {
+          "invalid_auth": "Remote bu token'ı reddetti. Token'ın geçerli olduğunu ve depoya yazma erişimi olduğunu kontrol edin.",
+          "cannot_connect": "Token'ı doğrulamak için remote'a ulaşılamadı. Günlükleri kontrol edip tekrar deneyin.",
+          "token_required": "Kişisel erişim token'ı gereklidir."
+        },
+        "abort": {
+          "entry_removed": "İlgili git-ha-ppens yapılandırma girdisi artık mevcut değil.",
+          "not_token_auth": "Bu girdi artık token kimlik doğrulaması kullanmıyor. Bunun yerine kimlik bilgilerini entegrasyon seçeneklerinde güncelleyin.",
+          "no_remote": "Bu girdi için yapılandırılmış bir remote URL yok."
+        },
+        "create_entry": {
+          "default": "Yeni token doğrulandı ve kaydedildi. git-ha-ppens yeniden yükleniyor ve senkronizasyona devam edecek."
+        }
+      }
+    },
+    "remote_authentication_failed": {
+      "title": "Git remote kimlik bilgilerini reddetti",
+      "description": "git-ha-ppens, `{operation}` sırasında Git remote üzerinde kimlik doğrulaması yapamadı. Yapılandırma değişiklikleri yerel olarak commit edilmeye devam eder ancak senkronize edilmez.\n\nRemote yanıtı: `{error}`\n\nKimlik bilgilerini **Ayarlar → Cihazlar ve hizmetler → git-ha-ppens → Yapılandır** altında kontrol edin. SSH için anahtarın mevcut olduğundan ve depo için yetkilendirildiğinden emin olun. Bu onarım, bir sonraki başarılı senkronizasyondan sonra kaybolacaktır."
+    },
     "stale_index_lock": {
       "title": "Otomatik commitler bir Git indeks kilidi tarafından engelleniyor",
       "description": "git-ha-ppens, `{lock_path}` konumundaki eski Git indeks kilidini güvenli bir şekilde kaldıramadı. Otomatik commitler engellenmeye devam eder; bu nedenle yerel yapılandırma değişiklikleri commit edilemeyebilir veya gönderilemeyebilir.\n\n1. Bu depo için herhangi bir Git işleminin çalışmadığından emin olun.\n2. Bir terminal veya dosya düzenleyici kullanarak `{lock_path}` dosyasını kaldırın.\n3. Sonraki auto-commit aralığını bekleyin veya başka bir yapılandırma değişikliği yapın.\n\nGit-ha-ppens kilidin kaldırıldığını doğruladığında bu onarım otomatik olarak kaybolacaktır."
