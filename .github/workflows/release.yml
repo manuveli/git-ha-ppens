@@ -46,6 +46,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
+          # Tag the pushed release commit. Without this, GitHub creates the
+          # tag on the default branch HEAD, which is wrong whenever `release`
+          # lags behind `main`.
+          target_commitish: ${{ github.sha }}
           name: v${{ steps.version.outputs.version }}
           body: ${{ steps.release_notes.outputs.release_notes }}
           files: |
