@@ -44,12 +44,4 @@ diff:
 
 gc:
   name: Garbage Collection
-  description: Prune unreachable Git objects and optimize the repository (git prune + git gc).
-  fields:
-    aggressive:
-      name: Aggressive
-      description: Use --aggressive for a more thorough but slower collection.
-      required: false
-      default: false
-      selector:
-        boolean:
+  description: Remove leftover temporary Git files older than two weeks and optimize the repository. History is never rewritten.

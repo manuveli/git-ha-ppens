@@ -115,6 +115,8 @@
           "commit_interval": "Intervalo de espera do auto-commit (segundos)",
           "scan_interval": "Intervalo de consulta de estado (segundos)",
           "fetch_interval": "Intervalo de busca remota (segundos)",
+          "auto_gc": "Recolha automática de lixo do Git",
+          "auto_gc_interval_days": "Intervalo da recolha de lixo (dias)",
           "remote_url": "URL do remote",
           "auth_method": "Método de autenticação",
           "auth_token": "Token de acesso pessoal",
@@ -133,6 +135,8 @@
           "commit_interval": "Tempo de espera em segundos após a última alteração antes de fazer o commit automaticamente. Mínimo 30, máximo 86400 (24h).",
           "scan_interval": "Com que frequência consultar o estado git para atualizar os sensores. Mínimo 10, máximo 3600 (1h).",
           "fetch_interval": "Com que frequência buscar do remoto para verificar novos commits. Mínimo 60, máximo 3600.",
+          "auto_gc": "Executa periodicamente um `git gc` padrão para remover ficheiros temporários restantes de operações Git interrompidas. Só são removidos dados com mais de duas semanas e o histórico nunca é reescrito.",
+          "auto_gc_interval_days": "Dias entre execuções automáticas. Mínimo 1, máximo 30.",
           "remote_url": "A URL do remote git (ex.: https://github.com/user/repo.git ou git@github.com:user/repo.git).",
           "auth_method": "Método de autenticação para o remote.",
           "auth_token": "Token de acesso pessoal para autenticação HTTPS.",
@@ -204,6 +208,12 @@
       },
       "commits_ahead": {
         "name": "Commits à frente"
+      },
+      "repo_size": {
+        "name": "Tamanho do repositório"
+      },
+      "garbage_size": {
+        "name": "Tamanho do lixo do Git"
       }
     },
     "binary_sensor": {
@@ -308,12 +318,20 @@
           "manual_fix_complete": "A estrutura do repositório está novamente segura e o git-ha-ppens será recarregado. Verifica o remoto antes de apagar a cópia manual."
         }
       }
+    },
+    "large_git_garbage": {
+      "title": "O repositório Git contém muitos dados restantes",
+      "description": "O diretório Git deste repositório contém {garbage_size} GiB de ficheiros temporários restantes de operações Git interrompidas. Não fazem parte do histórico da tua configuração e apenas ocupam espaço em disco.\n\nExecuta a ação `git_ha_ppens.gc` ou ativa **Recolha automática de lixo do Git** em **Definições → Dispositivos e serviços → git-ha-ppens → Configurar**. O Git só remove restos com mais de duas semanas, porque ficheiros mais recentes ainda podem pertencer a uma operação Git em curso. Esta reparação desaparece quando restar menos de 1 GiB de dados."
     }
   },
   "services": {
     "discard_changes": {
       "name": "Descartar alterações locais",
       "description": "Descarta permanentemente alterações preparadas e não preparadas em ficheiros monitorizados. Os ficheiros não monitorizados são preservados."
+    },
+    "gc": {
+      "name": "Recolha de lixo",
+      "description": "Remove ficheiros temporários restantes do Git com mais de duas semanas e otimiza o repositório. O histórico nunca é reescrito."
     }
   }
 }

@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
@@ -20,7 +20,6 @@ from .backup_gitignore import (
     is_core_config_repository,
 )
 from .const import (
-    ATTR_AGGRESSIVE,
     ATTR_MESSAGE,
     AUTH_SSH,
     AUTH_TOKEN,
@@ -31,7 +30,7 @@ from .const import (
     CONF_AUTH_USERNAME,
     CONF_AUTO_COMMIT,
     CONF_AUTO_GC,
-    CONF_AUTO_GC_INTERVAL,
+    CONF_AUTO_GC_INTERVAL_DAYS,
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
@@ -47,7 +46,7 @@ from .const import (
     CONF_SSH_KEY_PATH,
     CORE_BACKUP_GITIGNORE_ENTRIES,
     DEFAULT_AUTO_GC,
-    DEFAULT_AUTO_GC_INTERVAL,
+    DEFAULT_AUTO_GC_INTERVAL_DAYS,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_PRE_DEPLOY_CHECK,
     DEFAULT_SCAN_INTERVAL,
@@ -58,6 +57,7 @@ from .const import (
     EVENT_ERROR,
     EVENT_PUSH,
     EVENT_SECRET_DETECTED,
+    REPOSITORY_MAINTENANCE_INTERVAL,
     SERVICE_COMMIT,
     SERVICE_DIFF,
     SERVICE_DISCARD_CHANGES,
@@ -70,6 +70,7 @@ from .const import (
 )
 from .coordinator import GitHaPpensCoordinator
 from .file_watcher import GitFileWatcher
+from .git_garbage import delete_large_git_garbage_issue
 from .git_manager import (
     GitError,
     GitManager,
@@ -104,9 +105,10 @@ SERVICE_COMMIT_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MESSAGE): str,
     }
 )
-SERVICE_GC_SCHEMA = vol.Schema(
-    {vol.Optional(ATTR_AGGRESSIVE, default=False): bool}
-)
+
+# Garbage collection takes no parameters; unknown keys (for example an
+# "aggressive" flag) are rejected instead of being silently ignored.
+SERVICE_GC_SCHEMA = vol.Schema({})
 
 BUTTON_ENTITY_ID_MIGRATION_NOTIFICATION_ID = (
     f"{DOMAIN}_button_entity_id_migration"
@@ -460,8 +462,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ai_commit_enabled=data.get(CONF_AI_COMMIT_MESSAGES, False),
         ai_agent_id=data.get(CONF_AI_AGENT_ID, ""),
         auto_gc=data.get(CONF_AUTO_GC, DEFAULT_AUTO_GC),
-        auto_gc_interval=data.get(
-            CONF_AUTO_GC_INTERVAL, DEFAULT_AUTO_GC_INTERVAL
+        auto_gc_interval_days=data.get(
+            CONF_AUTO_GC_INTERVAL_DAYS, DEFAULT_AUTO_GC_INTERVAL_DAYS
         ),
     )
 
@@ -571,6 +573,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, _periodic_check, timedelta(seconds=commit_interval)
         )
 
+    # Repository maintenance (size metrics and optional auto-GC) runs on its
+    # own timer as an entry background task: it never delays the status poll
+    # or Home Assistant shutdown and is cancelled when the entry unloads.
+    @callback
+    def _schedule_repository_maintenance(_now=None) -> None:
+        """Start one repository maintenance run in the background."""
+        entry.async_create_background_task(
+            hass,
+            coordinator.async_run_maintenance(),
+            name=f"{DOMAIN}_repository_maintenance_{entry.entry_id}",
+        )
+
+    maintenance_unsub = async_track_time_interval(
+        hass,
+        _schedule_repository_maintenance,
+        timedelta(seconds=REPOSITORY_MAINTENANCE_INTERVAL),
+    )
+
     entity_ids = _resolve_entry_entity_ids(hass, entry)
 
     # Store references
@@ -579,6 +599,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
         "file_watcher": file_watcher,
         "periodic_unsub": periodic_unsub,
+        "maintenance_unsub": maintenance_unsub,
         ENTRY_ENTITY_IDS: entity_ids,
     }
 
@@ -589,6 +610,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Register services
     _register_services(hass, entry)
+
+    # Measure the repository once right after setup. Auto-GC is never started
+    # here; it waits for the first timer tick so it cannot slow down startup.
+    entry.async_create_background_task(
+        hass,
+        coordinator.async_refresh_repository_metrics(),
+        name=f"{DOMAIN}_repository_metrics_{entry.entry_id}",
+    )
 
     # Run initial secret scan
     try:
@@ -625,6 +654,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if periodic_unsub:
         periodic_unsub()
 
+    # Cancel repository maintenance timer
+    maintenance_unsub = entry_data.get("maintenance_unsub")
+    if maintenance_unsub:
+        maintenance_unsub()
+
     # Stop file watcher
     file_watcher: GitFileWatcher | None = entry_data.get("file_watcher")
     if file_watcher:
@@ -657,6 +691,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     delete_stale_index_lock_issue(hass, entry.entry_id)
     delete_unsafe_repository_layout_issue(hass, entry.entry_id)
     delete_remote_authentication_issue(hass, entry.entry_id)
+    delete_large_git_garbage_issue(hass, entry.entry_id)
 
 
 def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -771,23 +806,20 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             _LOGGER.error("Discard changes failed: %s", err)
 
     async def async_handle_gc(call: ServiceCall) -> None:
-        """Run garbage collection while holding the repository lock."""
-        coordinator: GitHaPpensCoordinator | None = None
+        """Handle the garbage collection service call."""
         try:
-            git_manager, coordinator = _get_manager_and_coordinator(call)
-            aggressive = call.data.get(ATTR_AGGRESSIVE, False)
-            async with coordinator.git_lock:
-                result = await git_manager.garbage_collect(aggressive=aggressive)
-                await coordinator.async_refresh_repository_metrics()
-            _LOGGER.info(
-                "GC finished.\nBefore:\n%s\nAfter:\n%s",
-                result["before"],
-                result["after"],
-            )
-            await coordinator.async_request_refresh()
+            _, coordinator = _get_manager_and_coordinator(call)
+            result = await coordinator.async_run_garbage_collection(auto=False)
         except GitError as err:
             _LOGGER.error("Garbage collection failed: %s", err)
-            hass.bus.async_fire(EVENT_ERROR, {"operation": "gc", "error": str(err)})
+            return
+        if result is not None:
+            _LOGGER.info(
+                "Garbage collection finished: %d bytes freed, "
+                "%d bytes of leftover data remain",
+                result.freed_bytes,
+                result.after.garbage_size,
+            )
 
     async def async_handle_sync(call: ServiceCall) -> None:
         """Handle the sync service call (commit + push)."""

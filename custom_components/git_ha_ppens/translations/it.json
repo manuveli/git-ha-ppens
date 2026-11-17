@@ -115,6 +115,8 @@
           "commit_interval": "Intervallo di ritardo dell'auto-commit (secondi)",
           "scan_interval": "Intervallo di aggiornamento dello stato (secondi)",
           "fetch_interval": "Intervallo di fetch remoto (secondi)",
+          "auto_gc": "Garbage collection automatica di Git",
+          "auto_gc_interval_days": "Intervallo della garbage collection (giorni)",
           "remote_url": "URL remoto",
           "auth_method": "Metodo di autenticazione",
           "auth_token": "Token di accesso personale",
@@ -133,6 +135,8 @@
           "commit_interval": "Tempo di attesa in secondi dopo l'ultima modifica prima di committare automaticamente. Minimo 30, massimo 86400 (24h).",
           "scan_interval": "Frequenza di controllo dello stato git per l'aggiornamento dei sensori. Minimo 10, massimo 3600 (1h).",
           "fetch_interval": "Quanto spesso eseguire il fetch dal remoto per verificare nuovi commit. Minimo 60, massimo 3600.",
+          "auto_gc": "Esegue periodicamente un `git gc` standard per rimuovere i file temporanei rimasti da operazioni Git interrotte. Vengono rimossi solo i dati più vecchi di due settimane e la cronologia non viene mai riscritta.",
+          "auto_gc_interval_days": "Giorni tra due esecuzioni automatiche. Minimo 1, massimo 30.",
           "remote_url": "L'URL del remote git (es. https://github.com/user/repo.git o git@github.com:user/repo.git).",
           "auth_method": "Metodo di autenticazione per il remote.",
           "auth_token": "Token di accesso personale per l'autenticazione HTTPS.",
@@ -204,6 +208,12 @@
       },
       "commits_ahead": {
         "name": "Commit avanti"
+      },
+      "repo_size": {
+        "name": "Dimensione del repository"
+      },
+      "garbage_size": {
+        "name": "Dimensione dei residui Git"
       }
     },
     "binary_sensor": {
@@ -308,12 +318,20 @@
           "manual_fix_complete": "La struttura del repository è di nuovo sicura e git-ha-ppens verrà ricaricato. Verifica il remoto prima di eliminare il backup."
         }
       }
+    },
+    "large_git_garbage": {
+      "title": "Il repository Git contiene molti dati residui",
+      "description": "La directory Git di questo repository contiene {garbage_size} GiB di file temporanei rimasti da operazioni Git interrotte. Non fanno parte della cronologia della tua configurazione e occupano solo spazio su disco.\n\nEsegui l’azione `git_ha_ppens.gc` oppure attiva **Garbage collection automatica di Git** in **Impostazioni → Dispositivi e servizi → git-ha-ppens → Configura**. Git rimuove solo i residui più vecchi di due settimane, perché i file più recenti potrebbero appartenere a un’operazione Git ancora in corso. Questa riparazione scompare quando restano meno di 1 GiB di dati residui."
     }
   },
   "services": {
     "discard_changes": {
       "name": "Scarta modifiche locali",
       "description": "Scarta definitivamente le modifiche preparate e non preparate ai file tracciati. I file non tracciati vengono mantenuti."
+    },
+    "gc": {
+      "name": "Garbage collection",
+      "description": "Rimuove i file temporanei Git rimasti più vecchi di due settimane e ottimizza il repository. La cronologia non viene mai riscritta."
     }
   }
 }

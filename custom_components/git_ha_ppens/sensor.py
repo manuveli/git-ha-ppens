@@ -10,9 +10,10 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfInformation
+from homeassistant.const import EntityCategory, UnitOfInformation
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -122,22 +123,58 @@ SENSOR_DESCRIPTIONS: tuple[GitHaPpensSensorDescription, ...] = (
         translation_key="repo_size",
         icon="mdi:database",
         device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_unit_of_measurement=UnitOfInformation.MEBIBYTES,
         suggested_display_precision=1,
-        coordinator_value_fn=lambda c: c.repo_size_bytes,
-        coordinator_extra_attrs_fn=lambda c: c.repo_size_attributes,
+        coordinator_value_fn=lambda c: (
+            c.repository_metrics.git_dir_size if c.repository_metrics else None
+        ),
+        coordinator_extra_attrs_fn=lambda c: _repo_size_attributes(c),
     ),
     GitHaPpensSensorDescription(
         key="garbage_size",
         translation_key="garbage_size",
         icon="mdi:delete-sweep-outline",
         device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_unit_of_measurement=UnitOfInformation.MEBIBYTES,
         suggested_display_precision=1,
-        coordinator_value_fn=lambda c: c.garbage_size_bytes,
-        coordinator_extra_attrs_fn=lambda c: c.garbage_size_attributes,
+        coordinator_value_fn=lambda c: (
+            c.repository_metrics.garbage_size if c.repository_metrics else None
+        ),
+        coordinator_extra_attrs_fn=lambda c: _garbage_size_attributes(c),
     ),
 )
+
+
+def _repo_size_attributes(coordinator: GitHaPpensCoordinator) -> dict:
+    """Return object and pack details for the repository size sensor."""
+    metrics = coordinator.repository_metrics
+    if metrics is None:
+        return {}
+    return {
+        "pack_size": metrics.pack_size,
+        "pack_count": metrics.packs,
+        "loose_size": metrics.loose_size,
+        "loose_object_count": metrics.loose_objects,
+    }
+
+
+def _garbage_size_attributes(coordinator: GitHaPpensCoordinator) -> dict:
+    """Return leftover-file details and garbage collection state."""
+    metrics = coordinator.repository_metrics
+    last_gc_time = coordinator.last_gc_time
+    attributes: dict = {
+        "last_gc_time": last_gc_time.isoformat() if last_gc_time else None,
+        "auto_gc": coordinator.auto_gc_enabled,
+    }
+    if metrics is not None:
+        attributes["garbage_file_count"] = metrics.garbage_files
+    return attributes
 
 
 def _format_remote_status(status: GitStatus) -> str:

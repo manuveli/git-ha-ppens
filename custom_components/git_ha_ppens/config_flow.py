@@ -26,6 +26,8 @@ from .const import (
     AUTH_NONE,
     AUTH_SSH,
     AUTH_TOKEN,
+    AUTO_GC_INTERVAL_MAX_DAYS,
+    AUTO_GC_INTERVAL_MIN_DAYS,
     CONF_AI_AGENT_ID,
     CONF_AI_COMMIT_MESSAGES,
     CONF_AUTH_METHOD,
@@ -33,7 +35,7 @@ from .const import (
     CONF_AUTH_USERNAME,
     CONF_AUTO_COMMIT,
     CONF_AUTO_GC,
-    CONF_AUTO_GC_INTERVAL,
+    CONF_AUTO_GC_INTERVAL_DAYS,
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
     CONF_COMMIT_INTERVAL,
@@ -51,7 +53,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_SSH_KEY_PATH,
     DEFAULT_AUTO_GC,
-    DEFAULT_AUTO_GC_INTERVAL,
+    DEFAULT_AUTO_GC_INTERVAL_DAYS,
     DEFAULT_COMMIT_INTERVAL,
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_REPO_PATH,
@@ -199,11 +201,6 @@ class GitHaPpensConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_FETCH_INTERVAL,
                         default=DEFAULT_FETCH_INTERVAL,
                     ): vol.All(int, vol.Range(min=60, max=3600)),
-                    vol.Required(CONF_AUTO_GC, default=DEFAULT_AUTO_GC): bool,
-                    vol.Required(
-                        CONF_AUTO_GC_INTERVAL,
-                        default=DEFAULT_AUTO_GC_INTERVAL,
-                    ): vol.All(int, vol.Range(min=86400, max=2592000)),
                     vol.Required(
                         CONF_AI_COMMIT_MESSAGES, default=False
                     ): bool,
@@ -655,11 +652,18 @@ class GitHaPpensOptionsFlow(OptionsFlow):
                         default=current.get(CONF_AUTO_GC, DEFAULT_AUTO_GC),
                     ): bool,
                     vol.Required(
-                        CONF_AUTO_GC_INTERVAL,
+                        CONF_AUTO_GC_INTERVAL_DAYS,
                         default=current.get(
-                            CONF_AUTO_GC_INTERVAL, DEFAULT_AUTO_GC_INTERVAL
+                            CONF_AUTO_GC_INTERVAL_DAYS,
+                            DEFAULT_AUTO_GC_INTERVAL_DAYS,
                         ),
-                    ): vol.All(int, vol.Range(min=86400, max=2592000)),
+                    ): vol.All(
+                        int,
+                        vol.Range(
+                            min=AUTO_GC_INTERVAL_MIN_DAYS,
+                            max=AUTO_GC_INTERVAL_MAX_DAYS,
+                        ),
+                    ),
                     vol.Optional(
                         CONF_REMOTE_URL,
                         default=current.get(CONF_REMOTE_URL, ""),

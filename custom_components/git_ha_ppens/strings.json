@@ -27,9 +27,7 @@
           "scan_interval": "Status polling interval (seconds)",
           "ai_commit_messages": "Use AI for commit messages",
           "ai_agent_id": "Conversation agent",
-          "fetch_interval": "Remote fetch interval (seconds)",
-          "auto_gc": "Enable automatic Git garbage collection",
-          "auto_gc_interval": "Automatic garbage collection interval (seconds)"
+          "fetch_interval": "Remote fetch interval (seconds)"
         },
         "data_description": {
           "auto_commit": "Automatically commit when configuration files change.",
@@ -40,9 +38,7 @@
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "ai_commit_messages": "Use a configured AI conversation agent to generate descriptive commit messages from the git diff.",
           "ai_agent_id": "Conversation agent to use. Leave empty to use Home Assistant's default conversation agent.",
-          "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600.",
-          "auto_gc": "Run non-aggressive Git garbage collection periodically. Disabled by default.",
-          "auto_gc_interval": "Time between automatic runs. Minimum 86400 (1 day), maximum 2592000 (30 days)."
+          "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600."
         }
       },
       "remote": {
@@ -146,8 +142,8 @@
           "ai_commit_messages": "Use AI for commit messages",
           "ai_agent_id": "Conversation agent",
           "fetch_interval": "Remote fetch interval (seconds)",
-          "auto_gc": "Enable automatic Git garbage collection",
-          "auto_gc_interval": "Automatic garbage collection interval (seconds)"
+          "auto_gc": "Automatic Git garbage collection",
+          "auto_gc_interval_days": "Garbage collection interval (days)"
         },
         "data_description": {
           "git_user": "The name that will appear as the commit author.",
@@ -159,8 +155,8 @@
           "commit_interval": "Wait this many seconds after the last change before auto-committing. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "How often to poll the git status for sensor updates. Minimum 10, maximum 3600.",
           "fetch_interval": "How often to fetch from the remote to check for new commits. Minimum 60, maximum 3600.",
-          "auto_gc": "Run non-aggressive Git garbage collection periodically. Disabled by default.",
-          "auto_gc_interval": "Time between automatic runs. Minimum 86400 (1 day), maximum 2592000 (30 days).",
+          "auto_gc": "Periodically run a standard `git gc` to remove leftover temporary files from interrupted Git operations. Only data older than two weeks is removed, and history is never rewritten.",
+          "auto_gc_interval_days": "Days between automatic garbage collection runs. Minimum 1, maximum 30.",
           "remote_url": "The git remote URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git).",
           "auth_method": "How to authenticate with the remote.",
           "auth_token": "Personal access token for HTTPS authentication.",
@@ -297,10 +293,6 @@
       "title": "Git remote rejected the credentials",
       "description": "git-ha-ppens could not authenticate with the Git remote during `{operation}`. Configuration changes are still committed locally but are not synchronized.\n\nRemote response: `{error}`\n\nCheck the credentials under **Settings → Devices & services → git-ha-ppens → Configure**. For SSH, make sure the key exists and is authorized for the repository. This repair disappears after the next successful synchronization."
     },
-    "large_git_garbage": {
-      "title": "Large amount of unreachable Git data",
-      "description": "The repository contains {garbage_size} GiB of Git garbage. Run the `git_ha_ppens.gc` service to prune unreachable objects and optimize the repository."
-    },
     "stale_index_lock": {
       "title": "Automatic commits are blocked by a Git index lock",
       "description": "git-ha-ppens could not safely remove the stale Git index lock at `{lock_path}`. Automatic commits remain blocked, so local configuration changes may not be committed or pushed.\n\n1. Make sure no Git operation is currently running for this repository.\n2. Remove `{lock_path}` using a terminal or file editor.\n3. Wait for the next auto-commit interval or make another configuration change.\n\nThis repair will disappear automatically after git-ha-ppens confirms that the lock is gone."
@@ -346,6 +338,10 @@
           "manual_fix_complete": "The repository layout is safe again. git-ha-ppens has scheduled a reload. Verify that the expected ESPHome files reach the remote before removing your manual backup."
         }
       }
+    },
+    "large_git_garbage": {
+      "title": "Git repository contains large leftover data",
+      "description": "The Git directory of this repository contains {garbage_size} GiB of leftover temporary files from interrupted Git operations. They are not part of your configuration history and only use disk space.\n\nRun the `git_ha_ppens.gc` action, or enable **Automatic Git garbage collection** under **Settings → Devices & services → git-ha-ppens → Configure**. Git only removes leftovers older than two weeks, because newer files may still belong to a running Git operation. This repair disappears once less than 1 GiB of leftover data remains."
     }
   },
   "services": {
@@ -355,13 +351,7 @@
     },
     "gc": {
       "name": "Garbage Collection",
-      "description": "Prune unreachable Git objects and optimize the repository.",
-      "fields": {
-        "aggressive": {
-          "name": "Aggressive",
-          "description": "Use --aggressive for a more thorough but slower collection."
-        }
-      }
+      "description": "Remove leftover temporary Git files older than two weeks and optimize the repository. History is never rewritten."
     }
   }
 }

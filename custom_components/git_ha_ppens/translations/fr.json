@@ -118,6 +118,8 @@
           "commit_interval": "Intervalle de temporisation de l'auto-commit (secondes)",
           "scan_interval": "Intervalle de vérification du statut (secondes)",
           "fetch_interval": "Intervalle de récupération distant (secondes)",
+          "auto_gc": "Nettoyage automatique de Git (garbage collection)",
+          "auto_gc_interval_days": "Intervalle du nettoyage (jours)",
           "remote_url": "URL distante",
           "auth_method": "Méthode d'authentification",
           "auth_token": "Token d'accès personnel",
@@ -136,6 +138,8 @@
           "commit_interval": "Temps d'attente en secondes après la dernière modification avant de commiter automatiquement. Minimum 30, maximum 86400 (24h).",
           "scan_interval": "Fréquence de vérification du statut git pour la mise à jour des capteurs. Minimum 10, maximum 3600 (1h).",
           "fetch_interval": "Fréquence de récupération depuis le dépôt distant pour vérifier les nouveaux commits. Minimum 60, maximum 3600.",
+          "auto_gc": "Exécute régulièrement un `git gc` standard pour supprimer les fichiers temporaires restants d’opérations Git interrompues. Seules les données de plus de deux semaines sont supprimées, et l’historique n’est jamais réécrit.",
+          "auto_gc_interval_days": "Nombre de jours entre deux exécutions automatiques. Minimum 1, maximum 30.",
           "remote_url": "L'URL du remote git (ex. https://github.com/user/repo.git ou git@github.com:user/repo.git).",
           "auth_method": "Méthode d'authentification pour le remote.",
           "auth_token": "Token d'accès personnel pour l'authentification HTTPS.",
@@ -207,6 +211,12 @@
       },
       "commits_ahead": {
         "name": "Commits en avance"
+      },
+      "repo_size": {
+        "name": "Taille du dépôt"
+      },
+      "garbage_size": {
+        "name": "Taille des résidus Git"
       }
     },
     "binary_sensor": {
@@ -311,12 +321,20 @@
           "manual_fix_complete": "La structure du dépôt est sûre et git-ha-ppens va être rechargé. Vérifiez le dépôt distant avant de supprimer votre sauvegarde."
         }
       }
+    },
+    "large_git_garbage": {
+      "title": "Le dépôt Git contient beaucoup de données résiduelles",
+      "description": "Le répertoire Git de ce dépôt contient {garbage_size} Gio de fichiers temporaires restants d’opérations Git interrompues. Ils ne font pas partie de l’historique de votre configuration et occupent seulement de l’espace disque.\n\nExécutez l’action `git_ha_ppens.gc` ou activez **Nettoyage automatique de Git (garbage collection)** sous **Paramètres → Appareils et services → git-ha-ppens → Configurer**. Git ne supprime que les résidus de plus de deux semaines, car les fichiers plus récents peuvent encore appartenir à une opération Git en cours. Cette réparation disparaît dès qu’il reste moins de 1 Gio de données résiduelles."
     }
   },
   "services": {
     "discard_changes": {
       "name": "Annuler les modifications locales",
       "description": "Annule définitivement les modifications indexées et non indexées des fichiers suivis. Les fichiers non suivis sont conservés."
+    },
+    "gc": {
+      "name": "Nettoyage Git (garbage collection)",
+      "description": "Supprime les fichiers temporaires Git restants de plus de deux semaines et optimise le dépôt. L’historique n’est jamais réécrit."
     }
   }
 }
