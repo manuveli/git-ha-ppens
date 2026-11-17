@@ -8,6 +8,7 @@ import os
 import re
 import stat
 import time
+import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -1928,30 +1929,27 @@ class GitManager:
         """Check that a token grants push access without storing it.
 
         A dry-run push is used because many hosts allow anonymous reads of
-        public repositories and only challenge for credentials on writes. A
-        push rejected for history reasons still proves that authentication
-        succeeded.
+        public repositories and only challenge for credentials on writes.
+
+        The dry run targets a unique branch name that does not exist on the
+        remote. Creating a new ref is never rejected as non-fast-forward, so
+        diverged histories, detached HEADs, and disabled Git push hints cannot
+        turn valid credentials into a false failure. ``--dry-run`` stops after
+        the authenticated ref negotiation, so nothing is created remotely.
 
         Raises:
             RemoteAuthenticationError: If the remote rejects the credentials.
             GitError: If the remote cannot be reached for another reason.
         """
         authed_url = self.build_token_auth_url(url, token, username)
-        branch = await self._run_git("rev-parse", "--abbrev-ref", "HEAD")
-        try:
-            await self._run_git(
-                "push",
-                "--dry-run",
-                "--porcelain",
-                authed_url,
-                f"HEAD:refs/heads/{branch}",
-            )
-        except RemoteAuthenticationError:
-            raise
-        except GitError as err:
-            if "rejected" in str(err).lower():
-                return
-            raise
+        probe_ref = f"refs/heads/git-ha-ppens-auth-check-{uuid.uuid4().hex}"
+        await self._run_git(
+            "push",
+            "--dry-run",
+            "--porcelain",
+            authed_url,
+            f"HEAD:{probe_ref}",
+        )
 
     async def configure_ssh_auth(self, ssh_key_path: str) -> None:
         """Configure SSH-based authentication."""

@@ -122,7 +122,16 @@ def create_remote_authentication_issue_from_error(
     """Create the repair when a Git error represents rejected credentials."""
     if not isinstance(err, RemoteAuthenticationError):
         return False
-    _LOGGER.error(
+    already_reported = (
+        ir.async_get(hass).async_get_issue(
+            DOMAIN, remote_authentication_issue_id(entry_id)
+        )
+        is not None
+    )
+    # Background fetches retry every fetch interval. The Git layer already
+    # logs each failure, so only announce the repair once to avoid log spam.
+    log = _LOGGER.debug if already_reported else _LOGGER.error
+    log(
         "Remote rejected the configured credentials during %s. "
         "A repair has been created under Settings > System > Repairs: %s",
         operation,

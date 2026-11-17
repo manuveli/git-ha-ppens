@@ -75,7 +75,10 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
-from .remote_auth import create_remote_authentication_issue_from_error
+from .remote_auth import (
+    create_remote_authentication_issue_from_error,
+    delete_remote_authentication_issue,
+)
 from .repository_layout import (
     async_ensure_repository_layout_safe,
     create_repository_layout_issue_from_error,
@@ -422,6 +425,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             remote_url = ""  # Prevent push attempts
 
+    if not remote_url:
+        # Without a usable remote no fetch, pull, or push will run that could
+        # clear a rejected-credentials repair, so it would otherwise stay
+        # forever after the remote was removed in the options.
+        delete_remote_authentication_issue(hass, entry.entry_id)
+
     # Create the coordinator before a possible initial push so that every push
     # path uses the same validation and blocked-remote handling.
     scan_interval = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
@@ -633,6 +642,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove persistent repairs when a config entry is deleted."""
     delete_stale_index_lock_issue(hass, entry.entry_id)
     delete_unsafe_repository_layout_issue(hass, entry.entry_id)
+    delete_remote_authentication_issue(hass, entry.entry_id)
 
 
 def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:

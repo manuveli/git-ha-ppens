@@ -230,6 +230,42 @@
     }
   },
   "issues": {
+    "remote_authentication_failed_token": {
+      "title": "Le dépôt distant Git a refusé les identifiants",
+      "description": "git-ha-ppens n’a pas pu s’authentifier auprès du dépôt distant Git pendant `{operation}`. Les modifications de configuration sont toujours validées localement, mais ne sont plus synchronisées.\n\nRéponse du dépôt distant : `{error}`\n\nLe token d’accès personnel a très probablement expiré, été révoqué ou ne dispose pas des autorisations nécessaires. Validez cette réparation pour saisir un nouveau token.",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Saisir un nouveau token d’accès",
+            "description": "Saisissez un nouveau token d’accès personnel pour `{remote_url}`. Il doit disposer d’un accès en lecture et en écriture au contenu du dépôt (tokens classiques : portée `repo`). Avant l’enregistrement, le token est testé par un push à blanc (dry run) ; rien n’est envoyé.",
+            "data": {
+              "auth_token": "Token d'accès personnel",
+              "auth_username": "Nom d’utilisateur d’authentification"
+            },
+            "data_description": {
+              "auth_username": "Utilisez `oauth2` pour GitHub, sauf si votre hébergeur exige un nom d’utilisateur spécifique."
+            }
+          }
+        },
+        "error": {
+          "invalid_auth": "Le dépôt distant a refusé ce token. Vérifiez qu’il est valide et qu’il dispose d’un accès en écriture au dépôt.",
+          "cannot_connect": "Le dépôt distant est injoignable pour vérifier le token. Consultez les journaux et réessayez.",
+          "token_required": "Un token d’accès personnel est requis."
+        },
+        "abort": {
+          "entry_removed": "L’entrée de configuration git-ha-ppens associée n’existe plus.",
+          "not_token_auth": "Cette entrée n’utilise plus l’authentification par token. Modifiez plutôt les identifiants dans les options de l’intégration.",
+          "no_remote": "Aucune URL distante n’est configurée pour cette entrée."
+        },
+        "create_entry": {
+          "default": "Le nouveau token a été vérifié et enregistré. git-ha-ppens est en cours de rechargement et va reprendre la synchronisation."
+        }
+      }
+    },
+    "remote_authentication_failed": {
+      "title": "Le dépôt distant Git a refusé les identifiants",
+      "description": "git-ha-ppens n’a pas pu s’authentifier auprès du dépôt distant Git pendant `{operation}`. Les modifications de configuration sont toujours validées localement, mais ne sont plus synchronisées.\n\nRéponse du dépôt distant : `{error}`\n\nVérifiez les identifiants sous **Paramètres → Appareils et services → git-ha-ppens → Configurer**. Pour SSH, assurez-vous que la clé existe et qu’elle est autorisée pour le dépôt. Cette réparation disparaîtra après la prochaine synchronisation réussie."
+    },
     "stale_index_lock": {
       "title": "Les commits automatiques sont bloqués par un verrou d’index Git",
       "description": "git-ha-ppens n’a pas pu supprimer en toute sécurité le verrou d’index Git obsolète situé à `{lock_path}`. Les commits automatiques restent bloqués ; les modifications locales de configuration risquent donc de ne pas être validées ni envoyées.\n\n1. Vérifiez qu’aucune opération Git n’est en cours pour ce dépôt.\n2. Supprimez `{lock_path}` à l’aide d’un terminal ou d’un éditeur de fichiers.\n3. Attendez le prochain intervalle d’auto-commit ou effectuez une nouvelle modification de configuration.\n\nCette réparation disparaîtra automatiquement lorsque git-ha-ppens aura confirmé la disparition du verrou."
