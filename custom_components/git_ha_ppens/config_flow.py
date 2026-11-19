@@ -17,6 +17,9 @@ from homeassistant.config_entries import (
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     ConversationAgentSelector,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
 )
@@ -38,12 +41,15 @@ from .const import (
     CONF_AUTO_GC_INTERVAL_DAYS,
     CONF_AUTO_PULL,
     CONF_AUTO_PUSH,
+    CONF_BRANCH_RESET_CONFIRM,
+    CONF_BRANCH_TARGET,
     CONF_COMMIT_INTERVAL,
     CONF_FETCH_INTERVAL,
     CONF_GIT_EMAIL,
     CONF_GIT_USER,
     CONF_GITIGNORE_CONTENT,
     CONF_GITIGNORE_CUSTOM,
+    CONF_NEW_BRANCH,
     CONF_PRE_DEPLOY_CHECK,
     CONF_REMOTE_URL,
     CONF_REPO_PATH,
@@ -67,6 +73,7 @@ from .const import (
 )
 from .coordinator import GitHaPpensCoordinator
 from .git_manager import (
+    BranchError,
     CommitInfo,
     DirtyWorkingTreeError,
     GitError,
@@ -286,6 +293,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         self._config_entry = config_entry
         self._restore_preview: RestorePreview | None = None
         self._restore_source_step = "restore_recent"
+        self._branch_reset_preview: dict[str, Any] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -293,7 +301,280 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         """Show menu with options categories."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=["general", "gitignore", "restore"],
+            menu_options=["general", "branch", "gitignore", "restore"],
+        )
+
+    async def async_step_branch(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose between switching branches and resetting one to origin."""
+        return self.async_show_menu(
+            step_id="branch",
+            menu_options=["branch_select", "branch_reset"],
+        )
+
+    async def _async_branch_options(
+        self, manager: GitManager, *, local_only: bool
+    ) -> tuple[list[dict[str, str]], str]:
+        """Build select-selector options from the repository branches.
+
+        ``SelectSelectorConfig.options`` takes a sequence of ``value``/``label``
+        dicts, so labels stay human-readable while the submitted value is the
+        branch name (or the ``origin/<name>`` ref).
+        """
+        local_branches = await manager.list_local_branches()
+        current = await manager.get_current_branch()
+        labels: dict[str, str] = {}
+        for name in local_branches:
+            labels[name] = f"{name} · current" if name == current else name
+        if not local_only:
+            for remote_ref in await manager.list_remote_branches():
+                remote_name = remote_ref.removeprefix("origin/")
+                if remote_name in labels:
+                    base = (
+                        f"{remote_name} · current"
+                        if remote_name == current
+                        else remote_name
+                    )
+                    labels[remote_name] = f"{base} · tracks {remote_ref}"
+                    continue
+                labels[remote_ref] = f"{remote_ref} · new local branch"
+        return (
+            [{"value": value, "label": label} for value, label in labels.items()],
+            current,
+        )
+
+    @staticmethod
+    def _branch_error_key(err: BranchError) -> str:
+        """Map a branch failure reason to a localized form error."""
+        return {
+            "dirty": "branch_dirty_working_tree",
+            "invalid": "invalid_branch_target",
+            "exists": "branch_already_exists",
+            "no_remote": "branch_reset_requires_remote",
+            "missing_remote_branch": "branch_remote_missing",
+        }.get(err.reason, "branch_operation_failed")
+
+    async def _async_show_branch_select(
+        self, errors: dict[str, str] | None = None
+    ) -> ConfigFlowResult:
+        """Show the dynamic branch selector."""
+        options: list[dict[str, str]] = []
+        current = ""
+        form_errors = dict(errors or {})
+        runtime = self._entry_runtime()
+        if runtime is None:
+            form_errors.setdefault("base", "integration_not_loaded")
+        else:
+            options, current = await self._async_branch_options(
+                runtime[0], local_only=False
+            )
+            if not options:
+                form_errors.setdefault("base", "no_branches")
+
+        schema: dict[Any, Any] = {}
+        if options:
+            values = [option["value"] for option in options]
+            default_target = current if current in values else values[0]
+            schema[vol.Required(CONF_BRANCH_TARGET, default=default_target)] = (
+                SelectSelector(
+                    SelectSelectorConfig(
+                        options=options, mode=SelectSelectorMode.DROPDOWN
+                    )
+                )
+            )
+        schema[vol.Optional(CONF_NEW_BRANCH, default="")] = TextSelector(
+            TextSelectorConfig(multiline=False)
+        )
+
+        return self.async_show_form(
+            step_id="branch_select",
+            data_schema=vol.Schema(schema),
+            errors=form_errors,
+            description_placeholders={
+                "current_branch": self._escape_markdown(
+                    current or "detached HEAD"
+                ),
+                "branch_count": str(len(options)),
+            },
+        )
+
+    async def async_step_branch_select(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Switch to the branch chosen in the selector."""
+        if user_input is None:
+            return await self._async_show_branch_select()
+
+        runtime = self._entry_runtime()
+        if runtime is None:
+            return await self._async_show_branch_select(
+                {"base": "integration_not_loaded"}
+            )
+
+        new_branch = str(user_input.get(CONF_NEW_BRANCH, "")).strip()
+        target = new_branch or user_input.get(CONF_BRANCH_TARGET, "")
+        if not target:
+            return await self._async_show_branch_select({"base": "no_branches"})
+
+        try:
+            branch = await runtime[1].async_switch_branch(
+                target, create=bool(new_branch)
+            )
+        except BranchError as err:
+            return await self._async_show_branch_select(
+                {"base": self._branch_error_key(err)}
+            )
+        except GitError as err:
+            _LOGGER.error("Branch switch failed: %s", err)
+            return await self._async_show_branch_select(
+                {"base": "branch_operation_failed"}
+            )
+
+        return self.async_abort(
+            reason="branch_switched",
+            description_placeholders={
+                "branch": self._escape_markdown(branch),
+            },
+        )
+
+    async def _async_show_branch_reset(
+        self, errors: dict[str, str] | None = None
+    ) -> ConfigFlowResult:
+        """Show the selector for the branch that origin should overwrite."""
+        options: list[dict[str, str]] = []
+        current = ""
+        form_errors = dict(errors or {})
+        runtime = self._entry_runtime()
+        if runtime is None:
+            form_errors.setdefault("base", "integration_not_loaded")
+        elif not runtime[1].remote_configured:
+            form_errors.setdefault("base", "branch_reset_requires_remote")
+        else:
+            options, current = await self._async_branch_options(
+                runtime[0], local_only=True
+            )
+            if not options:
+                form_errors.setdefault("base", "no_branches")
+
+        schema: dict[Any, Any] = {}
+        if options:
+            values = [option["value"] for option in options]
+            default_target = current if current in values else values[0]
+            schema[vol.Required(CONF_BRANCH_TARGET, default=default_target)] = (
+                SelectSelector(
+                    SelectSelectorConfig(
+                        options=options, mode=SelectSelectorMode.DROPDOWN
+                    )
+                )
+            )
+
+        return self.async_show_form(
+            step_id="branch_reset",
+            data_schema=vol.Schema(schema),
+            errors=form_errors,
+        )
+
+    async def async_step_branch_reset(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Fetch the remote revision and preview the destructive reset."""
+        if user_input is None:
+            return await self._async_show_branch_reset()
+
+        runtime = self._entry_runtime()
+        if runtime is None:
+            return await self._async_show_branch_reset(
+                {"base": "integration_not_loaded"}
+            )
+
+        target = str(user_input.get(CONF_BRANCH_TARGET, "")).strip()
+        manager = runtime[0]
+        try:
+            remote_ref = await manager.fetch_remote_branch(target)
+            ahead, behind = await manager.get_branch_divergence(
+                target, remote_ref
+            )
+        except BranchError as err:
+            return await self._async_show_branch_reset(
+                {"base": self._branch_error_key(err)}
+            )
+        except GitError as err:
+            _LOGGER.error("Could not read origin/%s: %s", target, err)
+            return await self._async_show_branch_reset(
+                {"base": "branch_reset_failed"}
+            )
+
+        self._branch_reset_preview = {
+            "branch": target,
+            "remote_ref": remote_ref,
+            "ahead": ahead,
+            "behind": behind,
+        }
+        return self._async_show_branch_reset_confirm()
+
+    def _async_show_branch_reset_confirm(
+        self, errors: dict[str, str] | None = None
+    ) -> ConfigFlowResult:
+        """Show the destructive reset confirmation form."""
+        preview = self._branch_reset_preview
+        if preview is None:
+            return self.async_abort(reason="branch_reset_preview_missing")
+
+        return self.async_show_form(
+            step_id="branch_reset_confirm",
+            data_schema=vol.Schema(
+                {vol.Required(CONF_BRANCH_RESET_CONFIRM, default=False): bool}
+            ),
+            errors=errors or {},
+            description_placeholders={
+                "branch": self._escape_markdown(preview["branch"]),
+                "remote_ref": self._escape_markdown(preview["remote_ref"]),
+                "discarded_commits": str(preview["ahead"]),
+                "incoming_commits": str(preview["behind"]),
+            },
+        )
+
+    async def async_step_branch_reset_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Overwrite the local branch with the remote revision."""
+        if user_input is None:
+            return self._async_show_branch_reset_confirm()
+        if not user_input[CONF_BRANCH_RESET_CONFIRM]:
+            return self._async_show_branch_reset_confirm(
+                {CONF_BRANCH_RESET_CONFIRM: "confirm_branch_reset"}
+            )
+
+        preview = self._branch_reset_preview
+        if preview is None:
+            return self.async_abort(reason="branch_reset_preview_missing")
+        runtime = self._entry_runtime()
+        if runtime is None:
+            return self._async_show_branch_reset_confirm(
+                {"base": "integration_not_loaded"}
+            )
+
+        try:
+            branch = await runtime[1].async_reset_branch_to_origin(
+                preview["branch"]
+            )
+        except BranchError as err:
+            return await self._async_show_branch_reset(
+                {"base": self._branch_error_key(err)}
+            )
+        except GitError as err:
+            _LOGGER.error("Branch reset failed: %s", err)
+            return await self._async_show_branch_reset(
+                {"base": "branch_reset_failed"}
+            )
+
+        return self.async_abort(
+            reason="branch_reset",
+            description_placeholders={
+                "branch": self._escape_markdown(branch),
+                "remote_ref": self._escape_markdown(preview["remote_ref"]),
+            },
         )
 
     async def async_step_restore(
@@ -305,7 +586,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
             menu_options=["restore_recent", "restore_sha"],
         )
 
-    def _restore_runtime(
+    def _entry_runtime(
         self,
     ) -> tuple[GitManager, GitHaPpensCoordinator] | None:
         """Return the loaded manager and coordinator for this entry."""
@@ -335,7 +616,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         self, errors: dict[str, str] | None = None
     ) -> ConfigFlowResult:
         """Show a selector with the most recent historical commits."""
-        runtime = self._restore_runtime()
+        runtime = self._entry_runtime()
         options: dict[str, str] = {}
         form_errors = dict(errors or {})
         head_commit = "—"
@@ -379,7 +660,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Show the manual SHA restore form."""
         form_errors = dict(errors or {})
-        if self._restore_runtime() is None:
+        if self._entry_runtime() is None:
             form_errors.setdefault("base", "integration_not_loaded")
         return self.async_show_form(
             step_id="restore_sha",
@@ -416,7 +697,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         self, target_ref: str
     ) -> ConfigFlowResult:
         """Validate a restore target and build its confirmation preview."""
-        runtime = self._restore_runtime()
+        runtime = self._entry_runtime()
         if runtime is None:
             return await self._async_show_restore_source_error(
                 "integration_not_loaded"
@@ -506,7 +787,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         if self._restore_preview is None:
             return self.async_abort(reason="restore_preview_missing")
 
-        runtime = self._restore_runtime()
+        runtime = self._entry_runtime()
         remote_configured = bool(runtime and runtime[1].remote_configured)
         schema: dict[Any, Any] = {
             vol.Required(CONF_RESTORE_CONFIRM, default=False): bool
@@ -540,7 +821,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
             )
         if self._restore_preview is None:
             return self.async_abort(reason="restore_preview_missing")
-        runtime = self._restore_runtime()
+        runtime = self._entry_runtime()
         if runtime is None:
             return self._async_show_restore_confirm(
                 {"base": "integration_not_loaded"}

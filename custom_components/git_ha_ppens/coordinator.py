@@ -21,6 +21,7 @@ from .const import (
     DEFAULT_FETCH_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    EVENT_BRANCH,
     EVENT_CHECK_FAILED,
     EVENT_COMMIT,
     EVENT_ERROR,
@@ -602,6 +603,58 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         self.hass.bus.async_fire(EVENT_FETCH, {"auto": False})
         _LOGGER.info("Fetched from remote")
         await self.async_request_refresh()
+
+    async def async_switch_branch(
+        self, target: str, *, create: bool = False
+    ) -> str:
+        """Check out a branch selected in the options flow."""
+        try:
+            async with self.git_lock:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
+                branch = await self.git_manager.checkout_branch(
+                    target, create=create
+                )
+        except GitError as err:
+            create_repository_layout_issue_from_error(
+                self.hass, self._entry_id, err
+            )
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "switch_branch", "error": str(err)}
+            )
+            raise
+
+        _LOGGER.info("Switched repository branch to %s", branch)
+        self.hass.bus.async_fire(
+            EVENT_BRANCH, {"branch": branch, "reset_to_origin": False}
+        )
+        await self.async_request_refresh()
+        return branch
+
+    async def async_reset_branch_to_origin(self, branch: str) -> str:
+        """Overwrite a local branch with its rewritten remote revision."""
+        try:
+            async with self.git_lock:
+                await async_ensure_repository_layout_safe(
+                    self.hass, self._entry_id, self.git_manager
+                )
+                reset_branch = await self.git_manager.reset_branch_to_origin(branch)
+        except GitError as err:
+            create_repository_layout_issue_from_error(
+                self.hass, self._entry_id, err
+            )
+            self.hass.bus.async_fire(
+                EVENT_ERROR, {"operation": "reset_branch", "error": str(err)}
+            )
+            raise
+
+        _LOGGER.info("Reset branch %s to origin", reset_branch)
+        self.hass.bus.async_fire(
+            EVENT_BRANCH, {"branch": reset_branch, "reset_to_origin": True}
+        )
+        await self.async_request_refresh()
+        return reset_branch
 
     async def async_discard_changes(self) -> int:
         """Discard staged and unstaged changes to tracked files."""

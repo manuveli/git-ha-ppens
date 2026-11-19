@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Configure → **Branches** with a dynamic branch selector: local branches plus `origin/*` branches that have no local counterpart, switching the repository by changing the selection, and an optional field that creates and checks out a new branch.
+- Configure → **Branches → Reset branch to origin**: force-fetches the remote ref (so a squashed or rewritten history still applies), previews the discarded and incoming commits, and hard-resets the local branch onto `origin` behind an explicit confirmation. Local only — the remote is never force-pushed.
+
+### Changed
+- Documented the new branch options in the README and added a `git_ha_ppens_branch` event fired after a switch or reset.
+
 ## [1.5.2] - 2026-11-17
 
 ### Fixed
