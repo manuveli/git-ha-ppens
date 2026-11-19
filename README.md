@@ -70,6 +70,7 @@
 - [🔁 GitOps Workflow](#-gitops-workflow)
 - [⚙️ Configuration](#️-configuration)
 - [⏪ Roll back to a historical configuration](#-roll-back-to-a-historical-configuration)
+- [🌿 Branches](#-branches)
 - [🤖 AI Commit-Messages](#-ai-commit-messages)
 - [🚀 Services](#-services)
 - [📊 Sensors & Entities](#-sensors--entities)
@@ -107,6 +108,7 @@
   - `git_ha_ppens.gc` — safely clean up leftover Git data and optimize the repository
 - **Push, Pull, and Fetch buttons** when a remote is configured, plus an optional disabled-by-default **Discard Local Changes** button
 - **Native rollback** from the configuration UI — select a historical commit, preview the changes, validate the configuration and restore it
+- **Branch management** in the options flow — switch branches from a dynamic selector (including remote-only branches and creating a new one) and reset a local branch to `origin` when the remote history was squashed or rewritten
 
 ### 🛡️ Security & Secrets
 - 🚫 **Automatic `.gitignore`** for `secrets.yaml`, `.storage/`, databases, logs, and more
@@ -264,7 +266,7 @@ History is never rewritten. Scheduled runs skip a cycle while another
 git-ha-ppens operation is active and never delay the status updates. The first
 run on a large repository can take several minutes and use noticeable CPU.
 
-> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Edit .gitignore**, and **Restore configuration**.
+> 💡 **Tip:** All settings can be changed later via **Settings → Devices & Services → git-ha-ppens → Configure**. The options menu provides **General Settings**, **Branches**, **Edit .gitignore**, and **Restore configuration**.
 
 ---
 
@@ -303,6 +305,53 @@ This is an additive, history-preserving rollback. It does **not** reset or
 rewrite branch history, and it never force-pushes. The default for pushing the
 new restore commit follows the Auto-Push setting. If the push fails, the valid
 restore commit remains local and can be sent later with the Push button.
+
+---
+
+## 🌿 Branches
+
+Open **Settings → Devices & Services → git-ha-ppens → Configure → Branches**.
+
+### Switch branch
+
+**Switch branch** shows a dropdown built from the repository every time the form
+opens:
+
+- every local branch, with the checked-out one marked `· current`,
+- every `origin/*` branch that has no local counterpart, marked
+  `· new local branch` — selecting it creates the local branch and tracks
+  `origin`, and an existing local branch with an upstream is labelled
+  `· tracks origin/<name>`.
+
+Selecting a position switches the repository immediately; there is no separate
+confirm step, because a checkout never loses commits. The working tree must be
+clean — commit, sync, or discard staged, unstaged, and untracked changes first,
+so an unrelated edit is never carried across branches.
+
+The **Create a new branch** field takes a name and creates plus checks out that
+branch in one step; leave it empty to use the selection above. Options are
+built when the form renders, so after a fetch or an external branch change,
+reopen the menu to refresh the list.
+
+### Reset branch to origin
+
+**Reset branch to origin** is the recovery path for a remote history that was
+squashed, rebased, or otherwise rewritten — the case where normal pulls and
+pushes can no longer reconcile:
+
+1. Pick a local branch.
+2. Review the confirmation: how many local commits will be **discarded** and how
+   many remote commits will be **applied**.
+3. Confirm explicitly.
+
+The selected remote ref is force-fetched (`+refs/heads/<branch>:refs/remotes/origin/<branch>`),
+so a rewritten history still replaces the local branch, then the branch is
+hard-reset onto it and its upstream is restored. A failed fetch aborts the
+operation instead of resetting onto a stale tracking ref.
+
+This rewrites only the local branch: nothing is force-pushed, so the remote
+history is never overwritten. The pre-deploy check does not gate this path,
+because the result is exactly the revision that already exists on the remote.
 
 ---
 
@@ -435,6 +484,7 @@ Use these events as automation triggers to build notifications, dashboards, or r
 | `git_ha_ppens_check_failed` | A pull or historical restore was blocked and rolled back by the configuration check | `errors`, `auto` |
 | `git_ha_ppens_restore` | A historical snapshot was restored as a new commit | `target_hash`, `target_message`, `restore_hash`, `commits_restored`, `changed_files`, `pushed`, `auto` |
 | `git_ha_ppens_gc` | A garbage collection finished | `git_dir_size_before`, `git_dir_size_after`, `garbage_size_before`, `garbage_size_after`, `freed_bytes` *(all in bytes)*, `auto` |
+| `git_ha_ppens_branch` | A branch was switched or reset to `origin` from the options flow | `branch`, `reset_to_origin` |
 | `git_ha_ppens_error` | A git operation fails | `operation`, `error` |
 | `git_ha_ppens_secret_detected` | Potential secrets are found in staged or modified files during the load-time scan | `findings`, `count` |
 
