@@ -279,6 +279,15 @@ class StaleRestorePreviewError(RestoreError):
     """Raised when HEAD changed after the restore preview was created."""
 
 
+class BranchError(GitError):
+    """Base error for branch switch and branch reset operations."""
+
+    def __init__(self, message: str, *, reason: str = "failed") -> None:
+        """Store a stable reason so the config flow can localize the error."""
+        self.reason = reason
+        super().__init__(message)
+
+
 class RestoreValidationError(RestoreError):
     """Raised when the restored snapshot fails Home Assistant validation."""
 
@@ -1524,6 +1533,195 @@ class GitManager:
     async def is_worktree_clean(self) -> bool:
         """Return whether tracked, staged, and untracked files are clean."""
         return not bool(await self._run_git("status", "--porcelain"))
+
+    async def get_current_branch(self) -> str:
+        """Return the checked-out branch name (empty string for detached HEAD)."""
+        branch = await self._run_git(
+            "rev-parse", "--abbrev-ref", "HEAD", check=False
+        )
+        if not branch or "fatal" in branch.lower() or branch == "HEAD":
+            return ""
+        return branch
+
+    async def list_local_branches(self) -> list[str]:
+        """Return the sorted local branch names."""
+        output = await self._run_git(
+            "for-each-ref", "--format=%(refname:short)", "refs/heads", check=False
+        )
+        return sorted(
+            name for name in (line.strip() for line in output.splitlines()) if name
+        )
+
+    async def list_remote_branches(self) -> list[str]:
+        """Return sorted ``origin/<name>`` refs, excluding ``origin/HEAD``."""
+        output = await self._run_git(
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "refs/remotes/origin",
+            check=False,
+        )
+        branches: list[str] = []
+        for line in output.splitlines():
+            name = line.strip()
+            if not name or name == "origin" or name.endswith("/HEAD"):
+                continue
+            branches.append(name)
+        return sorted(branches)
+
+    async def get_branch_divergence(
+        self, local_branch: str, remote_branch: str
+    ) -> tuple[int, int]:
+        """Return ``(ahead, behind)`` of a local branch against a remote ref."""
+        output = await self._run_git(
+            "rev-list",
+            "--left-right",
+            "--count",
+            f"{local_branch}...{remote_branch}",
+            check=False,
+        )
+        parts = output.split()
+        if len(parts) != 2:
+            return (0, 0)
+        try:
+            return (int(parts[0]), int(parts[1]))
+        except ValueError:
+            return (0, 0)
+
+    async def _validate_branch_name(self, name: str) -> str:
+        """Return a validated branch name or raise BranchError."""
+        candidate = name.strip()
+        if not candidate:
+            raise BranchError("Select a branch", reason="invalid")
+        check = await self._run_git(
+            "check-ref-format", "--branch", candidate, check=False
+        )
+        if not check:
+            raise BranchError(
+                f"'{candidate}' is not a valid branch name", reason="invalid"
+            )
+        return candidate
+
+    async def fetch_remote_branch(self, name: str) -> str:
+        """Force-update ``origin/<name>``, tolerating rewritten remote history.
+
+        A plain fetch refuses to move the remote-tracking ref backwards, which
+        is exactly what a squashed remote does, so the refspec is forced. A
+        failed fetch is never ignored: resetting onto a stale tracking ref
+        would silently discard local commits for the wrong target revision.
+        """
+        if not await self.is_remote_configured():
+            raise BranchError(
+                "Remote 'origin' is not configured", reason="no_remote"
+            )
+        try:
+            await self._run_git(
+                "fetch",
+                "origin",
+                f"+refs/heads/{name}:refs/remotes/origin/{name}",
+            )
+        except GitError as err:
+            if not await self.remote_branch_exists(name):
+                raise BranchError(
+                    "The branch could not be fetched from origin",
+                    reason="missing_remote_branch",
+                ) from err
+            raise BranchError(
+                f"Could not fetch origin/{name}: {err}", reason="failed"
+            ) from err
+
+        remote_ref = f"origin/{name}"
+        resolved = await self._run_git(
+            "rev-parse", "--verify", f"refs/remotes/{remote_ref}", check=False
+        )
+        if not resolved or len(resolved) < 40:
+            raise BranchError(
+                f"origin/{name} does not exist on the remote",
+                reason="missing_remote_branch",
+            )
+        return remote_ref
+
+    async def remote_branch_exists(self, name: str) -> bool:
+        """Return whether ``origin`` currently advertises the branch."""
+        output = await self._run_git(
+            "ls-remote", "--heads", "origin", f"refs/heads/{name}", check=False
+        )
+        return bool(output.strip())
+
+    async def checkout_branch(self, target: str, *, create: bool = False) -> str:
+        """Switch to a branch selected from the local or remote branch list.
+
+        ``origin/<name>`` targets create (or reuse) the matching local branch
+        with an upstream link. Untracked and modified files block the switch so
+        an unrelated local edit is never silently carried over or lost.
+
+        Returns:
+            The local branch that is checked out afterwards.
+        """
+        await self.assert_repository_layout_safe()
+        if not await self.is_worktree_clean():
+            raise BranchError(
+                "Commit, sync, or discard all local changes before switching branches",
+                reason="dirty",
+            )
+
+        if create:
+            name = await self._validate_branch_name(target)
+            local_branches = await self.list_local_branches()
+            if name in local_branches:
+                raise BranchError(
+                    f"Branch '{name}' already exists", reason="exists"
+                )
+            await self._run_git("checkout", "-b", name)
+            _LOGGER.info("Created and switched to branch %s", name)
+            return name
+
+        if target.startswith("origin/"):
+            name = await self._validate_branch_name(target.removeprefix("origin/"))
+            local_branches = await self.list_local_branches()
+            if name in local_branches:
+                await self._run_git("checkout", name)
+            else:
+                await self._run_git(
+                    "checkout", "-b", name, "--track", f"origin/{name}"
+                )
+            _LOGGER.info("Switched to branch %s tracked from origin", name)
+            return name
+
+        name = await self._validate_branch_name(target)
+        if name not in await self.list_local_branches():
+            raise BranchError(f"Branch '{name}' does not exist", reason="invalid")
+        await self._run_git("checkout", name)
+        _LOGGER.info("Switched to branch %s", name)
+        return name
+
+    async def reset_branch_to_origin(self, branch: str) -> str:
+        """Overwrite a local branch with its remote revision.
+
+        The remote ref is force-fetched first, so a squashed or otherwise
+        rewritten remote history still replaces the local branch. Local
+        commits that exist only on this instance are discarded.
+
+        Returns:
+            The branch name that was reset.
+        """
+        await self.assert_repository_layout_safe()
+        name = await self._validate_branch_name(branch)
+        if name not in await self.list_local_branches():
+            raise BranchError(f"Branch '{name}' does not exist", reason="invalid")
+        if not await self.is_worktree_clean():
+            raise BranchError(
+                "Commit, sync, or discard all local changes before resetting a branch",
+                reason="dirty",
+            )
+
+        remote_ref = await self.fetch_remote_branch(name)
+        current = await self.get_current_branch()
+        if current != name:
+            await self._run_git("checkout", name)
+        await self._run_git("reset", "--hard", remote_ref)
+        await self._run_git("branch", "--set-upstream-to", remote_ref, name, check=False)
+        _LOGGER.info("Reset branch %s to %s", name, remote_ref)
+        return name
 
     async def _get_restore_commits(
         self, target_hash: str, source_head: str
