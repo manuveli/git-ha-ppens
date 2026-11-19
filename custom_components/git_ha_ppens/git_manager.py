@@ -1553,20 +1553,35 @@ class GitManager:
         )
 
     async def list_remote_branches(self) -> list[str]:
-        """Return sorted ``origin/<name>`` refs, excluding ``origin/HEAD``."""
-        output = await self._run_git(
-            "for-each-ref",
-            "--format=%(refname:short)",
-            "refs/remotes/origin",
-            check=False,
-        )
-        branches: list[str] = []
-        for line in output.splitlines():
-            name = line.strip()
-            if not name or name == "origin" or name.endswith("/HEAD"):
-                continue
-            branches.append(name)
-        return sorted(branches)
+        """Return sorted ``origin/<name>`` refs, excluding ``origin/HEAD``.
+
+        The live remote is asked first, so branches that were never fetched are
+        offered as well; the local remote-tracking refs are the offline
+        fallback.
+        """
+        names: list[str] = []
+        if await self.is_remote_configured():
+            output = await self._run_git(
+                "ls-remote", "--heads", "origin", check=False
+            )
+            for line in output.splitlines():
+                _, _, ref = line.partition("\t")
+                ref = ref.strip()
+                if ref.startswith("refs/heads/"):
+                    names.append(f"origin/{ref.removeprefix('refs/heads/')}")
+        if not names:
+            output = await self._run_git(
+                "for-each-ref",
+                "--format=%(refname:short)",
+                "refs/remotes/origin",
+                check=False,
+            )
+            for line in output.splitlines():
+                name = line.strip()
+                if not name or name == "origin" or name.endswith("/HEAD"):
+                    continue
+                names.append(name)
+        return sorted(set(names))
 
     async def get_branch_divergence(
         self, local_branch: str, remote_branch: str
@@ -1677,6 +1692,9 @@ class GitManager:
 
         if target.startswith("origin/"):
             name = await self._validate_branch_name(target.removeprefix("origin/"))
+            # The branch may never have been fetched, so make sure the
+            # remote-tracking ref exists before creating it locally.
+            await self.fetch_remote_branch(name)
             local_branches = await self.list_local_branches()
             if name in local_branches:
                 await self._run_git("checkout", name)
@@ -1719,7 +1737,9 @@ class GitManager:
         if current != name:
             await self._run_git("checkout", name)
         await self._run_git("reset", "--hard", remote_ref)
-        await self._run_git("branch", "--set-upstream-to", remote_ref, name, check=False)
+        await self._run_git(
+            "branch", "--set-upstream-to", remote_ref, name, check=False
+        )
         _LOGGER.info("Reset branch %s to %s", name, remote_ref)
         return name
 

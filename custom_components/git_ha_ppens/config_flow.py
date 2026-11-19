@@ -315,25 +315,34 @@ class GitHaPpensOptionsFlow(OptionsFlow):
 
     async def _async_branch_options(
         self, manager: GitManager, *, local_only: bool
-    ) -> tuple[dict[str, str], str]:
-        """Build selector options from the branches of the repository."""
+    ) -> tuple[list[dict[str, str]], str]:
+        """Build select-selector options from the repository branches.
+
+        ``SelectSelectorConfig.options`` takes a sequence of ``value``/``label``
+        dicts, so labels stay human-readable while the submitted value is the
+        branch name (or the ``origin/<name>`` ref).
+        """
         local_branches = await manager.list_local_branches()
         current = await manager.get_current_branch()
-        options: dict[str, str] = {}
+        labels: dict[str, str] = {}
         for name in local_branches:
-            if name == current:
-                options[name] = f"{name} · current"
-            else:
-                options[name] = name
-        if local_only:
-            return options, current
-        for remote_ref in await manager.list_remote_branches():
-            remote_name = remote_ref.removeprefix("origin/")
-            if remote_name in options:
-                options[remote_name] = f"{remote_name} · tracks {remote_ref}"
-                continue
-            options[remote_ref] = f"{remote_ref} · new local branch"
-        return options, current
+            labels[name] = f"{name} · current" if name == current else name
+        if not local_only:
+            for remote_ref in await manager.list_remote_branches():
+                remote_name = remote_ref.removeprefix("origin/")
+                if remote_name in labels:
+                    base = (
+                        f"{remote_name} · current"
+                        if remote_name == current
+                        else remote_name
+                    )
+                    labels[remote_name] = f"{base} · tracks {remote_ref}"
+                    continue
+                labels[remote_ref] = f"{remote_ref} · new local branch"
+        return (
+            [{"value": value, "label": label} for value, label in labels.items()],
+            current,
+        )
 
     @staticmethod
     def _branch_error_key(err: BranchError) -> str:
@@ -350,7 +359,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         self, errors: dict[str, str] | None = None
     ) -> ConfigFlowResult:
         """Show the dynamic branch selector."""
-        options: dict[str, str] = {}
+        options: list[dict[str, str]] = []
         current = ""
         form_errors = dict(errors or {})
         runtime = self._entry_runtime()
@@ -365,9 +374,13 @@ class GitHaPpensOptionsFlow(OptionsFlow):
 
         schema: dict[Any, Any] = {}
         if options:
-            schema[vol.Required(CONF_BRANCH_TARGET)] = SelectSelector(
-                SelectSelectorConfig(
-                    options=options, mode=SelectSelectorMode.DROPDOWN
+            values = [option["value"] for option in options]
+            default_target = current if current in values else values[0]
+            schema[vol.Required(CONF_BRANCH_TARGET, default=default_target)] = (
+                SelectSelector(
+                    SelectSelectorConfig(
+                        options=options, mode=SelectSelectorMode.DROPDOWN
+                    )
                 )
             )
         schema[vol.Optional(CONF_NEW_BRANCH, default="")] = TextSelector(
@@ -429,7 +442,8 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         self, errors: dict[str, str] | None = None
     ) -> ConfigFlowResult:
         """Show the selector for the branch that origin should overwrite."""
-        options: dict[str, str] = {}
+        options: list[dict[str, str]] = []
+        current = ""
         form_errors = dict(errors or {})
         runtime = self._entry_runtime()
         if runtime is None:
@@ -437,7 +451,7 @@ class GitHaPpensOptionsFlow(OptionsFlow):
         elif not runtime[1].remote_configured:
             form_errors.setdefault("base", "branch_reset_requires_remote")
         else:
-            options, _ = await self._async_branch_options(
+            options, current = await self._async_branch_options(
                 runtime[0], local_only=True
             )
             if not options:
@@ -445,9 +459,13 @@ class GitHaPpensOptionsFlow(OptionsFlow):
 
         schema: dict[Any, Any] = {}
         if options:
-            schema[vol.Required(CONF_BRANCH_TARGET)] = SelectSelector(
-                SelectSelectorConfig(
-                    options=options, mode=SelectSelectorMode.DROPDOWN
+            values = [option["value"] for option in options]
+            default_target = current if current in values else values[0]
+            schema[vol.Required(CONF_BRANCH_TARGET, default=default_target)] = (
+                SelectSelector(
+                    SelectSelectorConfig(
+                        options=options, mode=SelectSelectorMode.DROPDOWN
+                    )
                 )
             )
 

@@ -319,9 +319,9 @@ opens:
 
 - every local branch, with the checked-out one marked `· current`,
 - every `origin/*` branch that has no local counterpart, marked
-  `· new local branch` — selecting it creates the local branch and tracks
-  `origin`, and an existing local branch with an upstream is labelled
-  `· tracks origin/<name>`.
+  `· new local branch` — selecting it fetches that branch, creates the local
+  branch and tracks `origin`, and an existing local branch with an upstream is
+  labelled `· tracks origin/<name>`.
 
 Selecting a position switches the repository immediately; there is no separate
 confirm step, because a checkout never loses commits. The working tree must be
@@ -329,9 +329,10 @@ clean — commit, sync, or discard staged, unstaged, and untracked changes first
 so an unrelated edit is never carried across branches.
 
 The **Create a new branch** field takes a name and creates plus checks out that
-branch in one step; leave it empty to use the selection above. Options are
-built when the form renders, so after a fetch or an external branch change,
-reopen the menu to refresh the list.
+branch in one step; leave it empty to use the selection above. The list is built
+when the form renders and asks the remote for its branches, so branches that
+were never fetched are offered too; reopen the menu to refresh it after an
+external change.
 
 ### Reset branch to origin
 
