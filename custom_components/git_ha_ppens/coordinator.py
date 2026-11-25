@@ -52,6 +52,10 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
+from .push_rejected import (
+    create_push_rejected_issue_from_error,
+    delete_push_rejected_issue,
+)
 from .remote_auth import (
     create_remote_authentication_issue_from_error,
     delete_remote_authentication_issue,
@@ -314,6 +318,7 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
         self._last_push_time = datetime.now(tz=timezone.utc)
         self._last_auto_push_failure_time = None
         delete_remote_authentication_issue(self.hass, self._entry_id)
+        delete_push_rejected_issue(self.hass, self._entry_id)
         await self._async_save_timestamps()
 
     def record_auto_push_failure(self) -> None:
@@ -452,6 +457,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
             create_remote_authentication_issue_from_error(
                 self.hass, self._entry_id, "push", err
             )
+            create_push_rejected_issue_from_error(
+                self.hass, self._entry_id, "push", err
+            )
             self.hass.bus.async_fire(
                 EVENT_ERROR, {"operation": "push", "error": str(err)}
             )
@@ -519,6 +527,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                 self.hass, self._entry_id, err
             )
             create_remote_authentication_issue_from_error(
+                self.hass, self._entry_id, "push", err
+            )
+            create_push_rejected_issue_from_error(
                 self.hass, self._entry_id, "push", err
             )
             if isinstance(err, IndexLockError) and err.requires_repair:
@@ -670,6 +681,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                             self.hass, self._entry_id, err
                         )
                         create_remote_authentication_issue_from_error(
+                            self.hass, self._entry_id, "restore_push", err
+                        )
+                        create_push_rejected_issue_from_error(
                             self.hass, self._entry_id, "restore_push", err
                         )
                         push_error = str(err)
@@ -824,6 +838,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                             create_remote_authentication_issue_from_error(
                                 self.hass, self._entry_id, "auto_push", err
                             )
+                            create_push_rejected_issue_from_error(
+                                self.hass, self._entry_id, "auto_push", err
+                            )
                             _LOGGER.warning(
                                 "Auto-push after divergent pull failed: %s",
                                 err,
@@ -961,6 +978,9 @@ class GitHaPpensCoordinator(DataUpdateCoordinator[GitStatus]):
                     self.hass, self._entry_id, err
                 )
                 create_remote_authentication_issue_from_error(
+                    self.hass, self._entry_id, "auto_push", err
+                )
+                create_push_rejected_issue_from_error(
                     self.hass, self._entry_id, "auto_push", err
                 )
                 _LOGGER.warning("Auto-push of committed history failed: %s", err)

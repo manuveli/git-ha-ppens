@@ -31,7 +31,7 @@ _ACCESS_READ = "read"
 _ACCESS_WRITE = "write"
 
 
-def _format_error(err: GitError) -> str:
+def format_error(err: GitError) -> str:
     """Return a bounded, single-line error suitable for a repair description."""
     text = " ".join(str(err).split()).replace("`", "'")
     if len(text) > _MAX_ERROR_LENGTH:
@@ -76,7 +76,7 @@ def create_remote_authentication_issue(
         ),
         translation_placeholders={
             "operation": operation,
-            "error": _format_error(err),
+            "error": format_error(err),
         },
         data={
             "entry_id": entry_id,

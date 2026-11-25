@@ -82,6 +82,10 @@ from .index_lock import (
     create_stale_index_lock_issue,
     delete_stale_index_lock_issue,
 )
+from .push_rejected import (
+    create_push_rejected_issue_from_error,
+    delete_push_rejected_issue,
+)
 from .remote_auth import (
     create_remote_authentication_issue_from_error,
     delete_remote_authentication_issue,
@@ -449,9 +453,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if not remote_url:
         # Without a usable remote no fetch, pull, or push will run that could
-        # clear a rejected-credentials repair, so it would otherwise stay
-        # forever after the remote was removed in the options.
+        # clear a rejected-credentials or rejected-push repair, so it would
+        # otherwise stay forever after the remote was removed in the options.
         delete_remote_authentication_issue(hass, entry.entry_id)
+        delete_push_rejected_issue(hass, entry.entry_id)
 
     # Create the coordinator before a possible initial push so that every push
     # path uses the same validation and blocked-remote handling.
@@ -510,6 +515,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             hass, entry.entry_id, push_err
                         )
                         create_remote_authentication_issue_from_error(
+                            hass, entry.entry_id, "initial_push", push_err
+                        )
+                        create_push_rejected_issue_from_error(
                             hass, entry.entry_id, "initial_push", push_err
                         )
                         _LOGGER.warning(
@@ -702,6 +710,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     delete_stale_index_lock_issue(hass, entry.entry_id)
     delete_unsafe_repository_layout_issue(hass, entry.entry_id)
     delete_remote_authentication_issue(hass, entry.entry_id)
+    delete_push_rejected_issue(hass, entry.entry_id)
     delete_large_git_garbage_issue(hass, entry.entry_id)
 
 
@@ -901,6 +910,9 @@ def _register_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                     hass, coordinator.entry_id, err
                 )
                 create_remote_authentication_issue_from_error(
+                    hass, coordinator.entry_id, "sync", err
+                )
+                create_push_rejected_issue_from_error(
                     hass, coordinator.entry_id, "sync", err
                 )
                 if isinstance(err, IndexLockError) and err.requires_repair:
