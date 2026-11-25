@@ -80,8 +80,48 @@
         "title": "git-ha-ppens Options",
         "menu_options": {
           "general": "General Settings",
+          "branch": "Branches",
           "gitignore": "Edit .gitignore",
           "restore": "Restore configuration"
+        }
+      },
+      "branch": {
+        "title": "Branches",
+        "menu_options": {
+          "branch_select": "Switch branch",
+          "branch_reset": "Reset branch to origin"
+        }
+      },
+      "branch_select": {
+        "title": "Switch branch",
+        "description": "**Current branch:** `{current_branch}` · selectable branches: {branch_count}\n\nThe list is built from the repository when this form opens: local branches plus every `origin/*` branch that is not checked out locally. Selecting a position switches the repository immediately. A remote-only entry creates the matching local branch and tracks `origin`.\n\nThe working tree must be clean; commit, sync, or discard local changes first.",
+        "data": {
+          "branch_target": "Branch",
+          "new_branch": "Create a new branch (optional)"
+        },
+        "data_description": {
+          "branch_target": "Choosing another entry switches to that branch.",
+          "new_branch": "Enter a name to create and switch to a new branch. Leave empty to use the selection above."
+        }
+      },
+      "branch_reset": {
+        "title": "Reset branch to origin",
+        "description": "Select the local branch that the remote revision should overwrite. This is the recovery path for a squashed or rebased remote history: `origin` is force-fetched and the local branch is hard-reset onto it.",
+        "data": {
+          "branch_target": "Branch"
+        },
+        "data_description": {
+          "branch_target": "Local branch to overwrite with its `origin` revision."
+        }
+      },
+      "branch_reset_confirm": {
+        "title": "Confirm branch reset",
+        "description": "Branch `{branch}` will be hard-reset to `{remote_ref}`.\n\n- Local commits that are not on the remote and will be **discarded**: {discarded_commits}\n- Remote commits that will be **applied**: {incoming_commits}\n\nThis is not a new commit: the working tree and branch pointer are replaced by the remote revision. Nothing is force-pushed, so the remote history stays untouched.",
+        "data": {
+          "branch_reset_confirm": "I understand and want to overwrite this branch"
+        },
+        "data_description": {
+          "branch_reset_confirm": "Required safety confirmation."
         }
       },
       "restore": {
@@ -183,12 +223,24 @@
       "stale_restore_preview": "Repository history changed after the preview. Select the target again and review the updated changes.",
       "confirm_restore": "You must explicitly confirm the restore.",
       "restore_validation_failed": "The historical configuration failed validation. All restore changes were rolled back.",
-      "restore_failed": "The restore failed and was rolled back. Check the Home Assistant logs."
+      "restore_failed": "The restore failed and was rolled back. Check the Home Assistant logs.",
+      "no_branches": "No branches are available to select.",
+      "branch_dirty_working_tree": "Commit, sync, or discard all staged, unstaged, and untracked changes before changing branches.",
+      "invalid_branch_target": "The selected branch name is invalid or no longer exists.",
+      "branch_already_exists": "A branch with that name already exists.",
+      "branch_reset_requires_remote": "A remote repository is required to reset a branch to origin.",
+      "branch_remote_missing": "The branch could not be fetched from origin. Check that it exists on the remote and that the remote is reachable.",
+      "branch_operation_failed": "The branch operation failed. Check the Home Assistant logs.",
+      "branch_reset_failed": "The branch could not be reset to origin. Check the Home Assistant logs.",
+      "confirm_branch_reset": "You must explicitly confirm the branch reset."
     },
     "abort": {
       "restore_preview_missing": "The restore preview expired. Start the restore flow again.",
       "restore_success": "Configuration restored from `{target_hash}` in new commit `{restore_hash}`.",
-      "restore_success_push_failed": "Configuration restored from `{target_hash}` in new local commit `{restore_hash}`, but pushing failed. Use the Push button to retry."
+      "restore_success_push_failed": "Configuration restored from `{target_hash}` in new local commit `{restore_hash}`, but pushing failed. Use the Push button to retry.",
+      "branch_switched": "Switched to branch `{branch}`.",
+      "branch_reset": "Branch `{branch}` was reset to `{remote_ref}`.",
+      "branch_reset_preview_missing": "The branch reset preview expired. Start the reset flow again."
     }
   },
   "entity": {

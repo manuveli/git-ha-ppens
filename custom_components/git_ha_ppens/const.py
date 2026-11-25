@@ -37,6 +37,9 @@ CONF_PRE_DEPLOY_CHECK: Final = "pre_deploy_check"
 CONF_RESTORE_TARGET: Final = "restore_target"
 CONF_RESTORE_CONFIRM: Final = "restore_confirm"
 CONF_RESTORE_PUSH: Final = "restore_push"
+CONF_BRANCH_TARGET: Final = "branch_target"
+CONF_NEW_BRANCH: Final = "new_branch"
+CONF_BRANCH_RESET_CONFIRM: Final = "branch_reset_confirm"
 
 # Authentication methods
 AUTH_NONE: Final = "none"
@@ -106,6 +109,7 @@ EVENT_SECRET_DETECTED: Final = f"{DOMAIN}_secret_detected"
 EVENT_CHECK_FAILED: Final = f"{DOMAIN}_check_failed"
 EVENT_RESTORE: Final = f"{DOMAIN}_restore"
 EVENT_GC: Final = f"{DOMAIN}_gc"
+EVENT_BRANCH: Final = f"{DOMAIN}_branch"
 
 # Repairs
 REPAIR_STALE_INDEX_LOCK: Final = "stale_index_lock"
