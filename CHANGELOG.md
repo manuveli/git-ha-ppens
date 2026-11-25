@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-11-25
+
+### Added
+- Raise a Home Assistant repair when the Git remote rejects a push (for example GitHub email privacy, a protected branch, an oversized file, or a diverged history that cannot be merged automatically), with the remote response and steps to resolve it. It clears itself after the next successful push. Thanks to [@olli-dot-dev](https://github.com/olli-dot-dev) ([#95](https://github.com/manuveli/git-ha-ppens/issues/95))
+
+### Fixed
+- Pushes rejected by a remote policy (email privacy, protected branch, file size limit) no longer attempt a pointless fetch and merge that hid the actual reason, and a rejected first push to an empty remote now reports the rejection instead of "couldn't find remote ref" ([#95](https://github.com/manuveli/git-ha-ppens/issues/95))
+
 ## [1.5.2] - 2026-11-17
 
 ### Fixed
@@ -292,7 +300,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `.gitignore` entries for common HA files
 - Automated release workflow for HACS
 
-[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.3...HEAD
+[1.5.3]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/manuveli/git-ha-ppens/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/manuveli/git-ha-ppens/compare/v1.4.2...v1.5.0
