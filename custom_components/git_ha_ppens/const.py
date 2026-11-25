@@ -112,7 +112,16 @@ REPAIR_STALE_INDEX_LOCK: Final = "stale_index_lock"
 REPAIR_UNSAFE_REPOSITORY_LAYOUT: Final = "unsafe_repository_layout"
 REPAIR_REMOTE_AUTHENTICATION: Final = "remote_authentication_failed"
 REPAIR_REMOTE_AUTHENTICATION_TOKEN: Final = "remote_authentication_failed_token"
+REPAIR_PUSH_REJECTED: Final = "push_rejected"
 REPAIR_LARGE_GIT_GARBAGE: Final = "large_git_garbage"
+
+# Reasons why a remote rejected a push. Each reason has its own repair
+# translation: f"{REPAIR_PUSH_REJECTED}_{reason}".
+PUSH_REJECTED_EMAIL_PRIVACY: Final = "email_privacy"
+PUSH_REJECTED_PROTECTED_BRANCH: Final = "protected_branch"
+PUSH_REJECTED_FILE_TOO_LARGE: Final = "file_too_large"
+PUSH_REJECTED_NON_FAST_FORWARD: Final = "non_fast_forward"
+PUSH_REJECTED_OTHER: Final = "other"
 
 
 def stale_index_lock_issue_id(entry_id: str) -> str:
@@ -128,6 +137,11 @@ def unsafe_repository_layout_issue_id(entry_id: str) -> str:
 def remote_authentication_issue_id(entry_id: str) -> str:
     """Return the entry-specific issue ID for rejected remote credentials."""
     return f"{REPAIR_REMOTE_AUTHENTICATION}_{entry_id}"
+
+
+def push_rejected_issue_id(entry_id: str) -> str:
+    """Return the entry-specific issue ID for a push rejected by the remote."""
+    return f"{REPAIR_PUSH_REJECTED}_{entry_id}"
 
 
 def large_git_garbage_issue_id(entry_id: str) -> str:

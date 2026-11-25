@@ -18,6 +18,11 @@ from urllib.parse import quote, urlsplit, urlunsplit
 from .const import (
     DEFAULT_GITIGNORE_ENTRIES,
     DEFAULT_TOKEN_AUTH_USERNAME,
+    PUSH_REJECTED_EMAIL_PRIVACY,
+    PUSH_REJECTED_FILE_TOO_LARGE,
+    PUSH_REJECTED_NON_FAST_FORWARD,
+    PUSH_REJECTED_OTHER,
+    PUSH_REJECTED_PROTECTED_BRANCH,
     SECRET_PATTERNS,
     is_local_http_remote_url,
 )
@@ -45,6 +50,36 @@ _REMOTE_AUTH_ERROR_MARKERS: tuple[str, ...] = (
     "token has expired",
 )
 _REMOTE_PERMISSION_DENIED = re.compile(r"permission to \S+ denied to ")
+
+# Lower-case fragments of Git output that mean the remote (or Git itself, for a
+# diverged branch) refused the push. "[remote failure]" and transport errors are
+# intentionally excluded because they can succeed on a plain retry.
+_PUSH_REJECTED_MARKERS: tuple[str, ...] = (
+    "[remote rejected]",
+    "! [rejected]",
+    "pre-receive hook declined",
+)
+# Checked in order; the first reason with a matching fragment wins.
+_PUSH_REJECTED_REASON_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (PUSH_REJECTED_EMAIL_PRIVACY, ("gh007", "email privacy restrictions")),
+    (PUSH_REJECTED_PROTECTED_BRANCH, ("gh006", "protected branch")),
+    (
+        PUSH_REJECTED_FILE_TOO_LARGE,
+        # GitHub also prints "warning: GH001" for large but accepted files, so
+        # only the error variant may explain a rejection.
+        ("error: gh001", "exceeds github's file size limit"),
+    ),
+    (PUSH_REJECTED_NON_FAST_FORWARD, ("non-fast-forward", "fetch first")),
+)
+# Rejections that integrating remote commits can never resolve.
+_PUSH_REJECTED_FINAL_REASONS: frozenset[str] = frozenset(
+    {
+        PUSH_REJECTED_EMAIL_PRIVACY,
+        PUSH_REJECTED_PROTECTED_BRANCH,
+        PUSH_REJECTED_FILE_TOO_LARGE,
+    }
+)
+_MISSING_REMOTE_REF = "couldn't find remote ref"
 
 
 @dataclass
@@ -214,6 +249,31 @@ def is_remote_authentication_message(message: str) -> bool:
     return any(marker in lowered for marker in _REMOTE_AUTH_ERROR_MARKERS) or (
         _REMOTE_PERMISSION_DENIED.search(lowered) is not None
     )
+
+
+class RemotePushRejectedError(GitError):
+    """Raised when the remote deterministically rejects a push."""
+
+    def __init__(self, message: str, reason: str) -> None:
+        """Store the classified rejection reason."""
+        self.reason = reason
+        super().__init__(message)
+
+
+def classify_push_rejection(message: str) -> str | None:
+    """Return why a push was rejected, or None if it was not rejected.
+
+    Authentication failures take precedence and are never a push rejection.
+    """
+    if is_remote_authentication_message(message):
+        return None
+    lowered = message.lower()
+    if not any(marker in lowered for marker in _PUSH_REJECTED_MARKERS):
+        return None
+    for reason, markers in _PUSH_REJECTED_REASON_MARKERS:
+        if any(marker in lowered for marker in markers):
+            return reason
+    return PUSH_REJECTED_OTHER
 
 
 class UnsafeRepositoryLayoutError(GitError):
@@ -408,6 +468,11 @@ class GitManager:
             _LOGGER.error("Git command failed: %s -> %s", safe_cmd, safe_error)
             if is_remote_authentication_message(safe_error):
                 raise RemoteAuthenticationError(safe_error)
+            # "! [rejected]" is also printed by fetch and pull.
+            if args and args[0] == "push":
+                reason = classify_push_rejection(safe_error)
+                if reason is not None:
+                    raise RemotePushRejectedError(safe_error, reason)
             raise GitError(safe_error)
 
         return stdout
@@ -1189,6 +1254,8 @@ class GitManager:
 
         Raises:
             PreDeployCheckError: If a fallback merge fails validation.
+            RemotePushRejectedError: If the remote rejects the push and the
+                fallback cannot resolve it.
             GitError: If the push or fallback merge fails.
         """
         await self.assert_repository_layout_safe()
@@ -1227,6 +1294,8 @@ class GitManager:
             except (GitError, ValueError):
                 ahead = 0
 
+        rejection: RemotePushRejectedError | None = None
+
         # === ATTEMPT 1: Normal push ===
         try:
             await self._run_git("push", "-u", "origin", branch)
@@ -1235,6 +1304,13 @@ class GitManager:
         except GitError as err:
             error_lower = str(err).lower()
             _LOGGER.warning("Push attempt 1 failed: %s", err)
+
+            if isinstance(err, RemotePushRejectedError):
+                # Merging cannot satisfy a server-side policy, and a failing
+                # fallback would only hide the actual reason.
+                if err.reason in _PUSH_REJECTED_FINAL_REASONS:
+                    raise
+                rejection = err
 
             # Check if it's a permission/auth/config error — don't retry these
             if any(keyword in error_lower for keyword in [
@@ -1264,7 +1340,17 @@ class GitManager:
         # === ATTEMPT 2: Fetch + merge with allow-unrelated-histories ===
         try:
             # First try to fetch remote state
-            await self._run_git("fetch", "origin", branch)
+            try:
+                await self._run_git("fetch", "origin", branch)
+            except GitError as fetch_err:
+                # Without a remote branch there is nothing to integrate, so
+                # the original rejection is the relevant error.
+                if (
+                    rejection is not None
+                    and _MISSING_REMOTE_REF in str(fetch_err).lower()
+                ):
+                    raise rejection from fetch_err
+                raise
 
             # Capture HEAD after fetching but before any merge changes the
             # working tree. Fetch itself only updates remote-tracking refs.
@@ -1286,10 +1372,18 @@ class GitManager:
                 _LOGGER.info(
                     "Remote has existing commits — merging with allow-unrelated-histories"
                 )
-                await self._run_git(
-                    "merge", "--allow-unrelated-histories", "--no-edit",
-                    remote_ref,
-                )
+                try:
+                    await self._run_git(
+                        "merge", "--allow-unrelated-histories", "--no-edit",
+                        remote_ref,
+                    )
+                except GitError as conflict_err:
+                    if rejection is None:
+                        raise
+                    # The push stays rejected until the user resolves this.
+                    raise RemotePushRejectedError(
+                        f"{conflict_err}\n{rejection}", rejection.reason
+                    ) from conflict_err
             # else: remote branch is empty, straight push should work
 
             # Only validate when this fallback actually imported remote
