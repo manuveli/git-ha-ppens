@@ -633,6 +633,7 @@ your Home Assistant version and diagnostics when reporting the problem.
 - Press the **Push** button to commit pending changes and push them manually
 - Check the Home Assistant logs if the remote was configured but could not be verified
 - A completely empty remote is the simplest first-time setup. If the remote already has history, compatible histories are merged automatically; conflicts fail safely and are never resolved by force-pushing over remote commits
+- When the remote rejects a push (for example GitHub email privacy, a protected branch, an oversized file, or a diverged history that cannot be merged automatically), git-ha-ppens raises a repair under **Settings → System → Repairs** with the remote response and the steps to resolve it. It disappears automatically after the next successful push
 </details>
 
 <details>
